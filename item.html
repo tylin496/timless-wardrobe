@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Timeless Wardrobe</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;1,9..40,400&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="item-page">
+    <a class="skip-link" href="#item-detail-root">Skip to piece</a>
+    <header class="item-page-header">
+      <a class="btn btn--ghost" href="index.html">← Archive</a>
+    </header>
+    <main id="item-page-main" class="item-page-main">
+      <div id="item-detail-root" class="item-detail__root item-detail__root--page"></div>
+    </main>
+    <p id="outfit-toast" class="outfit-toast item-page-toast" role="status" aria-live="polite"></p>
+    <script src="data/wardrobe.js"></script>
+    <script src="js/tw-supabase-config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

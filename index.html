@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Timeless Wardrobe</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;1,9..40,400&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to archive</a>
+    <a class="skip-link" href="#season-nav">Skip to season</a>
+    <a class="skip-link" href="#category-nav">Skip to categories</a>
+    <a class="skip-link" href="#category-drill">Skip to types</a>
+    <a class="skip-link" href="#add-item-open">Skip to add item</a>
+    <header class="site-header">
+      <div class="site-header__inner">
+        <div class="site-header__row">
+          <div class="site-header__intro">
+            <p class="site-eyebrow">Archive</p>
+            <h1 class="site-title">Timeless Wardrobe</h1>
+          </div>
+          <button type="button" class="btn btn--ghost site-header__add" id="add-item-open">
+            Add a piece
+          </button>
+        </div>
+        <p class="site-tagline">
+          <strong>English Heritage × Mediterranean Leisure</strong> — one wardrobe, two hemispheres
+          (cloth, cut, context). Supabase optional; else local seed + cache. Match filenames to your
+          <code>image</code> paths.
+        </p>
+      </div>
+    </header>
+
+    <nav id="filters-nav" class="filters" aria-label="Filter wardrobe">
+      <button
+        type="button"
+        class="filters-show-chrome"
+        id="filters-show-chrome"
+        hidden
+      >
+        Show filters
+      </button>
+      <button
+        type="button"
+        class="filters__menu-btn"
+        id="filters-menu-btn"
+        aria-expanded="false"
+        aria-controls="filters-menu-panel"
+      >
+        Filters &amp; search
+      </button>
+      <div id="filters-menu-panel" class="filters__panel">
+        <div id="category-nav" class="category-nav">
+        <div class="season-strip" id="season-nav" aria-label="Season">
+          <p class="season-strip__label">Season</p>
+          <ul class="season-strip__list" role="tablist">
+            <li role="presentation">
+              <button
+                type="button"
+                class="season-strip__tab is-active"
+                role="tab"
+                aria-selected="true"
+                data-season-filter="S/S"
+                id="season-tab-ss"
+              >
+                S/S
+              </button>
+            </li>
+            <li role="presentation">
+              <button
+                type="button"
+                class="season-strip__tab"
+                role="tab"
+                aria-selected="false"
+                data-season-filter="A/W"
+                id="season-tab-aw"
+              >
+                A/W
+              </button>
+            </li>
+          </ul>
+        </div>
+        <div class="category-nav__row">
+          <div class="category-nav__primary">
+            <p class="category-nav__label">Categories</p>
+            <ul class="category-nav__list" role="tablist">
+              <li role="presentation">
+                <button
+                  type="button"
+                  class="category-nav__tab is-active"
+                  role="tab"
+                  aria-selected="true"
+                  data-category-filter=""
+                  id="cat-tab-all"
+                >
+                  All
+                </button>
+              </li>
+              <li role="presentation">
+                <button
+                  type="button"
+                  class="category-nav__tab"
+                  role="tab"
+                  aria-selected="false"
+                  data-category-filter="Clothing"
+                >
+                  Clothing
+                </button>
+              </li>
+              <li role="presentation">
+                <button
+                  type="button"
+                  class="category-nav__tab"
+                  role="tab"
+                  aria-selected="false"
+                  data-category-filter="Shoes"
+                >
+                  Shoes
+                </button>
+              </li>
+              <li role="presentation">
+                <button
+                  type="button"
+                  class="category-nav__tab"
+                  role="tab"
+                  aria-selected="false"
+                  data-category-filter="Jewelry"
+                >
+                  Jewelry
+                </button>
+              </li>
+              <li role="presentation">
+                <button
+                  type="button"
+                  class="category-nav__tab"
+                  role="tab"
+                  aria-selected="false"
+                  data-category-filter="Watches"
+                >
+                  Watches
+                </button>
+              </li>
+              <li role="presentation">
+                <button
+                  type="button"
+                  class="category-nav__tab"
+                  role="tab"
+                  aria-selected="false"
+                  data-category-filter="Fragrance"
+                >
+                  Perfume
+                </button>
+              </li>
+            </ul>
+          </div>
+          <label class="category-nav__search field field--grow">
+            <span class="field__label">Search</span>
+            <input
+              id="filter-search"
+              type="search"
+              placeholder="Brand, name, category, season…"
+              autocomplete="off"
+            />
+          </label>
+        </div>
+      </div>
+      <section
+        id="category-drill"
+        class="category-drill"
+        aria-labelledby="category-drill-title"
+        hidden
+      >
+        <div class="category-drill__bar">
+          <button type="button" class="category-drill__back" id="category-drill-back">
+            ← All categories
+          </button>
+        </div>
+        <h2 class="category-drill__title" id="category-drill-title"></h2>
+        <div id="category-drill-grid" class="category-drill__grid"></div>
+      </section>
+      <p class="filters__meta" id="filter-count" aria-live="polite"></p>
+      </div>
+    </nav>
+
+    <section class="outfit-dock" aria-labelledby="outfit-heading">
+      <div class="outfit-dock__head">
+        <h2 id="outfit-heading" class="outfit-dock__title">Outfit</h2>
+        <p class="outfit-dock__hint">
+          Add <strong>clothing</strong>, <strong>shoes</strong>, and <strong>watches</strong> only. Jewelry and fragrance are archive
+          entries and stay out of the outfit builder. Drag to reorder; name and save (Supabase syncs when configured).
+        </p>
+      </div>
+      <div
+        id="outfit-strip"
+        class="outfit-strip"
+        role="list"
+        aria-label="Pieces in current outfit"
+      ></div>
+      <p id="outfit-empty" class="outfit-empty" hidden>No pieces in this outfit yet.</p>
+      <div class="outfit-actions">
+        <label class="field field--inline">
+          <span class="field__label">Outfit name</span>
+          <input
+            id="outfit-name"
+            type="text"
+            maxlength="80"
+            placeholder="e.g. Monday · tonal layers"
+            autocomplete="off"
+          />
+        </label>
+        <button type="button" class="btn" id="outfit-save">Save outfit</button>
+        <button type="button" class="btn btn--ghost" id="outfit-clear">Clear</button>
+      </div>
+      <p id="outfit-toast" class="outfit-toast" role="status" aria-live="polite"></p>
+      <div class="saved-outfits">
+        <h3 class="saved-outfits__title">Saved outfits</h3>
+        <ul id="saved-outfits-list" class="saved-outfits__list"></ul>
+        <p id="saved-outfits-empty" class="saved-outfits__empty" hidden>
+          No saved outfits yet. Finish an outfit and click Save outfit to keep it.
+        </p>
+      </div>
+    </section>
+
+    <main id="main">
+      <div id="grid" class="grid" role="list"></div>
+      <p id="empty-state" class="empty-state" hidden>No pieces match these filters.</p>
+    </main>
+
+    <footer class="site-footer">
+      <p>Timeless Wardrobe · local / Supabase MVP</p>
+    </footer>
+
+    <dialog id="add-item-dialog" class="add-item-dialog" aria-labelledby="add-item-heading">
+      <div class="add-item-dialog__inner">
+        <div class="add-item-dialog__toolbar">
+          <button type="button" class="btn btn--ghost" id="add-item-close">Close</button>
+        </div>
+        <section class="add-item-panel add-item-panel--dialog" id="add-item-panel" aria-labelledby="add-item-heading">
+          <div class="add-item-panel__head">
+            <h2 id="add-item-heading" class="add-item-panel__title">Add a piece</h2>
+            <p class="add-item-panel__hint">
+              Enter <strong>brand</strong>, <strong>name</strong>, and <strong>category</strong>, and upload a <strong>cover image</strong> (required); you can add
+              <strong>more photos</strong> too. Categories are <strong>Clothing</strong>, <strong>Shoes</strong>, <strong>Jewelry</strong>,
+              <strong>Watches</strong>, and <strong>Fragrance</strong>—pick the one that matches the piece. Data and images live in
+              <strong>this browser</strong> (merged with seed / cloud); clearing site data removes them.
+            </p>
+          </div>
+          <form id="add-item-form" class="add-item-form">
+            <div class="add-item-form__grid">
+              <label class="field">
+                <span class="field__label">Brand</span>
+                <input id="add-item-brand" name="brand" type="text" maxlength="120" required autocomplete="off" />
+              </label>
+              <label class="field">
+                <span class="field__label">Name</span>
+                <input id="add-item-name" name="name" type="text" maxlength="200" required autocomplete="off" />
+              </label>
+              <label class="field">
+                <span class="field__label">Category</span>
+                <select id="add-item-category" name="category" required></select>
+              </label>
+              <label class="field">
+                <span class="field__label">Season (optional)</span>
+                <select id="add-item-season" name="season">
+                  <option value="">—</option>
+                  <option value="A/W">A/W</option>
+                  <option value="S/S">S/S</option>
+                  <option value="All-season">All-season</option>
+                </select>
+              </label>
+              <label class="field">
+                <span class="field__label">Color (optional)</span>
+                <input id="add-item-color" name="color" type="text" maxlength="80" autocomplete="off" />
+              </label>
+              <label class="field">
+                <span class="field__label">Fabric (optional)</span>
+                <input id="add-item-fabric" name="fabric" type="text" maxlength="80" autocomplete="off" />
+              </label>
+              <label class="field">
+                <span class="field__label">Weight / specs (optional)</span>
+                <input id="add-item-weight" name="weight" type="text" maxlength="80" autocomplete="off" />
+              </label>
+              <label class="field">
+                <span class="field__label">Size (optional)</span>
+                <input id="add-item-size" name="size" type="text" maxlength="120" autocomplete="off" />
+              </label>
+              <label class="field field--span2">
+                <span class="field__label">Measured dimensions (optional)</span>
+                <input
+                  id="add-item-measured-dimensions"
+                  name="measuredDimensions"
+                  type="text"
+                  maxlength="500"
+                  placeholder="e.g. chest flat 54 cm · waist 48 cm · inseam 78 cm"
+                  autocomplete="off"
+                />
+              </label>
+              <label class="field field--file">
+                <span class="field__label">Cover image</span>
+                <input id="add-item-image" name="image" type="file" accept="image/*" required />
+              </label>
+              <label class="field field--file field--span2">
+                <span class="field__label">More images (optional, multi-select, up to 12)</span>
+                <input id="add-item-gallery" name="gallery" type="file" accept="image/*" multiple />
+              </label>
+            </div>
+            <div class="add-item-form__preview-wrap">
+              <img id="add-item-preview" class="add-item-form__preview" alt="" width="200" height="250" hidden />
+            </div>
+            <label class="field field--block">
+              <span class="field__label">Notes (optional)</span>
+              <textarea id="add-item-notes" name="notes" rows="2" maxlength="2000"></textarea>
+            </label>
+            <p id="add-item-form-msg" class="add-item-form__msg" role="status" aria-live="polite"></p>
+            <div class="add-item-form__actions">
+              <button type="submit" class="btn" id="add-item-submit">Add to wardrobe</button>
+              <button type="reset" class="btn btn--ghost" id="add-item-reset">Reset form</button>
+            </div>
+          </form>
+        </section>
+      </div>
+    </dialog>
+
+    <dialog id="outfit-variant-dialog" class="add-item-dialog" aria-labelledby="outfit-variant-heading">
+      <div class="add-item-dialog__inner">
+        <div class="add-item-dialog__toolbar">
+          <h2 id="outfit-variant-heading" class="add-item-panel__title">Choose colour</h2>
+          <button type="button" class="btn btn--ghost" id="outfit-variant-cancel" aria-label="Close">
+            Close
+          </button>
+        </div>
+        <div class="add-item-panel add-item-panel--dialog">
+          <p id="outfit-variant-title" class="add-item-panel__hint"></p>
+          <label class="field">
+            <span class="field__label">Colour for this outfit</span>
+            <select id="outfit-variant-select" class="outfit-variant-select"></select>
+          </label>
+          <div class="add-item-form__actions">
+            <button type="button" class="btn" id="outfit-variant-confirm">Add to outfit</button>
+          </div>
+        </div>
+      </div>
+    </dialog>
+
+    <script src="data/wardrobe.js"></script>
+    <script src="js/tw-supabase-config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "timeless-wardrobe",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "export:wardrobe-json": "node scripts/export_wardrobe_json.mjs",
+    "db:import-seed": "node scripts/import_seed_to_supabase.mjs",
+    "images:manifest": "node scripts/generate_image_manifest.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.8"
+  }
+}
