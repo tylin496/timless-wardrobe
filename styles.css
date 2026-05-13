@@ -1250,7 +1250,7 @@ main {
   border: 2px solid transparent;
   border-radius: 50%;
   overflow: hidden;
-  cursor: pointer;
+  cursor: default;
   background: #e0e0e0;
   line-height: 0;
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
@@ -1340,6 +1340,10 @@ main {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ink-muted);
+}
+
+.card__media--missing > .card__media-img {
+  display: none;
 }
 
 .card__intro {
@@ -1658,6 +1662,59 @@ main {
 
 .item-edit-variant-add {
   margin-top: 0.15rem;
+  align-self: flex-start;
+}
+
+.item-edit-cover-manage {
+  grid-column: 1 / -1;
+}
+
+.item-edit-current-cover {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.item-edit-current-cover-img,
+.item-edit-gallery-row .item-edit-gallery-thumb {
+  max-width: 140px;
+  max-height: 140px;
+  width: auto;
+  height: auto;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
+
+.item-edit-gallery-existing-inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.75rem;
+  align-items: flex-end;
+}
+
+.item-edit-gallery-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: flex-start;
+}
+
+.item-edit-variant-gallery-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.item-edit-variant-gallery-existing {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.65rem;
+  align-items: flex-end;
+}
+
+.item-edit-variant-cover-remove {
   align-self: flex-start;
 }
 

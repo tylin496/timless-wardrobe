@@ -42,6 +42,7 @@ export function mapRowToItem(row) {
     weight: String(row.weight ?? ""),
     size: String(row.size ?? ""),
     measuredDimensions: String(row.measured_dimensions ?? ""),
+    purchaseDate: String(row.purchase_date ?? ""),
     image: String(row.image ?? ""),
     gallery: normalizeGallery(row.gallery),
     notes: String(row.notes ?? ""),
@@ -57,7 +58,7 @@ export async function fetchWardrobeItems(client) {
   const { data, error } = await client
     .from("wardrobe_items")
     .select(
-      "id, pillar, section, category, brand, name, season, color, fabric, weight, size, measured_dimensions, image, gallery, notes, metadata"
+      "id, pillar, section, category, brand, name, season, color, fabric, weight, size, measured_dimensions, purchase_date, image, gallery, notes, metadata"
     )
     .order("section", { ascending: true })
     .order("category", { ascending: true })

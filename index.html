@@ -215,7 +215,7 @@
         <div class="outfit-dock__head">
           <h2 id="outfit-heading" class="outfit-dock__title">Outfit</h2>
           <p class="outfit-dock__hint" id="outfit-hint">
-            Only <strong>clothing</strong>, <strong>shoes</strong>, and <strong>watches</strong> can go in an outfit. Jewelry, perfume, and accessories stay in the archive for
+            Only <strong>clothing</strong>, <strong>shoes</strong>, <strong>watches</strong>, and <strong>accessories</strong> can go in an outfit. Jewelry and perfume stay in the archive for
             reference. Drag slots to reorder, then name and save.
           </p>
         </div>
@@ -274,7 +274,7 @@
           <div class="add-item-panel__head">
             <h2 id="add-item-heading" class="add-item-panel__title">Add a piece</h2>
             <p class="add-item-panel__hint">
-              Required: <strong>brand</strong>, <strong>name</strong>, <strong>section</strong>, <strong>record type</strong>, and one <strong>cover photo</strong>. Optional fields and extra photos
+              Required: <strong>brand</strong>, <strong>name</strong>, <strong>section</strong>, and <strong>record type</strong>. Cover photo is optional (one image only; you can add more later under gallery when editing). Optional fields and extra photos
               help later when you search or edit. Saved only in <strong>this browser</strong> unless you use cloud sync.
             </p>
           </div>
@@ -331,9 +331,13 @@
                   autocomplete="off"
                 />
               </label>
+              <label class="field">
+                <span class="field__label">Purchase date (optional)</span>
+                <input id="add-item-purchase-date" name="purchaseDate" type="date" />
+              </label>
               <label class="field field--file">
-                <span class="field__label">Cover image</span>
-                <input id="add-item-image" name="image" type="file" accept="image/*" required />
+                <span class="field__label">Cover image (optional, one file only)</span>
+                <input id="add-item-image" name="image" type="file" accept="image/*" />
               </label>
               <label class="field field--file field--span2">
                 <span class="field__label">More images (optional, multi-select, up to 12)</span>

@@ -52,6 +52,42 @@
     return "";
   }
 
+  /**
+   * Colour dots for `colorVariants` — display only; never changes the cover / hero image.
+   * @param {HTMLElement} mountEl
+   * @param {object} item
+   */
+  function mountVariantSwatchStrip(mountEl, item) {
+    const variants = getItemColorVariants(item);
+    if (!variants?.length) return;
+    const sw = document.createElement("div");
+    sw.className = "card__swatches";
+    sw.setAttribute("role", "group");
+    sw.setAttribute("aria-label", "Available colours");
+    variants.forEach((v, idx) => {
+      const el = document.createElement("span");
+      el.className = "card__swatch";
+      const lbl = String(v.label ?? v.color ?? "").trim() || `Colour ${idx + 1}`;
+      const colorText = String(v.color ?? "").trim();
+      const vu = String(v.image ?? "").trim();
+      const hex = extractSwatchHexFromVariant(v);
+      el.title = [lbl, colorText].filter(Boolean).join(" · ");
+      el.setAttribute("aria-label", lbl);
+      if (hex) {
+        el.style.backgroundColor = hex;
+        el.style.boxShadow = "inset 0 0 0 1px rgba(0, 0, 0, 0.2)";
+      } else {
+        const si = document.createElement("img");
+        if (vu) si.src = vu;
+        si.alt = "";
+        si.setAttribute("aria-hidden", "true");
+        el.appendChild(si);
+      }
+      sw.appendChild(el);
+    });
+    mountEl.appendChild(sw);
+  }
+
   /** Shallow row shaped for cover / gallery resolution for one outfit slot. */
   function itemProjectionForOutfitSlot(item, slot) {
     const vars = getItemColorVariants(item);
@@ -153,27 +189,30 @@
   ];
 
   /**
-   * When `category` is empty or only repeats a broad browse tab, store one of these so every row has a real record type.
-   * `itemSlot()` maps them back to the correct browse tab.
+   * When a row has no specific record type, pick the first real `category` seen in seed for that browse tab
+   * (stable sort by `RECORD_CATEGORY_RANK`). If seed has none for a tab, use a safe static leaf.
    */
-  const RECORD_UNSPEC_BY_SLOT = {
-    [SLOT_CLOTHING]: "Unspecified clothing",
-    [SLOT_ACCESSORIES]: "Unspecified accessories",
-    [SLOT_SHOES]: "Unspecified footwear",
-    [SLOT_WATCHES]: "Unspecified watches",
-    [SLOT_JEWELRY]: "Unspecified jewelry",
-    [SLOT_FRAGRANCE]: "Unspecified perfume",
+  const STATIC_RECORD_FALLBACK_BY_SLOT = {
+    [SLOT_CLOTHING]: "Tops",
+    [SLOT_ACCESSORIES]: "Small accessories",
+    [SLOT_SHOES]: "Footwear",
+    [SLOT_WATCHES]: "Dress watch",
+    [SLOT_JEWELRY]: "Necklace",
+    [SLOT_FRAGRANCE]: "Fragrance",
   };
 
-  /** @type {Record<string, string>} */
-  const RECORD_UNSPEC_TO_SLOT = Object.fromEntries(
-    Object.entries(RECORD_UNSPEC_BY_SLOT).map(([slot, label]) => [label, slot])
-  );
+  /** Legacy `category` values that only encoded browse tab — mapped for `itemSlot()` and migration off storage. */
+  const LEGACY_UNSPEC_CATEGORY_TO_SLOT = {
+    "Unspecified clothing": SLOT_CLOTHING,
+    "Unspecified accessories": SLOT_ACCESSORIES,
+    "Unspecified footwear": SLOT_SHOES,
+    "Unspecified watches": SLOT_WATCHES,
+    "Unspecified jewelry": SLOT_JEWELRY,
+    "Unspecified perfume": SLOT_FRAGRANCE,
+  };
 
-  function fallbackRecordCategoryForSlot(slot) {
-    const s = String(slot ?? "").trim();
-    return RECORD_UNSPEC_BY_SLOT[s] || RECORD_UNSPEC_BY_SLOT[SLOT_CLOTHING];
-  }
+  /** @type {Record<string, string>} First concrete record-type per browse slot from seed (recomputed in `mergeWardrobeFromSources`). */
+  let slotRecordFallbackCategory = {};
 
   function categoryDisplayLabel(slot) {
     if (slot === SLOT_FRAGRANCE) return "Perfume";
@@ -190,18 +229,16 @@
     Bottoms: "Trousers & bottoms",
     Tops: "Tops & polos",
     Footwear: "Shoes & boots",
-    Watches: "Watches",
     Fragrance: "Perfume",
-    Jewellery: "Jewelry",
-    Jewelry: "Jewelry",
-    Future: "Planned pieces & rings",
+    Necklace: "Necklace",
+    Bracelet: "Bracelet",
+    Ring: "Ring",
+    Beater: "Beater",
+    "Dress watch": "Dress watch",
+    "Dive watch": "Dive watch",
+    "Sports watch": "Sports watch",
     Accessories: "Accessories",
-    "Unspecified clothing": "Clothing (unspecified type)",
-    "Unspecified accessories": "Accessories (unspecified type)",
-    "Unspecified footwear": "Footwear (unspecified type)",
-    "Unspecified watches": "Watches (unspecified type)",
-    "Unspecified jewelry": "Jewelry (unspecified type)",
-    "Unspecified perfume": "Perfume (unspecified type)",
+    "Small accessories": "Small accessories",
   };
 
   function friendlyRecordCategory(raw) {
@@ -235,6 +272,10 @@
     lines.push(`Weight / specs: ${String(item.weight ?? "").trim()}`);
     lines.push(`Size: ${String(item.size ?? "").trim()}`);
     lines.push(`Measured dimensions: ${String(item.measuredDimensions ?? "").trim()}`);
+    {
+      const pd = String(item.purchaseDate ?? "").trim();
+      lines.push(`Purchase date: ${pd ? formatPurchaseDateForDisplay(pd) : "(none)"}`);
+    }
     lines.push(`Outfit-eligible: ${itemEligibleForOutfit(item) ? "yes" : "no"}`);
     lines.push("");
     lines.push(`Cover image: ${summarizeUrlForPlaintext(item.image)}`);
@@ -311,8 +352,28 @@
   function inferAccessoryBucket(item) {
     const cat = String(item.category ?? "").trim();
     if (cat === "Watches") return SLOT_WATCHES;
+    if (
+      cat === "Beater" ||
+      cat === "Dress watch" ||
+      cat === "Dive watch" ||
+      cat === "潛水錶" ||
+      cat === "Everyday" ||
+      cat === "Sports watch"
+    ) {
+      return SLOT_WATCHES;
+    }
     if (cat === "Fragrance") return SLOT_FRAGRANCE;
-    if (cat === "Jewellery" || cat === "Jewelry") return SLOT_JEWELRY;
+    if (
+      cat === "Jewellery" ||
+      cat === "Jewelry" ||
+      cat === "Necklace" ||
+      cat === "Bracelet" ||
+      cat === "Ring" ||
+      cat === "項鏈" ||
+      cat === "手鏈" ||
+      cat === "戒指"
+    )
+      return SLOT_JEWELRY;
     if (cat === "Footwear") return SLOT_SHOES;
     if (cat === "Future") return SLOT_JEWELRY;
     return SLOT_ACCESSORIES;
@@ -323,9 +384,11 @@
     const rawCat = String(item.category ?? "").trim();
     const season = String(item.season ?? "");
 
-    if (Object.prototype.hasOwnProperty.call(RECORD_UNSPEC_TO_SLOT, rawCat)) {
-      return RECORD_UNSPEC_TO_SLOT[rawCat];
+    if (Object.prototype.hasOwnProperty.call(LEGACY_UNSPEC_CATEGORY_TO_SLOT, rawCat)) {
+      return LEGACY_UNSPEC_CATEGORY_TO_SLOT[rawCat];
     }
+
+    if (rawCat === "Small accessories") return SLOT_ACCESSORIES;
 
     if (rawCat === "Clothing (incl. shoes)") return SLOT_CLOTHING;
 
@@ -338,19 +401,81 @@
 
     if (rawCat === "Footwear") return SLOT_SHOES;
     if (rawCat === "Watches") return SLOT_WATCHES;
+    if (
+      rawCat === "Beater" ||
+      rawCat === "Dress watch" ||
+      rawCat === "Dive watch" ||
+      rawCat === "潛水錶" ||
+      rawCat === "Everyday" ||
+      rawCat === "Sports watch"
+    ) {
+      return SLOT_WATCHES;
+    }
     if (rawCat === "Fragrance") return SLOT_FRAGRANCE;
-    if (rawCat === "Jewellery" || rawCat === "Jewelry") return SLOT_JEWELRY;
+    if (
+      rawCat === "Jewellery" ||
+      rawCat === "Jewelry" ||
+      rawCat === "Necklace" ||
+      rawCat === "Bracelet" ||
+      rawCat === "Ring" ||
+      rawCat === "項鏈" ||
+      rawCat === "手鏈" ||
+      rawCat === "戒指"
+    ) {
+      return SLOT_JEWELRY;
+    }
     if (rawCat === "Future") return SLOT_JEWELRY;
 
     if (season === "S/S" || season === "A/W") return SLOT_CLOTHING;
     return SLOT_CLOTHING;
   }
 
-  /** Outfit builder: clothing, shoes, and watches — other browse tabs stay in the archive. */
+  function computeSlotRecordFallbackCategories(seedRows) {
+    const out = /** @type {Record<string, string>} */ ({});
+    for (const slot of SLOT_OPTIONS) {
+      const names = new Set();
+      for (const row of seedRows) {
+        if (!row || row.id == null) continue;
+        const c = String(row.category ?? "").trim();
+        if (!c) continue;
+        if (Object.prototype.hasOwnProperty.call(LEGACY_UNSPEC_CATEGORY_TO_SLOT, c)) continue;
+        const probe = { ...row, category: c };
+        if (itemSlot(probe) !== slot) continue;
+        if (SLOT_OPTIONS.includes(c)) continue;
+        if (c === "Clothing" || c === "Accessories") continue;
+        names.add(c);
+      }
+      const arr = [...names].sort(
+        (a, b) =>
+          (RECORD_CATEGORY_RANK[a] ?? 800) - (RECORD_CATEGORY_RANK[b] ?? 800) ||
+          a.localeCompare(b, undefined, { sensitivity: "base" })
+      );
+      if (arr.length) out[slot] = arr[0];
+    }
+    return out;
+  }
+
+  function defaultRecordCategoryForSlot(slot) {
+    const s = String(slot ?? "").trim();
+    if (s === SLOT_JEWELRY || s === SLOT_WATCHES) {
+      return (
+        STATIC_RECORD_FALLBACK_BY_SLOT[s] ||
+        slotRecordFallbackCategory[s] ||
+        STATIC_RECORD_FALLBACK_BY_SLOT[SLOT_CLOTHING]
+      );
+    }
+    return (
+      slotRecordFallbackCategory[s] ||
+      STATIC_RECORD_FALLBACK_BY_SLOT[s] ||
+      STATIC_RECORD_FALLBACK_BY_SLOT[SLOT_CLOTHING]
+    );
+  }
+
+  /** Outfit builder: clothing, shoes, watches, and accessories — jewelry and perfume stay archive-only. */
   function itemEligibleForOutfit(item) {
     if (!item) return false;
     const s = itemSlot(item);
-    return s === SLOT_CLOTHING || s === SLOT_SHOES || s === SLOT_WATCHES;
+    return s === SLOT_CLOTHING || s === SLOT_SHOES || s === SLOT_WATCHES || s === SLOT_ACCESSORIES;
   }
 
   /** Browse column order when viewing All (or a main tab without a record-type drill). */
@@ -364,8 +489,8 @@
   };
 
   /**
-   * Record `category` order within clothing (outer → jackets → … → bottoms) then footwear, accessories.
-   * Matches capsule language; unknown labels sort after these.
+   * Clothing record types: outer shells → mid/inner upper body → bottoms (`RECORD_CATEGORY_RANK`).
+   * Other browse tabs use the same rank map where applicable; unknown labels sort last (800).
    */
   const RECORD_CATEGORY_RANK = {
     Outerwear: 0,
@@ -376,18 +501,22 @@
     Tops: 5,
     Bottoms: 6,
     Footwear: 7,
-    Watches: 8,
+    Beater: 50,
+    "Dress watch": 51,
+    "Dive watch": 52,
+    "Sports watch": 54,
     Fragrance: 9,
-    Jewellery: 10,
-    Jewelry: 11,
-    Future: 12,
+    Necklace: 70,
+    Bracelet: 71,
+    Ring: 72,
     Accessories: 13,
-    "Unspecified clothing": 14,
-    "Unspecified accessories": 14,
-    "Unspecified footwear": 14,
-    "Unspecified watches": 14,
-    "Unspecified jewelry": 14,
-    "Unspecified perfume": 14,
+    "Small accessories": 13,
+  };
+
+  /** Record types always listed in add/edit `<select>` for these slots (even with zero items). */
+  const KNOWN_RECORD_TYPES_BY_SLOT = {
+    [SLOT_JEWELRY]: ["Necklace", "Bracelet", "Ring"],
+    [SLOT_WATCHES]: ["Beater", "Dress watch", "Dive watch", "Sports watch"],
   };
 
   function browseSlotRank(item) {
@@ -452,14 +581,16 @@
       if (!raw) return [];
       const arr = JSON.parse(raw);
       if (!Array.isArray(arr)) return [];
-      return arr.filter(
-        (x) =>
-          x &&
-          typeof x.id === "string" &&
-          typeof x.brand === "string" &&
-          typeof x.name === "string" &&
-          typeof x.image === "string"
-      );
+      return arr
+        .filter(
+          (x) =>
+            x &&
+            typeof x.id === "string" &&
+            typeof x.brand === "string" &&
+            typeof x.name === "string" &&
+            (x.image == null || typeof x.image === "string")
+        )
+        .map((x) => ({ ...x, image: String(x.image ?? "").trim() }));
     } catch {
       return [];
     }
@@ -537,13 +668,24 @@
         const base = patch && typeof patch === "object" ? { ...row, ...patch, id } : { ...row };
         return { ...base, __archiveOrdinal: idx };
       });
+    slotRecordFallbackCategory = computeSlotRecordFallbackCategories(mergedBase);
     const mergedList = [...loadCustomItems(), ...mergedBase];
     items = mergedList.map((row) => {
-      const slot = itemSlot(row);
-      const canon = recordCategoryForDrill(row, slot);
-      const raw = String(row.category ?? "").trim();
-      if (raw === canon) return row;
-      return { ...row, category: canon };
+      let row2 = row;
+      let cat = String(row2.category ?? "").trim();
+      if (Object.prototype.hasOwnProperty.call(LEGACY_UNSPEC_CATEGORY_TO_SLOT, cat)) {
+        const slotForOld = LEGACY_UNSPEC_CATEGORY_TO_SLOT[cat];
+        row2 = {
+          ...row2,
+          category:
+            slotRecordFallbackCategory[slotForOld] || STATIC_RECORD_FALLBACK_BY_SLOT[slotForOld] || "Tops",
+        };
+      }
+      const slot = itemSlot(row2);
+      const canon = recordCategoryForDrill(row2, slot);
+      const raw = String(row2.category ?? "").trim();
+      if (raw === canon) return row2;
+      return { ...row2, category: canon };
     });
     rebuildItemIndex();
     coverResolutionCache.clear();
@@ -636,10 +778,15 @@
     });
   }
 
-  function uniqueSorted(values) {
-    return [...new Set(values.filter(Boolean))].sort((a, b) =>
-      a.localeCompare(b, undefined, { sensitivity: "base" })
-    );
+  function sortRecordTypeKeysForSlot(_browseSlot, keys) {
+    const arr = [...new Set(keys.filter(Boolean))];
+    arr.sort((a, b) => {
+      const ra = RECORD_CATEGORY_RANK[a] ?? 800;
+      const rb = RECORD_CATEGORY_RANK[b] ?? 800;
+      if (ra !== rb) return ra - rb;
+      return a.localeCompare(b, undefined, { sensitivity: "base" });
+    });
+    return arr;
   }
 
   function normalizeSearch(s) {
@@ -661,6 +808,7 @@
       item.weight,
       item.size,
       item.measuredDimensions,
+      item.purchaseDate,
       item.notes,
       ...(getItemColorVariants(item)?.map((v) => [v.label, v.color, v.key].filter(Boolean).join(" ")) ?? []),
     ]
@@ -751,6 +899,23 @@
     return s;
   }
 
+  /** Display `purchaseDate` (often ISO YYYY-MM-DD) for cards and detail. */
+  function formatPurchaseDateForDisplay(raw) {
+    const s = String(raw ?? "").trim();
+    if (!s) return "";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+      try {
+        const d = new Date(`${s}T12:00:00`);
+        if (!Number.isNaN(d.getTime())) {
+          return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+        }
+      } catch {
+        /* fall through */
+      }
+    }
+    return s;
+  }
+
   function poolItemsForDrillSubcategories() {
     let pool = items;
     pool = pool.filter((i) => itemPassesSeasonNav(i, seasonNavFilter));
@@ -758,31 +923,52 @@
     return pool;
   }
 
-  /** Pool for the browse slot across both season tabs — used so type drill options do not change with S/S vs A/W. */
-  function poolItemsForBrowseSlotAllSeasons(browseSlot) {
-    const slot = String(browseSlot ?? "").trim();
-    if (!slot) return items;
-    return items.filter((i) => itemSlot(i) === slot);
+  /**
+   * Record types removed from the Watches drill — fold old `category` values into concrete keys.
+   * @param {string} raw
+   */
+  function mapRemovedWatchRecordTypesToConcrete(raw) {
+    const r = String(raw ?? "").trim();
+    if (r === "Watches") return "Sports watch";
+    if (r === "Everyday") return "Dress watch";
+    return r;
+  }
+
+  /**
+   * Legacy jewelry record types removed from the UI — fold into concrete drill keys.
+   * @param {string} raw
+   */
+  function mapJewelleryFutureToConcreteDrillKey(raw) {
+    const r = String(raw ?? "").trim();
+    if (r === "Future") return "Ring";
+    if (r === "Jewellery" || r === "Jewelry") return "Necklace";
+    return r;
   }
 
   /**
    * Stable record-type key for drill chips, filtering, and display under `browseSlot`.
-   * Broad tabs (Clothing / Accessories): empty or tab-only `category` maps to an explicit `Unspecified …` value.
+   * Empty category or tab-only `category` maps to the first concrete type for that tab from seed (see `slotRecordFallbackCategory`).
    */
   function recordCategoryForDrill(item, browseSlot) {
     const slot = String(browseSlot ?? "").trim() || itemSlot(item);
     let raw = String(item?.category ?? "").trim();
 
     if (slot === SLOT_JEWELRY) {
-      if (raw === "Jewellery" || raw === "Jewelry" || raw === "Future") raw = "Jewellery";
+      if (raw === "項鏈") raw = "Necklace";
+      if (raw === "手鏈") raw = "Bracelet";
+      if (raw === "戒指") raw = "Ring";
+      raw = mapJewelleryFutureToConcreteDrillKey(raw);
+    }
+    if (slot === SLOT_WATCHES) {
+      if (raw === "潛水錶") raw = "Dive watch";
+      raw = mapRemovedWatchRecordTypesToConcrete(raw);
     }
 
-    if (!raw) return fallbackRecordCategoryForSlot(slot);
+    if (!raw) return defaultRecordCategoryForSlot(slot);
 
-    const broad = slot === SLOT_CLOTHING || slot === SLOT_ACCESSORIES;
-    if (broad && (raw === slot || raw === "Clothing" || raw === "Accessories")) {
-      return fallbackRecordCategoryForSlot(slot);
-    }
+    const broadClothing = slot === SLOT_CLOTHING && (raw === slot || raw === "Clothing");
+    const broadAccessories = slot === SLOT_ACCESSORIES && (raw === slot || raw === "Accessories");
+    if (broadClothing || broadAccessories) return defaultRecordCategoryForSlot(slot);
 
     return raw;
   }
@@ -798,7 +984,8 @@
   function drillSubcategoryKeysFromPool(browseSlot, pool) {
     const slot = String(browseSlot ?? "").trim();
     if (!slot) return [];
-    return uniqueSorted(
+    return sortRecordTypeKeysForSlot(
+      slot,
       pool
         .filter((i) => itemSlot(i) === slot)
         .map((i) => recordCategoryForDrill(i, slot))
@@ -806,20 +993,40 @@
     );
   }
 
+  /** Legacy Chinese `category` / drill keys saved before English migration. */
+  function legacyZhRecordCategoryToEn(raw) {
+    const r = String(raw ?? "").trim();
+    if (r === "項鏈") return "Necklace";
+    if (r === "手鏈") return "Bracelet";
+    if (r === "戒指") return "Ring";
+    if (r === "潛水錶") return "Dive watch";
+    return r;
+  }
+
   /**
    * Populate record-type `<select>`: keys from the pool plus `preferKey` when valid; always includes the section fallback.
    */
   function fillItemEditRecordTypeSelect(selectEl, browseSlot, preferKey) {
     const slot = String(browseSlot ?? "").trim() || SLOT_CLOTHING;
-    const prev = String(preferKey ?? "").trim();
+    let prev = legacyZhRecordCategoryToEn(preferKey);
+    if (slot === SLOT_JEWELRY) prev = mapJewelleryFutureToConcreteDrillKey(prev);
+    if (slot === SLOT_WATCHES) prev = mapRemovedWatchRecordTypesToConcrete(prev);
     const pool = items.filter((i) => itemSlot(i) === slot);
-    const fall = fallbackRecordCategoryForSlot(slot);
+    const fall = defaultRecordCategoryForSlot(slot);
     let keys = drillSubcategoryKeysFromPool(slot, pool);
-    if (!keys.includes(fall)) keys = uniqueSorted([fall, ...keys]);
+    const knownExtra = KNOWN_RECORD_TYPES_BY_SLOT[slot];
+    if (knownExtra?.length) keys = sortRecordTypeKeysForSlot(slot, [...keys, ...knownExtra]);
+    if (slot === SLOT_JEWELRY) {
+      keys = keys.filter((k) => k && !["Jewellery", "Jewelry", "Future"].includes(k));
+    }
+    if (slot === SLOT_WATCHES) {
+      keys = keys.filter((k) => k && !["Everyday", "Watches"].includes(k));
+    }
+    if (!keys.includes(fall)) keys = sortRecordTypeKeysForSlot(slot, [fall, ...keys]);
     if (prev && !keys.includes(prev)) {
       const probe = { category: prev, season: "" };
       if (itemSlot(probe) === slot && prev !== slot && !SLOT_OPTIONS.includes(prev)) {
-        keys = uniqueSorted([...keys, prev]);
+        keys = sortRecordTypeKeysForSlot(slot, [...keys, prev]);
       }
     }
     selectEl.innerHTML = "";
@@ -834,26 +1041,42 @@
   }
 
   function validateSubcategoryFilter() {
-    const sub = String(subcategoryFilter ?? "").trim();
+    let sub = String(subcategoryFilter ?? "").trim();
+    const subEn = legacyZhRecordCategoryToEn(sub);
+    if (subEn !== sub) {
+      subcategoryFilter = subEn;
+      sub = subEn;
+    }
     if (!sub) return;
     if (!categoryNavFilter) {
       subcategoryFilter = "";
       return;
     }
-    if (categoryNavFilter === SLOT_JEWELRY && (sub === "Future" || sub === "Jewelry")) {
-      subcategoryFilter = "Jewellery";
+    if (categoryNavFilter === SLOT_JEWELRY) {
+      const j = mapJewelleryFutureToConcreteDrillKey(sub);
+      if (j !== sub) {
+        subcategoryFilter = j;
+        sub = j;
+      }
+    }
+    if (categoryNavFilter === SLOT_JEWELRY && sub === "Jewelry") {
+      subcategoryFilter = "Necklace";
       return;
+    }
+    if (categoryNavFilter === SLOT_WATCHES) {
+      const w = mapRemovedWatchRecordTypesToConcrete(sub);
+      if (w !== sub) {
+        subcategoryFilter = w;
+        sub = w;
+      }
     }
     const seasonalPool = poolItemsForDrillSubcategories();
     if (!seasonalPool.length) {
       subcategoryFilter = "";
       return;
     }
-    const allSeasonPool = poolItemsForBrowseSlotAllSeasons(categoryNavFilter);
-    const allowed = drillSubcategoryKeysFromPool(categoryNavFilter, allSeasonPool);
-    const ok =
-      allowed.includes(sub) && seasonalPool.some((i) => itemMatchesDrillSubcategory(i, categoryNavFilter, sub));
-    if (!ok) subcategoryFilter = "";
+    const allowed = drillSubcategoryKeysFromPool(categoryNavFilter, seasonalPool);
+    if (!allowed.includes(sub)) subcategoryFilter = "";
   }
 
   function renderCategoryDrill() {
@@ -879,8 +1102,7 @@
       return;
     }
 
-    const allSeasonPool = poolItemsForBrowseSlotAllSeasons(categoryNavFilter);
-    const typeKeys = drillSubcategoryKeysFromPool(categoryNavFilter, allSeasonPool);
+    const typeKeys = drillSubcategoryKeysFromPool(categoryNavFilter, seasonalPool);
 
     /** No sub-type strip when there is nothing to choose or only one record type (main tabs are enough). */
     if (typeKeys.length <= 1) {
@@ -1261,7 +1483,6 @@
    */
   function buildCoverCandidates(item) {
     const primary = String(item?.image ?? "").trim();
-    if (!primary) return [];
     const out = [];
     const seen = new Set();
     function add(u) {
@@ -1269,6 +1490,20 @@
       if (!x || seen.has(x)) return;
       seen.add(x);
       out.push(x);
+    }
+
+    if (!primary) {
+      for (const u of itemGalleryList(item)) add(u);
+      const vars = getItemColorVariants(item);
+      if (vars) {
+        for (const v of vars) {
+          const u = String(v?.image ?? "").trim();
+          if (u) add(u);
+        }
+      }
+      if (!out.length) return [];
+      if (out.every((u) => isBlobOrAbsoluteUrl(u))) return out;
+      return out;
     }
 
     add(primary);
@@ -1371,7 +1606,7 @@
     if (!candidates.length) {
       if (host && missingClass) host.classList.add(missingClass);
       onExhausted?.();
-      img.remove();
+      img.removeAttribute("src");
       return;
     }
 
@@ -1399,7 +1634,7 @@
         cleanup();
         if (host && missingClass) host.classList.add(missingClass);
         onExhausted?.();
-        img.remove();
+        img.removeAttribute("src");
         return;
       }
       img.src = candidates[idx];
@@ -1536,7 +1771,7 @@
     if (!item) return;
     if (!itemEligibleForOutfit(item)) {
       showToast(
-        "Only clothing, shoes, and watches go into outfits — jewelry, perfume, and accessories stay in the archive."
+        "Only clothing, shoes, watches, and accessories go into outfits — jewelry and perfume stay in the archive."
       );
       return;
     }
@@ -1769,6 +2004,34 @@
   }
 
   /**
+   * Cover fields must never accept more than one file — clears `multiple` and keeps only the first selection.
+   * @param {HTMLInputElement | null | undefined} inputEl
+   * @param {() => void} [onDroppedExtra]
+   */
+  function trimCoverFileInputToOne(inputEl, onDroppedExtra) {
+    if (!inputEl || inputEl.type !== "file") return;
+    try {
+      inputEl.removeAttribute("multiple");
+    } catch {
+      /* ignore */
+    }
+    const list = inputEl.files;
+    if (!list || list.length <= 1) return;
+    try {
+      const dt = new DataTransfer();
+      dt.items.add(list[0]);
+      inputEl.files = dt.files;
+      if (onDroppedExtra) onDroppedExtra();
+    } catch {
+      try {
+        inputEl.value = "";
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  /**
    * Resize an uploaded image and return a data URL.
    *
    * PNG / WebP / GIF inputs are re-encoded as **PNG** so any alpha channel (e.g. background
@@ -1776,14 +2039,21 @@
    * `forcePng: true` to force PNG output regardless of source.
    *
    * @param {File} file
-   * @param {{ maxWidth?: number, quality?: number, forcePng?: boolean }} [opts]
+   * @param {number | { maxSide?: number, maxWidth?: number, quality?: number, forcePng?: boolean }} [opts]
+   *   Defaults: longest edge **1920px** (Full HD class), JPEG quality **0.82**. Prefer `maxSide` so tall images shrink too.
+   *   Legacy: `maxWidth` only caps width (omit `maxSide` to use width-only behaviour).
    * @returns {Promise<string>}
    */
   function fileToResizedDataUrl(file, opts) {
-    const maxWidth =
-      typeof opts === "number" ? opts : opts && typeof opts.maxWidth === "number" ? opts.maxWidth : 1200;
-    const quality = opts && typeof opts.quality === "number" ? opts.quality : 0.82;
-    const forcePng = Boolean(opts && opts.forcePng);
+    let o = {};
+    if (typeof opts === "number") o = { maxSide: opts };
+    else if (opts && typeof opts === "object") o = opts;
+
+    const quality = typeof o.quality === "number" ? o.quality : 0.82;
+    const forcePng = Boolean(o.forcePng);
+    const maxSide = typeof o.maxSide === "number" ? o.maxSide : typeof o.maxWidth === "number" ? null : 1920;
+    const maxWidthLegacy = typeof o.maxWidth === "number" ? o.maxWidth : null;
+
     const mime = String(file?.type ?? "").toLowerCase();
     const fileName = String(file?.name ?? "").toLowerCase();
     const looksAlphaCapable =
@@ -1809,9 +2079,19 @@
         }
         let w = nw;
         let h = nh;
-        if (w > maxWidth) {
-          h = Math.round((h * maxWidth) / w);
-          w = maxWidth;
+        if (maxSide != null && maxSide > 0) {
+          const m = Math.max(w, h);
+          if (m > maxSide) {
+            const s = maxSide / m;
+            w = Math.round(w * s);
+            h = Math.round(h * s);
+          }
+        } else {
+          const capW = maxWidthLegacy != null && maxWidthLegacy > 0 ? maxWidthLegacy : 1920;
+          if (w > capW) {
+            h = Math.round((h * capW) / w);
+            w = capW;
+          }
         }
         const canvas = document.createElement("canvas");
         canvas.width = w;
@@ -1840,6 +2120,122 @@
       img.src = url;
     });
   }
+
+  /** Encode steps for `localStorage` / JSON — tries progressively smaller until under a soft byte budget. */
+  const STORAGE_IMAGE_TIERS = [
+    { maxSide: 1920, quality: 0.88 },
+    { maxSide: 1920, quality: 0.82 },
+    { maxSide: 1680, quality: 0.84 },
+    { maxSide: 1536, quality: 0.82 },
+    { maxSide: 1440, quality: 0.8 },
+    { maxSide: 1280, quality: 0.78 },
+    { maxSide: 1152, quality: 0.75 },
+    { maxSide: 1080, quality: 0.72 },
+    { maxSide: 960, quality: 0.7 },
+    { maxSide: 840, quality: 0.66 },
+    { maxSide: 720, quality: 0.62 },
+    { maxSide: 640, quality: 0.58 },
+    { maxSide: 520, quality: 0.54 },
+  ];
+
+  /** Stop stepping down when data URL is under this (chars); PNG stays smaller so use a lower cap. */
+  const STORAGE_IMAGE_SOFT_LIMIT_JPEG = 1_200_000;
+  const STORAGE_IMAGE_SOFT_LIMIT_PNG = 650_000;
+
+  /** After `QuotaExceededError`: one aggressive re-encode (still HD-class before tiny fallbacks). */
+  const QUOTA_SHRINK_MAX_SIDE = 1280;
+  const QUOTA_SHRINK_QUALITY = 0.72;
+
+  /**
+   * @param {File} file
+   * @returns {Promise<string>}
+   */
+  async function fileToStorageDataUrl(file) {
+    /** @type {string} */
+    let chosen = "";
+    for (const t of STORAGE_IMAGE_TIERS) {
+      chosen = await fileToResizedDataUrl(file, t);
+      const png = chosen.startsWith("data:image/png");
+      if (chosen.length <= (png ? STORAGE_IMAGE_SOFT_LIMIT_PNG : STORAGE_IMAGE_SOFT_LIMIT_JPEG)) return chosen;
+    }
+    return chosen;
+  }
+
+  /**
+   * Re-encode a `data:` image URL smaller as JPEG (used after `QuotaExceededError`).
+   * Defaults match `QUOTA_SHRINK_MAX_SIDE` / `QUOTA_SHRINK_QUALITY` (HD-class single pass).
+   * @param {string} dataUrl
+   * @param {number} [maxSide]
+   * @param {number} [quality]
+   * @returns {Promise<string>}
+   */
+  async function shrinkDataUrlForStorage(dataUrl, maxSide = QUOTA_SHRINK_MAX_SIDE, quality = QUOTA_SHRINK_QUALITY) {
+    const s = String(dataUrl ?? "").trim();
+    if (!s.startsWith("data:image")) return s;
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.naturalWidth;
+        let h = img.naturalHeight;
+        if (!w || !h) {
+          resolve(s);
+          return;
+        }
+        const m = Math.max(w, h);
+        if (m > maxSide) {
+          const scale = maxSide / m;
+          w = Math.round(w * scale);
+          h = Math.round(h * scale);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("canvas"));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+        try {
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        } catch (e) {
+          reject(e);
+        }
+      };
+      img.onerror = () => resolve(s);
+      img.src = s;
+    });
+  }
+
+  /** Second pass: shrink every embedded image on a custom row before writing JSON to `localStorage`. */
+  async function shrinkCustomItemRowForQuota(row) {
+    const next = { ...row };
+    if (next.image) next.image = await shrinkDataUrlForStorage(String(next.image));
+    if (Array.isArray(next.gallery) && next.gallery.length) {
+      next.gallery = (
+        await Promise.all(next.gallery.map((u) => (u ? shrinkDataUrlForStorage(String(u)) : "")))
+      ).filter(Boolean);
+    }
+    if (Array.isArray(next.colorVariants) && next.colorVariants.length) {
+      next.colorVariants = await Promise.all(
+        next.colorVariants.map(async (v) => {
+          const nv = { ...v };
+          if (nv.image) nv.image = await shrinkDataUrlForStorage(String(nv.image));
+          if (Array.isArray(nv.gallery) && nv.gallery.length) {
+            nv.gallery = (
+              await Promise.all(nv.gallery.map((u) => (u ? shrinkDataUrlForStorage(String(u)) : "")))
+            ).filter(Boolean);
+          }
+          return nv;
+        })
+      );
+    }
+    return next;
+  }
+
+  /** Shown after `QuotaExceededError` when shrinking and retry did not help. */
+  const STORAGE_QUOTA_USER_HINT =
+    "不是 Chrome 不讓存：每個網站在瀏覽器裡的儲存上限大約只有 5MB。請少放幾張圖、刪掉較舊的自訂單品，或在網站設定裡清除本網站資料。若錯誤句子像舊版（例如 crop first），請強制重新整理（⌘⇧R 或 Ctrl+Shift+R）載入最新 app.js。";
 
   function dedupeGalleryUrls(imageMain, galleryUrls, max = 12) {
     const main = String(imageMain ?? "").trim();
@@ -1905,7 +2301,7 @@
     const name = document.getElementById("add-item-name")?.value?.trim() || "";
     const browseSlot = document.getElementById("add-item-category")?.value || "";
     const recordPick = document.getElementById("add-item-record-type")?.value?.trim() || "";
-    const category = recordPick || fallbackRecordCategoryForSlot(browseSlot);
+    const category = recordPick || defaultRecordCategoryForSlot(browseSlot);
     const season = document.getElementById("add-item-season")?.value?.trim() || "";
     const color = document.getElementById("add-item-color")?.value?.trim() || "";
     const fabric = document.getElementById("add-item-fabric")?.value?.trim() || "";
@@ -1913,35 +2309,42 @@
     const size = document.getElementById("add-item-size")?.value?.trim() || "";
     const measuredDimensions =
       document.getElementById("add-item-measured-dimensions")?.value?.trim() || "";
+    const purchaseDate = document.getElementById("add-item-purchase-date")?.value?.trim() || "";
     const notes = document.getElementById("add-item-notes")?.value?.trim() || "";
     const fileInput = document.getElementById("add-item-image");
+    trimCoverFileInputToOne(fileInput, () =>
+      showAddItemFormMsg("Cover is limited to one image — using the first file only.", false)
+    );
     const file = fileInput?.files?.[0];
-    if (!brand || !name || !browseSlot || !file) {
-      showAddItemFormMsg("Fill required fields and choose a cover image.", true);
+    if (!brand || !name || !browseSlot) {
+      showAddItemFormMsg("Fill required fields (brand, name, section).", true);
       return;
     }
     if (itemSlot({ category, season: season || "" }) !== browseSlot) {
       showAddItemFormMsg("Pick a record type that fits the selected section.", true);
       return;
     }
-    showAddItemFormMsg("Processing images…", false);
-    let dataUrl;
-    try {
-      dataUrl = await fileToResizedDataUrl(file);
-    } catch (err) {
-      console.warn(err);
-      showAddItemFormMsg("Could not process this image. Try JPEG or PNG.", true);
-      return;
-    }
 
     const galleryInput = document.getElementById("add-item-gallery");
     const galleryFiles = galleryInput?.files ? Array.from(galleryInput.files) : [];
+    if (file || galleryFiles.length) showAddItemFormMsg("Processing images…", false);
+
+    let dataUrl = "";
+    if (file) {
+      try {
+        dataUrl = await fileToStorageDataUrl(file);
+      } catch (err) {
+        console.warn(err);
+        showAddItemFormMsg("Could not process this image. Try JPEG or PNG.", true);
+        return;
+      }
+    }
     const MAX_GALLERY = 12;
     /** @type {string[]} */
     const galleryUrls = [];
     for (const gf of galleryFiles.slice(0, MAX_GALLERY)) {
       try {
-        galleryUrls.push(await fileToResizedDataUrl(gf));
+        galleryUrls.push(await fileToStorageDataUrl(gf));
       } catch (err) {
         console.warn(err);
         showAddItemFormMsg("One gallery image could not be processed and was skipped.", true);
@@ -1965,6 +2368,7 @@
       weight,
       size,
       measuredDimensions,
+      purchaseDate,
       image: dataUrl,
       gallery: galleryDeduped,
       notes,
@@ -1977,12 +2381,20 @@
       saveCustomItems(list);
     } catch (e) {
       const err = /** @type {any} */ (e);
-      if (err && (err.name === "QuotaExceededError" || err.code === 22)) {
-        showAddItemFormMsg("Storage full: images are still too large. Try smaller files or crop first.", true);
-      } else {
+      const quota = err && (err.name === "QuotaExceededError" || err.code === 22);
+      if (!quota) {
         showAddItemFormMsg("Save failed. Try again.", true);
+        return;
       }
-      return;
+      showAddItemFormMsg("Storage almost full — compressing photos once more…", false);
+      try {
+        list[0] = await shrinkCustomItemRowForQuota(newItem);
+        saveCustomItems(list);
+      } catch (e2) {
+        console.warn(e2);
+        showAddItemFormMsg(STORAGE_QUOTA_USER_HINT, true);
+        return;
+      }
     }
 
     mergeWardrobeFromSources();
@@ -2024,6 +2436,9 @@
     syncAddItemRecordTypes();
 
     imgInput?.addEventListener("change", () => {
+      trimCoverFileInputToOne(imgInput, () =>
+        showAddItemFormMsg("Cover is limited to one image — using the first file only.", false)
+      );
       const f = imgInput.files?.[0];
       if (!preview) return;
       if (!f) {
@@ -2120,7 +2535,7 @@
     }
 
     const rawSe = String(item.season ?? "").trim();
-    if (rawSe === "A/W" || rawSe === "S/S" || rawSe === "All-season" || rawSe === "All") {
+    if (rawSe === "A/W" || rawSe === "S/S") {
       const chip = document.createElement("span");
       chip.className = "card__season-chip";
       chip.textContent = seasonUiLabel(rawSe);
@@ -2183,43 +2598,7 @@
     body.appendChild(brand);
     body.appendChild(metaLine);
 
-    if (variants?.length) {
-      const sw = document.createElement("div");
-      sw.className = "card__swatches";
-      sw.setAttribute("role", "group");
-      sw.setAttribute("aria-label", "Colours");
-      variants.forEach((v, idx) => {
-        const b = document.createElement("button");
-        b.type = "button";
-        b.className = "card__swatch" + (idx === 0 ? " is-active" : "");
-        const lbl = String(v.label ?? v.color ?? "").trim() || `Colour ${idx + 1}`;
-        const colorText = String(v.color ?? "").trim();
-        const vu = String(v.image ?? "").trim();
-        const hex = extractSwatchHexFromVariant(v);
-        b.title = [lbl, colorText].filter(Boolean).join(" · ");
-        b.setAttribute("aria-label", lbl);
-        if (hex) {
-          b.style.backgroundColor = hex;
-          b.style.boxShadow = "inset 0 0 0 1px rgba(0, 0, 0, 0.2)";
-        } else {
-          const si = document.createElement("img");
-          if (vu) si.src = vu;
-          si.alt = "";
-          b.appendChild(si);
-        }
-        b.addEventListener("click", (ev) => {
-          ev.stopPropagation();
-          sw.querySelectorAll(".card__swatch").forEach((x) => x.classList.remove("is-active"));
-          b.classList.add("is-active");
-          if (vu) {
-            img.src = vu;
-            img.alt = `${item.brand} — ${lbl}`;
-          }
-        });
-        sw.appendChild(b);
-      });
-      body.appendChild(sw);
-    }
+    mountVariantSwatchStrip(body, item);
 
     const specs = document.createElement("ul");
     specs.className = "card__specs";
@@ -2236,6 +2615,11 @@
     if (item.measuredDimensions) {
       const li = document.createElement("li");
       li.textContent = String(item.measuredDimensions).trim();
+      specs.appendChild(li);
+    }
+    if (item.purchaseDate) {
+      const li = document.createElement("li");
+      li.textContent = formatPurchaseDateForDisplay(item.purchaseDate);
       specs.appendChild(li);
     }
 
@@ -2589,13 +2973,55 @@
     coverLab.className = "item-edit-variant-cover-wrap";
     const coverSpan = document.createElement("span");
     coverSpan.className = "item-edit-variant-cover-label";
-    coverSpan.textContent = image ? "New cover image (optional)" : "Cover image (required)";
+    coverSpan.textContent = image ? "Replace cover (one file only)" : "Cover image (required, one file)";
     const coverIn = document.createElement("input");
     coverIn.type = "file";
     coverIn.className = "item-edit-variant-cover";
     coverIn.accept = "image/*";
+    coverIn.addEventListener("change", () => {
+      trimCoverFileInputToOne(coverIn);
+    });
     coverLab.appendChild(coverSpan);
     coverLab.appendChild(coverIn);
+
+    const rmCov = document.createElement("button");
+    rmCov.type = "button";
+    rmCov.className = "btn btn--small btn--ghost item-edit-variant-cover-remove";
+    rmCov.textContent = "Remove cover";
+    rmCov.hidden = !image;
+    rmCov.addEventListener("click", () => {
+      fs.removeAttribute("data-prev-image");
+      coverSpan.textContent = "Cover image (required)";
+      rmCov.hidden = true;
+      coverIn.value = "";
+    });
+
+    const varGalWrap = document.createElement("div");
+    varGalWrap.className = "item-edit-variant-gallery-block";
+    const varGalLab = document.createElement("span");
+    varGalLab.className = "item-edit-variant-cover-label";
+    varGalLab.textContent = "Gallery (remove or keep)";
+    varGalWrap.appendChild(varGalLab);
+    const varGal = document.createElement("div");
+    varGal.className = "item-edit-variant-gallery-existing";
+    for (const u of Array.isArray(data.gallery) ? data.gallery.map((x) => String(x ?? "").trim()).filter(Boolean) : []) {
+      const grow = document.createElement("div");
+      grow.className = "item-edit-gallery-row";
+      grow.dataset.galleryUrl = u;
+      const gim = document.createElement("img");
+      gim.className = "item-edit-gallery-thumb";
+      gim.alt = "";
+      gim.src = u;
+      const grm = document.createElement("button");
+      grm.type = "button";
+      grm.className = "btn btn--small btn--ghost item-edit-gallery-remove";
+      grm.textContent = "Remove";
+      grm.addEventListener("click", () => grow.remove());
+      grow.appendChild(gim);
+      grow.appendChild(grm);
+      varGal.appendChild(grow);
+    }
+    varGalWrap.appendChild(varGal);
 
     const rm = document.createElement("button");
     rm.type = "button";
@@ -2614,6 +3040,8 @@
     fs.appendChild(colorIn);
     fs.appendChild(notesIn);
     fs.appendChild(coverLab);
+    fs.appendChild(rmCov);
+    if (varGal.children.length) fs.appendChild(varGalWrap);
     fs.appendChild(rm);
     listEl.appendChild(fs);
     syncVariantRemoveButtons(listEl);
@@ -2644,12 +3072,13 @@
       const color = row.querySelector(".item-edit-variant-color")?.value?.trim() || "";
       const notes = row.querySelector(".item-edit-variant-notes")?.value?.trim() || "";
       const coverIn = row.querySelector(".item-edit-variant-cover");
+      trimCoverFileInputToOne(/** @type {HTMLInputElement | null} */ (coverIn));
       const file = coverIn?.files?.[0];
       const prevIm = row.getAttribute("data-prev-image")?.trim() || "";
       let image = prevIm;
       if (file) {
         try {
-          image = await fileToResizedDataUrl(file);
+          image = await fileToStorageDataUrl(file);
         } catch (err) {
           console.warn(err);
           setMsg("Could not process a colour cover image.", true);
@@ -2670,7 +3099,12 @@
       }
       const match = prevVars.find((x) => x && String(x.key ?? "").trim() === key);
       let gallery = [];
-      if (match && Array.isArray(match.gallery)) {
+      const gWrap = row.querySelector(".item-edit-variant-gallery-existing");
+      if (gWrap) {
+        gallery = [...gWrap.querySelectorAll(".item-edit-gallery-row[data-gallery-url]")]
+          .map((n) => String(n.getAttribute("data-gallery-url") ?? "").trim())
+          .filter(Boolean);
+      } else if (match && Array.isArray(match.gallery)) {
         gallery = match.gallery.map((x) => String(x ?? "").trim()).filter(Boolean);
       }
       built.push({
@@ -2708,12 +3142,13 @@
     const name = form.querySelector("#item-edit-name")?.value?.trim() || "";
     const browseSlot = form.querySelector("#item-edit-browse-slot")?.value || "";
     const recordPick = form.querySelector("#item-edit-record-type")?.value?.trim() ?? "";
-    const category = recordPick || fallbackRecordCategoryForSlot(browseSlot);
+    const category = recordPick || defaultRecordCategoryForSlot(browseSlot);
     const season = form.querySelector("#item-edit-season")?.value?.trim() || "";
     const fabric = form.querySelector("#item-edit-fabric")?.value?.trim() || "";
     const weight = form.querySelector("#item-edit-weight")?.value?.trim() || "";
     const size = form.querySelector("#item-edit-size")?.value?.trim() || "";
     const measuredDimensions = form.querySelector("#item-edit-measured-dimensions")?.value?.trim() || "";
+    const purchaseDate = form.querySelector("#item-edit-purchase-date")?.value?.trim() || "";
     const notes = form.querySelector("#item-edit-notes")?.value?.trim() || "";
 
     const variantsMode = itemEditVariantsActive(form);
@@ -2751,26 +3186,39 @@
     if (variantsMode && colorVariantsBuilt?.length) {
       image = String(colorVariantsBuilt[0].image ?? "").trim() || image;
     } else {
-      const coverFile = form.querySelector("#item-edit-cover")?.files?.[0];
+      const stripCover = form.querySelector("#item-edit-remove-cover")?.value === "1";
+      const coverEl = /** @type {HTMLInputElement | null} */ (form.querySelector("#item-edit-cover"));
+      trimCoverFileInputToOne(coverEl);
+      const coverFile = coverEl?.files?.[0];
       if (coverFile) {
         setMsg("Processing images…", false);
         try {
-          image = await fileToResizedDataUrl(coverFile);
+          image = await fileToStorageDataUrl(coverFile);
         } catch (err) {
           console.warn(err);
           setMsg("Could not process the new cover image.", true);
           return;
         }
+      } else if (stripCover) {
+        image = "";
       }
     }
 
     let gallery = [...itemGalleryList(prev)];
+    if (!variantsMode) {
+      const inner = form.querySelector("#item-edit-gallery-existing .item-edit-gallery-existing-inner");
+      if (inner) {
+        gallery = [...inner.querySelectorAll(".item-edit-gallery-row[data-gallery-url]")]
+          .map((r) => String(r.getAttribute("data-gallery-url") ?? "").trim())
+          .filter(Boolean);
+      }
+    }
     const gFiles = form.querySelector("#item-edit-gallery")?.files
       ? Array.from(form.querySelector("#item-edit-gallery").files)
       : [];
     for (const gf of gFiles.slice(0, 12)) {
       try {
-        gallery.push(await fileToResizedDataUrl(gf));
+        gallery.push(await fileToStorageDataUrl(gf));
       } catch (e) {
         console.warn(e);
         setMsg("Some new gallery images were skipped.", true);
@@ -2790,6 +3238,7 @@
       weight,
       size,
       measuredDimensions,
+      purchaseDate,
       notes,
       image,
       pillar: "",
@@ -2815,12 +3264,20 @@
         saveCustomItems(list);
       } catch (e) {
         const err = /** @type {any} */ (e);
-        if (err && (err.name === "QuotaExceededError" || err.code === 22)) {
-          setMsg("Storage full: try smaller images or fewer photos.", true);
-        } else {
+        const quota = err && (err.name === "QuotaExceededError" || err.code === 22);
+        if (!quota) {
           setMsg("Save failed. Try again.", true);
+          return;
         }
-        return;
+        setMsg("Storage almost full — compressing photos once more…", false);
+        try {
+          list[idx] = await shrinkCustomItemRowForQuota(updated);
+          saveCustomItems(list);
+        } catch (e2) {
+          console.warn(e2);
+          setMsg(STORAGE_QUOTA_USER_HINT, true);
+          return;
+        }
       }
     } else {
       const patch = {
@@ -2834,6 +3291,7 @@
         weight,
         size,
         measuredDimensions,
+        purchaseDate,
         notes,
         image,
         pillar: "",
@@ -2875,6 +3333,8 @@
 
     const media = document.createElement("div");
     media.className = "card__media item-detail__media";
+    const detailVariants = getItemColorVariants(item);
+    if (detailVariants?.length) media.classList.add("card__media--variant-colors");
     const img = document.createElement("img");
     img.className = "card__media-img";
     img.alt = imageAltForItem(item);
@@ -2888,7 +3348,11 @@
       },
     });
     media.appendChild(img);
-    mountHeroGalleryStrip(media, img, item);
+    if (!detailVariants?.length) {
+      mountHeroGalleryStrip(media, img, item);
+    } else if (itemGalleryList(item).length) {
+      mountHeroGalleryStrip(media, img, item);
+    }
     root.appendChild(media);
 
     if (edit) {
@@ -3138,11 +3602,57 @@
       measTa.value = String(item.measuredDimensions ?? "");
       addField("Measured dimensions (optional)", measTa);
 
+      const purchaseIn = document.createElement("input");
+      purchaseIn.id = "item-edit-purchase-date";
+      const pd = String(item.purchaseDate ?? "").trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(pd)) {
+        purchaseIn.type = "date";
+        purchaseIn.value = pd;
+      } else {
+        purchaseIn.type = "text";
+        purchaseIn.maxLength = 80;
+        purchaseIn.placeholder = "YYYY-MM-DD or short note";
+        purchaseIn.value = pd;
+      }
+      addField("Purchase date (optional)", purchaseIn);
+
+      if (!initialVariants) {
+        const removeCoverIn = document.createElement("input");
+        removeCoverIn.type = "hidden";
+        removeCoverIn.id = "item-edit-remove-cover";
+        removeCoverIn.value = "";
+        grid.appendChild(removeCoverIn);
+
+        const curImg = String(item.image ?? "").trim();
+        if (curImg) {
+          const coverManage = document.createElement("div");
+          coverManage.className = "field field--span2 item-edit-cover-manage";
+          const prevFig = document.createElement("div");
+          prevFig.className = "item-edit-current-cover";
+          const preImg = document.createElement("img");
+          preImg.className = "item-edit-current-cover-img";
+          preImg.alt = "Current cover";
+          preImg.src = curImg;
+          const rmC = document.createElement("button");
+          rmC.type = "button";
+          rmC.className = "btn btn--small btn--ghost item-edit-remove-cover-btn";
+          rmC.textContent = "Remove cover";
+          rmC.addEventListener("click", () => {
+            removeCoverIn.value = "1";
+            prevFig.remove();
+          });
+          prevFig.appendChild(preImg);
+          prevFig.appendChild(rmC);
+          coverManage.appendChild(prevFig);
+          grid.appendChild(coverManage);
+        }
+      }
+
       const coverLab = document.createElement("label");
       coverLab.className = "field field--file field--span2";
       const coverSpan = document.createElement("span");
       coverSpan.className = "field__label";
-      coverSpan.textContent = "New cover image (optional)";
+      coverSpan.textContent = "New cover image (optional, one file only)";
       const coverIn = document.createElement("input");
       coverIn.type = "file";
       coverIn.id = "item-edit-cover";
@@ -3151,6 +3661,19 @@
       coverLab.appendChild(coverIn);
       grid.appendChild(coverLab);
       coverLab.hidden = Boolean(initialVariants);
+      if (!initialVariants) {
+        coverIn.addEventListener("change", () => {
+          trimCoverFileInputToOne(coverIn, () => {
+            const msg = document.getElementById("item-detail-edit-msg");
+            if (msg) {
+              msg.textContent = "Cover is limited to one image — using the first file only.";
+              msg.classList.remove("item-detail__edit-msg--error");
+            }
+          });
+          const h = form.querySelector("#item-edit-remove-cover");
+          if (h) h.value = "";
+        });
+      }
 
       const galLab = document.createElement("label");
       galLab.className = "field field--file field--span2";
@@ -3165,6 +3688,40 @@
       galLab.appendChild(galSpan);
       galLab.appendChild(galIn);
       grid.appendChild(galLab);
+
+      if (!initialVariants) {
+        const galUrls = itemGalleryList(item);
+        if (galUrls.length) {
+          const galWrap = document.createElement("div");
+          galWrap.id = "item-edit-gallery-existing";
+          galWrap.className = "field field--span2 item-edit-gallery-existing";
+          const galHead = document.createElement("span");
+          galHead.className = "field__label";
+          galHead.textContent = "Gallery (remove photos you no longer want)";
+          galWrap.appendChild(galHead);
+          const inner = document.createElement("div");
+          inner.className = "item-edit-gallery-existing-inner";
+          for (const u of galUrls) {
+            const grow = document.createElement("div");
+            grow.className = "item-edit-gallery-row";
+            grow.dataset.galleryUrl = u;
+            const gim = document.createElement("img");
+            gim.className = "item-edit-gallery-thumb";
+            gim.alt = "";
+            gim.src = u;
+            const grm = document.createElement("button");
+            grm.type = "button";
+            grm.className = "btn btn--small btn--ghost item-edit-gallery-remove";
+            grm.textContent = "Remove";
+            grm.addEventListener("click", () => grow.remove());
+            grow.appendChild(gim);
+            grow.appendChild(grm);
+            inner.appendChild(grow);
+          }
+          galWrap.appendChild(inner);
+          grid.appendChild(galWrap);
+        }
+      }
 
       form.appendChild(grid);
 
@@ -3252,6 +3809,8 @@
     brand.textContent = item.brand;
     body.appendChild(brand);
 
+    mountVariantSwatchStrip(body, item);
+
     if (!itemEligibleForOutfit(item)) {
       const only = document.createElement("p");
       only.className = "item-detail__archive-only";
@@ -3280,6 +3839,10 @@
     addRow("Season", seasonUiLabel(item.season));
     addRow("Size", item.size);
     addRow("Measured dimensions", item.measuredDimensions);
+    {
+      const pd = String(item.purchaseDate ?? "").trim();
+      if (pd) addRow("Purchase date", formatPurchaseDateForDisplay(pd));
+    }
     const specLine = specParts(item).join(" · ");
     if (specLine) addRow("Details", specLine);
 

@@ -7,7 +7,7 @@
  * Image paths: `images/<Brand> <Name…>.png` — rename your PNGs to match, or edit paths.
  * Optional `gallery`: string[] of extra image URLs (same folder or absolute); `image` is always the cover.
  * Optional `colorVariants`: same product in multiple colours — one archive row; outfit builder asks which colour.
- * Optional `size` (label size) and `measuredDimensions` (實量／平量尺寸文字，可空).
+ * Optional `size` (label size), `measuredDimensions` (實量／平量尺寸文字，可空), and `purchaseDate` (YYYY-MM-DD or short text，可空).
  */
 const WARDROBE_ITEMS = [
   // ——— A/W – Country Classics ———
@@ -638,7 +638,7 @@ const WARDROBE_ITEMS = [
   {
     id: "tissot-prx-quartz-35mm-gold-pvd",
     section: "Watch Collection",
-    category: "Watches",
+    category: "Dress watch",
     brand: "TISSOT",
     name: "PRX Quartz 35mm Gold PVD",
     season: "",
@@ -652,7 +652,7 @@ const WARDROBE_ITEMS = [
   {
     id: "tudor-black-bay-58",
     section: "Watch Collection",
-    category: "Watches",
+    category: "Sports watch",
     brand: "TUDOR",
     name: "Black Bay 58",
     season: "",
@@ -666,7 +666,7 @@ const WARDROBE_ITEMS = [
   {
     id: "cartier-tank-solo-large",
     section: "Watch Collection",
-    category: "Watches",
+    category: "Dress watch",
     brand: "CARTIER",
     name: "Tank Solo, Large Model",
     season: "",
@@ -710,7 +710,7 @@ const WARDROBE_ITEMS = [
   {
     id: "jewellery-signet-ring",
     section: "Jewellery Collection",
-    category: "Jewellery",
+    category: "Ring",
     brand: "Archive",
     name: "Signet Ring (18ct yellow gold, 12 × 14 mm)",
     season: "",
@@ -724,7 +724,7 @@ const WARDROBE_ITEMS = [
   {
     id: "jewellery-ruby-gypsy-ring",
     section: "Jewellery Collection",
-    category: "Jewellery",
+    category: "Ring",
     brand: "Archive",
     name: "Ruby Gypsy Ring",
     season: "",
@@ -738,7 +738,7 @@ const WARDROBE_ITEMS = [
   {
     id: "jewellery-curb-bracelet",
     section: "Jewellery Collection",
-    category: "Jewellery",
+    category: "Bracelet",
     brand: "Archive",
     name: "Curb Bracelet (18ct yellow gold, 5.2 mm)",
     season: "",
@@ -751,7 +751,7 @@ const WARDROBE_ITEMS = [
   {
     id: "jewellery-rolo-chain",
     section: "Jewellery Collection",
-    category: "Jewellery",
+    category: "Necklace",
     brand: "Archive",
     name: "Rolo Chain (18ct yellow gold, 2.5 mm)",
     season: "",
@@ -766,7 +766,7 @@ const WARDROBE_ITEMS = [
   {
     id: "future-wedding-bands",
     section: "Future Pieces",
-    category: "Future",
+    category: "Ring",
     brand: "Planned",
     name: "Wedding Bands",
     season: "",
@@ -780,7 +780,7 @@ const WARDROBE_ITEMS = [
   {
     id: "future-sapphire-engagement-ring",
     section: "Future Pieces",
-    category: "Future",
+    category: "Ring",
     brand: "Planned",
     name: "Sapphire Engagement Ring (Pt950, diamonds 1.5 mm)",
     season: "",
@@ -793,7 +793,7 @@ const WARDROBE_ITEMS = [
   {
     id: "future-sapphire-three-stone-cartier",
     section: "Future Pieces",
-    category: "Future",
+    category: "Ring",
     brand: "Vintage ref.",
     name: "Sapphire Three-Stone Engagement Ring (Cartier c.1950–65)",
     season: "",
@@ -807,7 +807,7 @@ const WARDROBE_ITEMS = [
   {
     id: "future-chain-bracelet-test-weights",
     section: "Future Pieces",
-    category: "Future",
+    category: "Bracelet",
     brand: "Notes",
     name: "Chain / Bracelet Test Weights",
     season: "",

@@ -91,6 +91,7 @@ function toRows(items) {
     weight: String(i.weight ?? ""),
     size: String(i.size ?? ""),
     measured_dimensions: String(i.measuredDimensions ?? ""),
+    purchase_date: String(i.purchaseDate ?? ""),
     image: String(i.image ?? ""),
     gallery: Array.isArray(i.gallery) ? i.gallery : [],
     notes: String(i.notes ?? ""),
