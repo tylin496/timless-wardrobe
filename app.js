@@ -1270,7 +1270,7 @@
     }
   }
 
-  const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".PNG", ".JPG", ".JPEG"];
+  const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".PNG", ".JPG", ".JPEG", ".WEBP", ".GIF"];
 
   /** Too generic for cross-file image matching — would map many rows to one photo. */
   const IMAGE_MATCH_STOPWORDS = new Set([
@@ -1528,7 +1528,7 @@
 
     const id = String(item?.id ?? "").trim();
     if (id) {
-      for (const e of [".png", ".jpg", ".jpeg", ".webp"]) add(`images/${id}${e}`);
+      for (const e of [".png", ".jpg", ".jpeg", ".webp", ".gif"]) add(`images/${id}${e}`);
     }
 
     const matchTokens = compileStrictMatchTokens(item);
@@ -2037,9 +2037,10 @@
    * PNG / WebP / GIF inputs are re-encoded as **PNG** so any alpha channel (e.g. background
    * removal) is preserved. JPEG / other inputs default to JPEG to keep storage small. Pass
    * `forcePng: true` to force PNG output regardless of source.
+   * Pass `preferJpeg: true` to always use JPEG output (e.g. **gallery** slots — smaller in `localStorage`).
    *
    * @param {File} file
-   * @param {number | { maxSide?: number, maxWidth?: number, quality?: number, forcePng?: boolean }} [opts]
+   * @param {number | { maxSide?: number, maxWidth?: number, quality?: number, forcePng?: boolean, preferJpeg?: boolean }} [opts]
    *   Defaults: longest edge **1920px** (Full HD class), JPEG quality **0.82**. Prefer `maxSide` so tall images shrink too.
    *   Legacy: `maxWidth` only caps width (omit `maxSide` to use width-only behaviour).
    * @returns {Promise<string>}
@@ -2051,19 +2052,21 @@
 
     const quality = typeof o.quality === "number" ? o.quality : 0.82;
     const forcePng = Boolean(o.forcePng);
+    const preferJpeg = Boolean(o.preferJpeg);
     const maxSide = typeof o.maxSide === "number" ? o.maxSide : typeof o.maxWidth === "number" ? null : 1920;
     const maxWidthLegacy = typeof o.maxWidth === "number" ? o.maxWidth : null;
 
     const mime = String(file?.type ?? "").toLowerCase();
     const fileName = String(file?.name ?? "").toLowerCase();
     const looksAlphaCapable =
-      forcePng ||
-      mime === "image/png" ||
-      mime === "image/webp" ||
-      mime === "image/gif" ||
-      fileName.endsWith(".png") ||
-      fileName.endsWith(".webp") ||
-      fileName.endsWith(".gif");
+      !preferJpeg &&
+      (forcePng ||
+        mime === "image/png" ||
+        mime === "image/webp" ||
+        mime === "image/gif" ||
+        fileName.endsWith(".png") ||
+        fileName.endsWith(".webp") ||
+        fileName.endsWith(".gif"));
     const outMime = looksAlphaCapable ? "image/png" : "image/jpeg";
 
     return new Promise((resolve, reject) => {
@@ -2148,13 +2151,15 @@
 
   /**
    * @param {File} file
+   * @param {{ preferJpeg?: boolean }} [codecOpts] When `preferJpeg: true`, gallery-style encoding (always JPEG tiers).
    * @returns {Promise<string>}
    */
-  async function fileToStorageDataUrl(file) {
+  async function fileToStorageDataUrl(file, codecOpts) {
     /** @type {string} */
     let chosen = "";
+    const extra = codecOpts && typeof codecOpts === "object" ? codecOpts : {};
     for (const t of STORAGE_IMAGE_TIERS) {
-      chosen = await fileToResizedDataUrl(file, t);
+      chosen = await fileToResizedDataUrl(file, { ...t, ...extra });
       const png = chosen.startsWith("data:image/png");
       if (chosen.length <= (png ? STORAGE_IMAGE_SOFT_LIMIT_PNG : STORAGE_IMAGE_SOFT_LIMIT_JPEG)) return chosen;
     }
@@ -2335,7 +2340,7 @@
         dataUrl = await fileToStorageDataUrl(file);
       } catch (err) {
         console.warn(err);
-        showAddItemFormMsg("Could not process this image. Try JPEG or PNG.", true);
+        showAddItemFormMsg("Could not process this image. Try another image file.", true);
         return;
       }
     }
@@ -2344,7 +2349,7 @@
     const galleryUrls = [];
     for (const gf of galleryFiles.slice(0, MAX_GALLERY)) {
       try {
-        galleryUrls.push(await fileToStorageDataUrl(gf));
+        galleryUrls.push(await fileToStorageDataUrl(gf, { preferJpeg: true }));
       } catch (err) {
         console.warn(err);
         showAddItemFormMsg("One gallery image could not be processed and was skipped.", true);
@@ -3218,7 +3223,7 @@
       : [];
     for (const gf of gFiles.slice(0, 12)) {
       try {
-        gallery.push(await fileToStorageDataUrl(gf));
+        gallery.push(await fileToStorageDataUrl(gf, { preferJpeg: true }));
       } catch (e) {
         console.warn(e);
         setMsg("Some new gallery images were skipped.", true);

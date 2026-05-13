@@ -4,7 +4,7 @@
  * Collection thesis is described in the site header. Each row uses `category` (and optional
  * `season`) for browsing; `section` / `pillar` are legacy fields and not shown in the UI.
  *
- * Image paths: `images/<Brand> <Name…>.png` — rename your PNGs to match, or edit paths.
+ * Image paths: `images/<Brand> <Name…>.png` (or `.jpg` / `.webp` / `.gif`) — filenames must match paths.
  * Optional `gallery`: string[] of extra image URLs (same folder or absolute); `image` is always the cover.
  * Optional `colorVariants`: same product in multiple colours — one archive row; outfit builder asks which colour.
  * Optional `size` (label size), `measuredDimensions` (實量／平量尺寸文字，可空), and `purchaseDate` (YYYY-MM-DD or short text，可空).
