@@ -13,13 +13,29 @@
     ["uniqlo-tuck-trousers-beige", { itemId: "uniqlo-tuck-trousers", colorKey: "beige" }],
   ]);
 
+  function itemColorCode(item) {
+    if (!item || typeof item !== "object") return "";
+    return String(item.colorCode ?? item.color_code ?? "").trim();
+  }
+
+  /** Optional uploaded swatch photo only (`previewImage`); no fallback to variant cover — swatch uses hex or colour code text instead. */
+  function variantSwatchImageUrl(v) {
+    if (!v || typeof v !== "object") return "";
+    return String(v.previewImage ?? v.swatchImage ?? "").trim();
+  }
+
   /**
    * Optional `colorVariants` on a wardrobe row: same product, different colours / images.
-   * @returns {{ key: string, label: string, color: string, image: string, gallery: string[], notes: string }[] | null}
+   * @returns {{ key: string, label: string, color: string, colorCode: string, image: string, previewImage: string, gallery: string[], notes: string }[] | null}
    */
   function getItemColorVariants(item) {
-    const raw = item?.colorVariants;
-    if (!Array.isArray(raw) || !raw.length) return null;
+    const raw =
+      Array.isArray(item?.colorVariants) && item.colorVariants.length
+        ? item.colorVariants
+        : Array.isArray(item?.metadata?.colorVariants) && item.metadata.colorVariants.length
+          ? item.metadata.colorVariants
+          : null;
+    if (!raw) return null;
     const out = [];
     for (const v of raw) {
       if (!v || typeof v !== "object") continue;
@@ -29,8 +45,10 @@
       out.push({
         key,
         label: String(v.label ?? v.colour ?? key).trim() || key,
-        color: String(v.colour ?? "").trim(),
+        color: String(v.colour ?? v.color ?? "").trim(),
+        colorCode: String(v.colorCode ?? v.colour_code ?? v.color_code ?? "").trim(),
         image,
+        previewImage: String(v.previewImage ?? v.swatchImage ?? "").trim(),
         gallery: Array.isArray(v.gallery) ? v.gallery.map((x) => String(x ?? "").trim()).filter(Boolean) : [],
         notes: v.notes != null ? String(v.notes) : "",
       });
@@ -38,9 +56,13 @@
     return out.length ? out : null;
   }
 
-  /** First `#rgb` / `#rrggbb` in `color` or `label` for grid swatches. */
+  /** First `#rgb` / `#rrggbb` in colour code, colour name, or label for grid swatches. */
   function extractSwatchHexFromVariant(v) {
-    const pools = [String(v?.colour ?? "").trim(), String(v?.label ?? "").trim()];
+    const pools = [
+      String(v?.colorCode ?? v?.colour_code ?? v?.color_code ?? "").trim(),
+      String(v?.colour ?? v?.color ?? "").trim(),
+      String(v?.label ?? "").trim(),
+    ];
     for (const p of pools) {
       const m = p.match(/#([0-9a-fA-F]{6})\b|#([0-9a-fA-F]{3})\b/);
       if (!m) continue;
@@ -52,40 +74,180 @@
     return "";
   }
 
+  /** Relative luminance 0–1 for `#rrggbb` (sRGB). */
+  function hexFillLuminance(hex) {
+    const s = String(hex ?? "").trim();
+    const m = /^#([0-9a-f]{6})$/i.exec(s);
+    if (!m) return 1;
+    const n = parseInt(m[1], 16);
+    const r = (n >> 16) / 255;
+    const g = ((n >> 8) & 255) / 255;
+    const b = (n & 255) / 255;
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  }
+
+  /** One line of human-readable colour info (label, text colour, hex) for captions under swatches. */
+  function variantCaptionText(v) {
+    if (!v || typeof v !== "object") return "";
+    const label = String(v.label ?? "").trim();
+    const col = String(v.colour ?? v.color ?? "").trim();
+    const code = String(v.colorCode ?? "").trim();
+    const hex = extractSwatchHexFromVariant(v);
+    const parts = [];
+    if (label) parts.push(label);
+    if (col && col.toLowerCase() !== label.toLowerCase()) parts.push(col);
+    if (
+      code &&
+      code.toLowerCase() !== label.toLowerCase() &&
+      code.toLowerCase() !== col.toLowerCase()
+    ) {
+      parts.push(code);
+    }
+    if (hex) {
+      const hexShort = hex.toLowerCase();
+      const already = parts.some((p) => p.toLowerCase().includes(hexShort));
+      if (!already) parts.push(hex);
+    }
+    return parts.join(" · ") || String(v.key ?? "").trim() || "Colour";
+  }
+
   /**
-   * Colour dots for `colorVariants` — display only; never changes the cover / hero image.
+   * Colour dots for `colorVariants`. When `heroImg` + `heroHost` are set, tap switches the main photo to that variant’s cover (`image`).
+   * On the archive grid, use the card’s “+” to add to an outfit. When `addToOutfitOnPick` is true (e.g. item detail page), tap also adds that colour to the outfit if eligible.
+   * If only `outfitPick` is set (no hero), tap adds the colour to the outfit.
    * @param {HTMLElement} mountEl
    * @param {object} item
+   * @param {{ outfitPick?: boolean, heroImg?: HTMLImageElement | null, heroHost?: HTMLElement | null, addToOutfitOnPick?: boolean }} [opts]
    */
-  function mountVariantSwatchStrip(mountEl, item) {
+  function mountVariantSwatchStrip(mountEl, item, opts = {}) {
     const variants = getItemColorVariants(item);
     if (!variants?.length) return;
+    const heroImg = opts.heroImg ?? null;
+    const heroHost = opts.heroHost ?? null;
+    const addToOutfitOnPick = Boolean(opts.addToOutfitOnPick);
+    const outfitPick = Boolean(opts.outfitPick) && itemEligibleForOutfit(item);
+    const interactive = Boolean(heroImg) || outfitPick;
+
+    const block = document.createElement("div");
+    block.className = "card__swatch-block";
     const sw = document.createElement("div");
     sw.className = "card__swatches";
     sw.setAttribute("role", "group");
     sw.setAttribute("aria-label", "Available colours");
+
+    function applyVariantHero(colorKey) {
+      if (!heroImg || !heroHost) return;
+      const projected = itemProjectionForOutfitSlot(item, { itemId: String(item.id), colorKey: String(colorKey) });
+      heroHost.querySelector(".card__gallery-strip")?.remove();
+      wireCoverImageWithFallbacks(heroImg, projected, {
+        host: heroHost,
+        onResolved(url) {
+          const ti = heroHost.querySelector(".card__gallery-strip .card__gallery-thumb.is-active img");
+          if (ti) ti.src = url;
+        },
+      });
+      if (itemGalleryList(projected).length) {
+        mountHeroGalleryStrip(heroHost, heroImg, projected);
+      }
+      heroImg.alt = imageAltForItem(projected);
+      sw.querySelectorAll(".card__swatch").forEach((node) => {
+        const nk = /** @type {HTMLElement} */ (node).dataset.variantKey;
+        node.classList.toggle("is-active", nk === String(colorKey));
+      });
+    }
+
     variants.forEach((v, idx) => {
-      const el = document.createElement("span");
-      el.className = "card__swatch";
-      const lbl = String(v.label ?? v.colour ?? "").trim() || `Colour ${idx + 1}`;
-      const colorText = String(v.colour ?? "").trim();
-      const vu = String(v.image ?? "").trim();
+      const lbl = String(v.label ?? v.colour ?? v.color ?? "").trim() || `Colour ${idx + 1}`;
+      const colorText = String(v.colour ?? v.color ?? "").trim();
+      const codeText = String(v.colorCode ?? "").trim();
       const hex = extractSwatchHexFromVariant(v);
-      el.title = [lbl, colorText].filter(Boolean).join(" · ");
-      el.setAttribute("aria-label", lbl);
+      const el = interactive ? document.createElement("button") : document.createElement("span");
+      if (interactive) {
+        /** @type {HTMLButtonElement} */ (el).type = "button";
+      }
+      el.dataset.variantKey = String(v.key);
+      el.className = "card__swatch" + (interactive ? " card__swatch--pick" : "");
+      const tip = [lbl, colorText, codeText].filter(Boolean).join(" · ");
+      if (heroImg) {
+        if (addToOutfitOnPick && outfitPick) {
+          el.title = tip + " — Show this colour’s cover and add it to the outfit";
+          el.setAttribute("aria-label", `Show cover and add ${lbl} to outfit`);
+        } else {
+          el.title =
+            tip +
+            (outfitPick ? " — Show this colour’s cover (use + on the photo to add to outfit)" : " — Show this colour’s cover");
+          el.setAttribute("aria-label", `Show cover for ${lbl}`);
+        }
+      } else {
+        el.title = tip + (outfitPick ? " — Add this colour to outfit" : "");
+        el.setAttribute("aria-label", outfitPick ? `Add ${lbl} to outfit` : lbl);
+      }
       if (hex) {
         el.style.backgroundColor = hex;
-        el.style.boxShadow = "inset 0 0 0 1px rgba(0, 0, 0, 0.2)";
+        if (hexFillLuminance(hex) < 0.28) {
+          el.style.boxShadow =
+            "inset 0 0 0 1px rgba(255, 255, 255, 0.38), 0 0 0 1px rgba(255, 255, 255, 0.22)";
+        } else {
+          el.style.boxShadow = "inset 0 0 0 1px rgba(0, 0, 0, 0.2)";
+        }
       } else {
-        const si = document.createElement("img");
-        if (vu) si.src = vu;
-        si.alt = "";
-        si.setAttribute("aria-hidden", "true");
-        el.appendChild(si);
+        const vu = String(variantSwatchImageUrl(v) ?? "").trim();
+        if (vu) {
+          const si = document.createElement("img");
+          si.src = vu;
+          si.alt = "";
+          si.setAttribute("aria-hidden", "true");
+          el.appendChild(si);
+        } else if (codeText) {
+          el.classList.add("card__swatch--code");
+          const codeEl = document.createElement("span");
+          codeEl.className = "card__swatch-code";
+          codeEl.textContent = codeText.length > 10 ? `${codeText.slice(0, 9)}…` : codeText;
+          codeEl.title = codeText;
+          el.appendChild(codeEl);
+        } else {
+          const fallback = String(v.image ?? "").trim();
+          if (fallback) {
+            const si = document.createElement("img");
+            si.src = fallback;
+            si.alt = "";
+            si.setAttribute("aria-hidden", "true");
+            el.appendChild(si);
+          }
+        }
+      }
+      if (interactive) {
+        el.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (heroImg) applyVariantHero(v.key);
+          if (outfitPick && (addToOutfitOnPick || !heroImg)) {
+            pushOutfitSlot({ itemId: String(item.id), colorKey: String(v.key) });
+          }
+        });
       }
       sw.appendChild(el);
     });
-    mountEl.appendChild(sw);
+
+    if (heroImg && heroHost) {
+      const mainImg = String(item.image ?? "").trim();
+      const initialKey =
+        variants.find((vv) => String(vv.image ?? "").trim() === mainImg)?.key ?? variants[0]?.key;
+      if (initialKey) {
+        sw.querySelectorAll(".card__swatch").forEach((node) => {
+          if (/** @type {HTMLElement} */ (node).dataset.variantKey === String(initialKey)) {
+            node.classList.add("is-active");
+          }
+        });
+      }
+    }
+
+    block.appendChild(sw);
+    const cap = document.createElement("p");
+    cap.className = "card__swatch-caption";
+    cap.textContent = variants.map(variantCaptionText).join(" · ");
+    block.appendChild(cap);
+    mountEl.appendChild(block);
   }
 
   /** Shallow row shaped for cover / gallery resolution for one outfit slot. */
@@ -95,11 +257,17 @@
     const v = vars.find((x) => x.key === slot.colorKey);
     if (!v) return item;
     const baseId = String(item.id ?? "");
+    const vColour = String(v.color ?? v.colour ?? "").trim();
+    const vCode = String(v.colorCode ?? "").trim();
+    const vGal = Array.isArray(v.gallery) ? v.gallery : [];
+    const itemGal = Array.isArray(item.gallery) ? item.gallery : [];
     return {
       ...item,
       image: v.image,
-      color: v.color || item.colour,
-      gallery: v.gallery.length ? v.gallery : item.gallery,
+      colour: vColour || item.colour,
+      color: vColour || item.colour,
+      colorCode: vCode || itemColorCode(item),
+      gallery: vGal.length ? vGal : itemGal,
       __coverCacheKey: `${baseId}::${slot.colorKey}`,
     };
   }
@@ -279,6 +447,7 @@
     lines.push(`Record category: ${recordCategoryForDrill(item, itemSlot(item))}`);
     lines.push(`Season: ${seasonUiLabel(item.season)}`);
     lines.push(`Color: ${String(item.colour ?? "").trim()}`);
+    lines.push(`Colour code: ${itemColorCode(item) || "(none)"}`);
     lines.push(`Fabric: ${String(item.fabric ?? "").trim()}`);
     lines.push(`Weight / specs: ${String(item.weight ?? "").trim()}`);
     lines.push(`Size: ${String(item.size ?? "").trim()}`);
@@ -605,31 +774,60 @@
     return Boolean(supabaseClient?.from && supabaseClient?.storage?.from);
   }
 
+  /** Postgres `jsonb` / drivers sometimes return gallery as a JSON string instead of an array. */
+  function normalizeGalleryFromDb(raw) {
+    if (Array.isArray(raw)) {
+      return raw.map((x) => String(x ?? "").trim()).filter(Boolean);
+    }
+    if (typeof raw === "string" && raw.trim()) {
+      try {
+        const p = JSON.parse(raw);
+        if (Array.isArray(p)) {
+          return p.map((x) => String(x ?? "").trim()).filter(Boolean);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    return [];
+  }
+
   function normalizeCloudItemRow(row) {
     if (!row || typeof row !== "object") return null;
     const id = String(row.id ?? "").trim();
     const brand = String(row.brand ?? "").trim();
     const name = String(row.name ?? "").trim();
     if (!id || !brand || !name) return null;
-    return {
+    const meta = row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata) ? row.metadata : null;
+    const cvFromMeta = meta && Array.isArray(meta.colorVariants) ? meta.colorVariants : null;
+    const colorVariants =
+      Array.isArray(row.colorVariants) && row.colorVariants.length
+        ? row.colorVariants
+        : cvFromMeta && cvFromMeta.length
+          ? cvFromMeta
+          : null;
+    const out = {
       ...row,
       id,
       brand,
       name,
       category: String(row.category ?? "").trim(),
-      season: String(row.season ?? "").trim(),
+      season: normalizeStoredItemSeason(row.season),
       colour: String(row.colour ?? row.color ?? "").trim(),
+      colorCode: String(row.color_code ?? "").trim(),
       fabric: String(row.fabric ?? "").trim(),
       weight: String(row.weight ?? "").trim(),
       size: String(row.size ?? "").trim(),
       measuredDimensions: String(row.measured_dimensions ?? row.measuredDimensions ?? "").trim(),
       purchaseDate: String(row.purchase_date ?? row.purchaseDate ?? "").trim(),
       image: String(row.image ?? "").trim(),
-      gallery: Array.isArray(row.gallery) ? row.gallery : [],
+      gallery: normalizeGalleryFromDb(row.gallery),
       notes: String(row.notes ?? ""),
       metadata: row.metadata ?? null,
       __source: "supabase",
     };
+    if (colorVariants) out.colorVariants = colorVariants;
+    return out;
   }
 
   function itemToCloudRow(item) {
@@ -648,8 +846,9 @@
       category: String(item.category ?? "").trim(),
       brand: String(item.brand ?? "").trim(),
       name: String(item.name ?? "").trim(),
-      season: String(item.season ?? "").trim(),
+      season: normalizeStoredItemSeason(item.season),
       color: String(item.colour ?? item.color ?? "").trim(),
+      color_code: itemColorCode(item),
       fabric: String(item.fabric ?? "").trim(),
       weight: String(item.weight ?? "").trim(),
       size: String(item.size ?? "").trim(),
@@ -702,15 +901,97 @@
     return data?.publicUrl || "";
   }
 
-  async function saveWardrobeItemToCloud(item) {
-    if (!isSupabaseReady()) throw new Error("Supabase is not ready.");
-    const { data, error } = await supabaseClient
-      .from(WARDROBE_TABLE)
-      .upsert(itemToCloudRow(item), { onConflict: "id" })
-      .select()
-      .single();
-    if (error) throw error;
-    return normalizeCloudItemRow(data) || item;
+  function storagePathFromWardrobeImageUrl(url) {
+    const s = String(url ?? "").trim().split("?")[0];
+    if (!s || !/^https?:\/\//i.test(s)) return "";
+    const esc = WARDROBE_IMAGE_BUCKET.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(
+      `/storage/v1/(?:object/public|render/image/public)/${esc}/(.+)$`,
+      "i"
+    );
+    const m = s.match(re);
+    if (!m) return "";
+    try {
+      return decodeURIComponent(m[1]);
+    } catch {
+      return m[1];
+    }
+  }
+
+  async function deleteWardrobeImageUrlFromCloud(url) {
+    if (!isSupabaseReady()) return false;
+    const path = storagePathFromWardrobeImageUrl(url);
+    if (!path) return false;
+    const { error } = await supabaseClient.storage.from(WARDROBE_IMAGE_BUCKET).remove([path]);
+    if (error) {
+      console.warn("Could not delete wardrobe image from Supabase Storage.", error);
+      return false;
+    }
+    return true;
+  }
+
+  async function deleteWardrobeItemImagesFromCloud(item) {
+    if (!item || !isSupabaseReady()) return;
+    const urls = [];
+    const seen = new Set();
+    function add(u) {
+      const s = String(u ?? "").trim();
+      if (!s || seen.has(s)) return;
+      seen.add(s);
+      urls.push(s);
+    }
+    add(item.image);
+    for (const u of itemGalleryList(item)) {
+      add(u);
+    }
+    const variants = getItemColorVariants(item);
+    if (variants) {
+      for (const v of variants) {
+        add(v.image);
+        add(v.previewImage);
+        for (const u of v.gallery || []) add(u);
+      }
+    }
+    const cloudUrls = urls.filter(storagePathFromWardrobeImageUrl);
+    if (!cloudUrls.length) return;
+    await Promise.allSettled(cloudUrls.map(deleteWardrobeImageUrlFromCloud));
+  }
+
+  /** Public URLs in our `wardrobe-images` bucket referenced by a row (cover, gallery, colour variants). */
+  function collectSupabaseWardrobeImageUrls(item) {
+    if (!item) return [];
+    const out = [];
+    const seen = new Set();
+    function add(u) {
+      const s = String(u ?? "").trim();
+      if (!s || seen.has(s)) return;
+      if (!storagePathFromWardrobeImageUrl(s)) return;
+      seen.add(s);
+      out.push(s);
+    }
+    add(item.image);
+    for (const u of itemGalleryList(item)) add(u);
+    const variants = getItemColorVariants(item);
+    if (variants) {
+      for (const v of variants) {
+        add(v.image);
+        add(v.previewImage);
+        for (const u of v.gallery || []) add(u);
+      }
+    }
+    return out;
+  }
+
+  /** After a successful save, remove Storage objects that the row no longer references. */
+  async function deleteSupabaseImagesNoLongerUsed(prevItem, nextItem, nextItemAlt) {
+    if (!isSupabaseReady()) return;
+    const keep = new Set([
+      ...collectSupabaseWardrobeImageUrls(nextItem),
+      ...(nextItemAlt ? collectSupabaseWardrobeImageUrls(nextItemAlt) : []),
+    ]);
+    const drop = collectSupabaseWardrobeImageUrls(prevItem).filter((u) => !keep.has(u));
+    if (!drop.length) return;
+    await Promise.allSettled(drop.map((u) => deleteWardrobeImageUrlFromCloud(u)));
   }
 
   async function loadWardrobeItemsFromCloud() {
@@ -724,6 +1005,17 @@
       return [];
     }
     return (data || []).map(normalizeCloudItemRow).filter(Boolean);
+  }
+
+  /** Upsert one custom row to `wardrobe_items` and return the normalized row from Postgres. */
+  async function saveWardrobeItemToCloud(item) {
+    if (!isSupabaseReady()) throw new Error("Supabase is not ready.");
+    const row = itemToCloudRow(item);
+    const { data, error } = await supabaseClient.from(WARDROBE_TABLE).upsert(row, { onConflict: "id" }).select("*").single();
+    if (error) throw error;
+    const norm = normalizeCloudItemRow(data);
+    if (!norm) throw new Error("Supabase returned an invalid wardrobe row.");
+    return norm;
   }
 
   /** @type {object[]} */
@@ -760,7 +1052,12 @@
           typeof x.name === "string" &&
           (x.image == null || typeof x.image === "string")
       )
-      .map((x) => ({ ...x, image: String(x.image ?? "").trim() }));
+      .map((x) => ({
+        ...x,
+        image: String(x.image ?? "").trim(),
+        season: normalizeStoredItemSeason(x.season),
+        colorCode: String(x.colorCode ?? x.color_code ?? "").trim(),
+      }));
   }
 
   function loadLocalStorageCustomOnly() {
@@ -832,22 +1129,28 @@
     }
   }
 
-  /** Persist custom rows to localStorage and, when served via `npm run dev`, to `data/custom-items.json`. */
+  /**
+   * Persist browser-only custom rows (no Supabase): `localStorage` + optional `data/custom-items.json` via dev server.
+   * When Supabase is on, canonical custom pieces live in `wardrobe_items`; drop the local duplicate list to save quota.
+   * @param {unknown[]} rows
+   * @returns {Promise<boolean>} without Supabase: `true` if project JSON was written; with Supabase: `true` after clearing redundant local cache.
+   */
   async function commitCustomItems(rows) {
+    const list = Array.isArray(rows) ? rows : [];
     if (isSupabaseReady()) {
-      const cloudIds = new Set(cloudBackedCustomItems.map((r) => String(r?.id ?? "")));
-      const localOnly = (rows || []).filter(
-        (r) => r && String(r.id).startsWith("custom-") && !cloudIds.has(String(r.id))
-      );
       try {
-        localStorage.setItem(CUSTOM_ITEMS_KEY, JSON.stringify(localOnly));
-      } catch (e) {
-        console.warn(e);
+        localStorage.removeItem(CUSTOM_ITEMS_KEY);
+      } catch {
+        /* ignore */
       }
-      return await syncCustomItemsToProjectFile(localOnly);
+      return true;
     }
-    localStorage.setItem(CUSTOM_ITEMS_KEY, JSON.stringify(rows));
-    return await syncCustomItemsToProjectFile(rows);
+    try {
+      localStorage.setItem(CUSTOM_ITEMS_KEY, JSON.stringify(list));
+    } catch (e) {
+      throw e;
+    }
+    return await syncCustomItemsToProjectFile(list);
   }
 
   function downloadCustomItemsJsonForRepo() {
@@ -868,7 +1171,11 @@
     const rows = isSupabaseReady() ? loadLocalStorageCustomOnly() : loadCustomItems();
     let synced = false;
     try {
-      synced = await commitCustomItems(rows);
+      if (isSupabaseReady()) {
+        synced = await syncCustomItemsToProjectFile(rows);
+      } else {
+        synced = await commitCustomItems(rows);
+      }
     } catch (e) {
       console.warn(e);
       showToast("Could not update browser storage — check space or privacy settings.");
@@ -894,7 +1201,7 @@
     } catch {
       /* private mode / disabled */
     }
-    return "S/S";
+    return "All";
   }
 
   function loadPersistedSeasonNav() {
@@ -1053,11 +1360,11 @@
       try {
         localStorage.setItem(ITEM_ARCHIVE_OVERRIDES_KEY, JSON.stringify(archiveOverridesState));
       } catch (e) {
-        const err = /** @type {any} */ (e);
-        if (err && (err.name === "QuotaExceededError" || err.code === 22)) {
-          const q = new Error("QUOTA");
-          /** @type {any} */ (q).archiveOverrides = true;
-          throw q;
+        const q = /** @type {any} */ (e);
+        if (q?.name === "QuotaExceededError" || q?.code === 22) {
+          const ex = /** @type {any} */ (new Error("quota"));
+          ex.archiveOverrides = true;
+          throw ex;
         }
         throw e;
       }
@@ -1076,15 +1383,11 @@
       try {
         localStorage.setItem(ARCHIVE_HIDDEN_IDS_KEY, JSON.stringify([...archiveHiddenState]));
       } catch (e) {
-        console.warn(e);
+        throw e;
       }
       return;
     }
-    try {
-      await flushWardrobeAppStateToSupabase();
-    } catch (e) {
-      console.warn("saveArchiveHiddenIds (Supabase)", e);
-    }
+    await flushWardrobeAppStateToSupabase();
   }
 
   function mergeWardrobeFromSources() {
@@ -1238,13 +1541,16 @@
       friendlyRecordCategory(String(item.category ?? "")),
       item.season,
       item.colour,
+      itemColorCode(item),
       item.fabric,
       item.weight,
       item.size,
       item.measuredDimensions,
       item.purchaseDate,
       item.notes,
-      ...(getItemColorVariants(item)?.map((v) => [v.label, v.colour, v.key].filter(Boolean).join(" ")) ?? []),
+      ...(getItemColorVariants(item)?.map((v) =>
+        [v.label, v.colour, v.color, v.colorCode, v.key].filter(Boolean).join(" ")
+      ) ?? []),
     ]
       .filter(Boolean)
       .join(" ")
@@ -1290,14 +1596,14 @@
     const bar = document.getElementById("filter-summary-bar");
     const text = document.getElementById("filter-summary-text");
     if (!bar || !text) return;
-    const n = countNarrowingFilterDims();
-    if (n === 0) {
+    const summary = describeNarrowingFiltersForUi().trim();
+    if (!narrowingFiltersActive() || !summary) {
       bar.hidden = true;
       text.textContent = "";
       return;
     }
     bar.hidden = false;
-    text.textContent = `${n} active — ${describeNarrowingFiltersForUi()}`;
+    text.textContent = `${countNarrowingFilterDims()} active — ${summary}`;
   }
 
   function countItemsForCurrentSeasonTab() {
@@ -1305,6 +1611,7 @@
   }
 
   function resetNarrowingFilters() {
+    cancelSearchGridDebounce();
     categoryNavFilter = "";
     subcategoryFilter = "";
     if (els.search) els.search.value = "";
@@ -1325,11 +1632,21 @@
     return true;
   }
 
-  /** UI / export: blank, `All-season`, or `All` → label "All". */
+  /** UI / export: blank, `All-season`, or `All` → label "All season". */
   function seasonUiLabel(raw) {
     const s = String(raw ?? "").trim();
-    if (!s || s === "All-season" || s === "All") return "All";
+    if (!s || s === "All-season" || s === "All") return "All season";
     if (s === "A/W" || s === "S/S") return s;
+    return s;
+  }
+
+  /** Stored value for “all seasons” on a piece; matches add/edit season `<select>` default. */
+  const DEFAULT_STORED_SEASON = "All-season";
+
+  /** Empty or legacy `All` → `All-season` for DB / JSON rows. */
+  function normalizeStoredItemSeason(raw) {
+    const s = String(raw ?? "").trim();
+    if (!s || s === "All") return DEFAULT_STORED_SEASON;
     return s;
   }
 
@@ -1337,17 +1654,45 @@
   function formatPurchaseDateForDisplay(raw) {
     const s = String(raw ?? "").trim();
     if (!s) return "";
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const split = /^(\d{4}-\d{2}-\d{2})(?:\s*[·•]\s*(.+))?$/;
+    const m = s.match(split);
+    if (m) {
       try {
-        const d = new Date(`${s}T12:00:00`);
+        const d = new Date(`${m[1]}T12:00:00`);
         if (!Number.isNaN(d.getTime())) {
-          return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+          const pretty = d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+          const note = m[2] != null ? String(m[2]).trim() : "";
+          return note ? `${pretty} · ${note}` : pretty;
         }
       } catch {
         /* fall through */
       }
     }
     return s;
+  }
+
+  /** Split stored `purchaseDate` (ISO date, optional note) for date picker + text note fields. */
+  function splitPurchaseDateForForm(stored) {
+    const s = String(stored ?? "").trim();
+    if (!s) return { date: "", note: "" };
+    const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (!m) return { date: "", note: s };
+    const datePart = m[1];
+    let rest = s.slice(datePart.length).trim();
+    if (rest.startsWith("T")) {
+      rest = rest.replace(/^T[\d:.+\-Z]+/i, "").trim();
+    }
+    rest = rest.replace(/^[·•\-\s]+/, "").replace(/^\((.*)\)$/, "$1").trim();
+    return { date: datePart, note: rest };
+  }
+
+  /** Combine date picker + optional note back into one stored string. */
+  function joinPurchaseDateFromForm(date, note) {
+    const d = String(date ?? "").trim();
+    const n = String(note ?? "").trim();
+    if (d && n) return `${d} · ${n}`;
+    if (d) return d;
+    return n;
   }
 
   function poolItemsForDrillSubcategories() {
@@ -1617,7 +1962,11 @@
   function imageAltForItem(item) {
     const dn = displayNameWithoutLeadingColor(item);
     const col = String(item?.colour ?? "").trim();
-    if (col) return `${item.brand} — ${dn} (${col})`;
+    const code = itemColorCode(item);
+    if (col || code) {
+      const tail = [col, code].filter(Boolean).join(" · ");
+      return `${item.brand} — ${dn} (${tail})`;
+    }
     return `${item.brand} — ${dn}`;
   }
 
@@ -1626,8 +1975,10 @@
     const vars = getItemColorVariants(item);
     if (vars?.length) {
       parts.push(`${vars.length} colours: ${vars.map((v) => v.label).join(", ")}`);
-    } else if (item.colour) {
-      parts.push(item.colour);
+    } else {
+      if (item.colour) parts.push(item.colour);
+      const cc = itemColorCode(item);
+      if (cc) parts.push(cc);
     }
     if (item.fabric) parts.push(item.fabric);
     if (item.weight) parts.push(item.weight);
@@ -1665,6 +2016,8 @@
         for (const v of vars) {
           const im = String(v.image ?? "").trim();
           if (im && !im.startsWith("data:")) seen.add(im);
+          const pv = String(v.previewImage ?? "").trim();
+          if (pv && !pv.startsWith("data:")) seen.add(pv);
           for (const g of v.gallery || []) {
             const u = String(g ?? "").trim();
             if (u && !u.startsWith("data:")) seen.add(u);
@@ -1778,7 +2131,12 @@
 
   function isBlobOrAbsoluteUrl(u) {
     const s = String(u ?? "").trim();
-    return !s || s.startsWith("data:") || /^https?:\/\//i.test(s);
+    return !s || s.startsWith("data:") || s.startsWith("blob:") || /^https?:\/\//i.test(s);
+  }
+
+  function isDisplayableCloudImageUrl(u) {
+    const s = String(u ?? "").trim();
+    return s.startsWith("data:") || s.startsWith("blob:") || /^https?:\/\//i.test(s);
   }
 
   function splitDirFile(path) {
@@ -1930,101 +2288,25 @@
     }
 
     if (!primary) {
-      for (const u of itemGalleryList(item)) add(u);
+      for (const u of itemGalleryList(item)) {
+        if (isDisplayableCloudImageUrl(u)) add(u);
+      }
       const vars = getItemColorVariants(item);
       if (vars) {
         for (const v of vars) {
           const u = String(v?.image ?? "").trim();
-          if (u) add(u);
+          if (isDisplayableCloudImageUrl(u)) add(u);
         }
       }
-      if (!out.length) return [];
-      if (out.every((u) => isBlobOrAbsoluteUrl(u))) return out;
       return out;
     }
 
-    const normalizedPrimary = primary.replace(/\\/g, "/");
-    const primaryExistsInArchive = archiveImagePathList.includes(normalizedPrimary);
-
-    if (MANUAL_IMAGE_UPLOAD_MODE && !isBlobOrAbsoluteUrl(primary) && !primaryExistsInArchive) {
-      console.info("Image file not found in archive manifest; skipping missing local cover:", primary);
+    if (!isDisplayableCloudImageUrl(primary)) {
+      console.info("Local image paths are disabled; upload this cover to Supabase Storage and save the public URL:", primary);
       return [];
     }
 
     add(primary);
-    if (isBlobOrAbsoluteUrl(primary)) return out;
-    if (MANUAL_IMAGE_UPLOAD_MODE) return out;
-
-    const { dir, file } = splitDirFile(primary);
-    const { stem, ext } = stemAndExt(file);
-    if (stem) {
-      const baseExt = ext || ".png";
-      for (const e of IMAGE_EXTENSIONS) {
-        if (e.toLowerCase() !== ext.toLowerCase()) add(dir + stem + e);
-      }
-      let relaxed = stem;
-      for (let k = 0; k < 10 && /\s*\([^)]*\)/.test(relaxed); k++) {
-        const next = relaxed.replace(/\s*\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
-        if (!next || next === relaxed) break;
-        relaxed = next;
-        add(dir + relaxed + baseExt);
-        for (const e of IMAGE_EXTENSIONS) add(dir + relaxed + e);
-      }
-    }
-
-    const id = String(item?.id ?? "").trim();
-    if (id) {
-      for (const e of [".png", ".jpg", ".jpeg", ".webp", ".gif"]) add(`images/${id}${e}`);
-    }
-
-    const matchTokens = compileStrictMatchTokens(item);
-    const declaredStemRaw = normalizeImageStem(primary);
-    const declD = stripTrailingOrdinalStemSuffix(declaredStemRaw);
-    const declaredWordCount = declD.split(/\s+/).filter(Boolean).length;
-
-    const scored = [];
-    for (const p of archiveImagePathList) {
-      if (seen.has(p)) continue;
-      const candStemRaw = normalizeImageStem(p);
-      const candAdj = alignedCandidateStemForFuzzy(declD, candStemRaw);
-      const rawStemDiffers = candStemRaw !== declaredStemRaw;
-      const stemExt =
-        declD.length >= 4 &&
-        declaredWordCount >= 2 &&
-        rawStemDiffers &&
-        (candAdj === declD || candAdj.startsWith(declD + " "));
-      const stemTail =
-        declD.length >= 4 &&
-        declaredWordCount >= 2 &&
-        rawStemDiffers &&
-        declaredStemEndsWithCandidateStem(declD, candStemRaw);
-      const candC = stripTrailingOrdinalStemSuffix(candStemRaw);
-      const candWordCount = candC.split(/\s+/).filter(Boolean).length;
-      const stemPrefix =
-        rawStemDiffers &&
-        candC.length >= 4 &&
-        candWordCount >= 2 &&
-        (declD === candC || declD.startsWith(candC + " "));
-      const stemSubseq =
-        rawStemDiffers &&
-        candC.length >= 4 &&
-        candidateStemIsOrderedSubsequenceOfDeclared(declD, candC);
-      const hits = countWholeWordMatchesInStem(p, matchTokens);
-      if (stemExt) {
-        scored.push({ p, score: 1_000 + hits });
-      } else if (stemTail) {
-        scored.push({ p, score: 998 + hits });
-      } else if (stemPrefix) {
-        scored.push({ p, score: 997 + hits });
-      } else if (stemSubseq) {
-        scored.push({ p, score: 994 + hits });
-      } else if (matchTokens.length >= 3 && hits >= 3) {
-        scored.push({ p, score: hits });
-      }
-    }
-    scored.sort((a, b) => b.score - a.score || String(a.p).length - String(b.p).length);
-    for (const { p } of scored.slice(0, 5)) add(p);
-
     return out;
   }
 
@@ -2035,8 +2317,14 @@
         : item?.id != null
           ? String(item.id)
           : "";
-    if (cacheKey && coverResolutionCache.has(cacheKey)) return coverResolutionCache.get(cacheKey);
-    return String(item?.image ?? "").trim();
+  
+    if (cacheKey && coverResolutionCache.has(cacheKey)) {
+      return coverResolutionCache.get(cacheKey);
+    }
+  
+    const src = String(item?.image ?? "").trim();
+  
+    return isDisplayableCloudImageUrl(src) ? src : "";
   }
 
   /**
@@ -2044,12 +2332,22 @@
    * @param {{ host?: HTMLElement, missingClass?: string | null, onResolved?: (url: string) => void, onExhausted?: () => void }} [opts]
    */
   function wireCoverImageWithFallbacks(img, item, opts) {
+    const prevAbort = /** @type {(() => void) | undefined} */ (/** @type {any} */ (img).__twCoverWireAbort);
+    if (typeof prevAbort === "function") {
+      try {
+        prevAbort();
+      } catch {
+        /* ignore */
+      }
+    }
+
     const host = opts?.host;
     const missingClass = opts?.missingClass !== undefined ? opts.missingClass : "card__media--missing";
     const onResolved = opts?.onResolved;
     const onExhausted = opts?.onExhausted;
     const candidates = buildCoverCandidates(item);
     if (!candidates.length) {
+      /** @type {any} */ (img).__twCoverWireAbort = undefined;
       if (host && missingClass) host.classList.add(missingClass);
       onExhausted?.();
       img.removeAttribute("src");
@@ -2057,9 +2355,13 @@
     }
 
     let idx = 0;
+    let done = false;
     function cleanup() {
+      if (done) return;
+      done = true;
       img.removeEventListener("error", onErr);
       img.removeEventListener("load", onLoad);
+      /** @type {any} */ (img).__twCoverWireAbort = undefined;
     }
     function onLoad() {
       cleanup();
@@ -2089,11 +2391,15 @@
     img.addEventListener("load", onLoad, { once: true });
     img.addEventListener("error", onErr);
     img.src = candidates[0];
+
+    /** @type {any} */ (img).__twCoverWireAbort = () => {
+      cleanup();
+    };
   }
 
   /** Thumbnail strip to swap the hero `img` (grid card or detail dialog). */
   function mountHeroGalleryStrip(mediaEl, heroImgEl, item) {
-    const extras = itemGalleryList(item);
+    const extras = itemGalleryList(item).filter(isDisplayableCloudImageUrl);
     if (!extras.length) return;
 
     const strip = document.createElement("div");
@@ -2111,13 +2417,15 @@
     mainBtn.className = "card__gallery-thumb is-active";
     mainBtn.title = "Cover";
     const mainTi = document.createElement("img");
-    const firstCover = buildCoverCandidates(item)[0] ?? String(item.image ?? "").trim();
-    mainTi.src = firstCover;
+    const firstCover = buildCoverCandidates(item)[0] ?? "";
+    if (firstCover) mainTi.src = firstCover;
     mainTi.alt = "";
     mainTi.draggable = false;
     mainBtn.appendChild(mainTi);
     mainBtn.addEventListener("click", () => {
-      heroImgEl.src = effectiveCoverSrc(item);
+      const src = effectiveCoverSrc(item);
+      if (src) heroImgEl.src = src;
+      else heroImgEl.removeAttribute("src");
       heroImgEl.alt = imageAltForItem(item);
       setActive(mainBtn);
     });
@@ -2235,7 +2543,11 @@
     }
     currentOutfitSlots.push(slot);
     onOutfitChange();
-    showToast("Added to outfit.");
+    if (!document.getElementById("outfit-strip")) {
+      showToast("Added to outfit — open the archive to see the outfit builder.");
+    } else {
+      showToast("Added to outfit.");
+    }
   }
 
   function openOutfitVariantPicker(itemId) {
@@ -2713,6 +3025,7 @@
         next.colorVariants.map(async (v) => {
           const nv = { ...v };
           if (nv.image) nv.image = await shrinkDataUrlForStorage(String(nv.image));
+          if (nv.previewImage) nv.previewImage = await shrinkDataUrlForStorage(String(nv.previewImage));
           if (Array.isArray(nv.gallery) && nv.gallery.length) {
             nv.gallery = (
               await Promise.all(nv.gallery.map((u) => (u ? shrinkDataUrlForStorage(String(u)) : "")))
@@ -2744,6 +3057,64 @@
   }
 
   /**
+   * `outfit_items.item_id` references `wardrobe_items.id` with ON DELETE RESTRICT — Postgres
+   * rejects deleting a row that still appears in any saved outfit. Remove those links first.
+   * If RLS blocks deletes, PostgREST can return success with 0 rows removed — we detect that and throw.
+   */
+  async function unlinkCloudOutfitsReferencingWardrobeItem(itemId) {
+    const sid = String(itemId ?? "").trim();
+    if (!sid || !isSupabaseReady()) return;
+    const { error } = await supabaseClient.from("outfit_items").delete().eq("item_id", sid);
+    if (error) throw error;
+    const { count, error: countErr } = await supabaseClient
+      .from("outfit_items")
+      .select("item_id", { count: "exact", head: true })
+      .eq("item_id", sid);
+    if (countErr) {
+      console.warn("outfit_items count after unlink:", countErr);
+    } else if (count != null && count > 0) {
+      const blocked = new Error(
+        "Saved outfits still reference this piece in the database (DELETE on outfit_items removed no rows — check Supabase RLS: anon needs DELETE on outfit_items, see migrations/20250513000000_init_wardrobe.sql)."
+      );
+      /** @type {any} */ (blocked).code = "OUTFIT_ITEMS_UNLINK_BLOCKED";
+      throw blocked;
+    }
+    savedOutfits = savedOutfits.map((o) => {
+      const slots = Array.isArray(o.slots) ? o.slots : [];
+      const next = slots.filter((s) => String(s.itemId ?? "") !== sid);
+      if (next.length === slots.length) return o;
+      return { ...o, slots: next };
+    });
+  }
+
+  function formatSupabaseUserMessage(err) {
+    if (err == null) return "";
+    const o = /** @type {any} */ (err);
+    if (typeof o.message === "string" && o.message.trim()) return o.message.trim();
+    if (typeof o.error_description === "string") return o.error_description.trim();
+    try {
+      return JSON.stringify(o);
+    } catch {
+      return String(o);
+    }
+  }
+
+  function toastCloudDeleteFailure(step, err) {
+    const detail = formatSupabaseUserMessage(err);
+    const hint =
+      step === "unlink"
+        ? "Unlink failed"
+        : step === "row"
+          ? "Delete row failed"
+          : "Delete failed";
+    const max = 220;
+    const tail = detail ? `: ${detail}` : "";
+    const msg = `${hint}${tail}`.slice(0, max);
+    showToast(msg);
+    console.warn(`deleteWardrobePieceFromBrowser (${step})`, err);
+  }
+
+  /**
    * Remove a piece from this browser’s wardrobe view: custom rows are dropped from cloud;
    * archive (seed) rows are hidden and overrides cleared — when Supabase is configured,
    * hidden ids and overrides are persisted in `wardrobe_app_state`, not only localStorage.
@@ -2761,12 +3132,37 @@
 
       if (isSupabaseReady()) {
         try {
+          const item = itemById.get(sid) || items.find((x) => String(x?.id ?? "") === String(sid));
+          try {
+            await unlinkCloudOutfitsReferencingWardrobeItem(sid);
+          } catch (e1) {
+            cloudBackedCustomItems = prevCloud;
+            toastCloudDeleteFailure("unlink", e1);
+            return;
+          }
+          try {
+            await deleteWardrobeItemImagesFromCloud(item);
+          } catch (eImg) {
+            console.warn("Image cleanup before delete (continuing):", eImg);
+          }
           const { error } = await supabaseClient.from(WARDROBE_TABLE).delete().eq("id", sid);
           if (error) throw error;
         } catch (e) {
           cloudBackedCustomItems = prevCloud;
-          console.warn(e);
-          showToast("Cloud delete failed — piece not removed.");
+          try {
+            if (useCloudOutfits && isSupabaseReady()) {
+              const api = await import("./js/supabase-client.js");
+              const res = await api.fetchOutfits(supabaseClient);
+              if (res.ok) {
+                savedOutfits = (res.outfits || [])
+                  .map((o) => normalizeSavedOutfitRecord(o))
+                  .filter(Boolean);
+              }
+            }
+          } catch (e2) {
+            console.warn("fetchOutfits after delete failure", e2);
+          }
+          toastCloudDeleteFailure("row", e);
           return;
         }
         stripCustomIdsFromLocalStorage([sid]);
@@ -2802,6 +3198,7 @@
     if (document.getElementById("grid")) {
       initFilters();
       onOutfitChange();
+      renderSavedOutfits();
     }
 
     showToast(
@@ -2825,14 +3222,18 @@
     const browseSlot = document.getElementById("add-item-category")?.value || "";
     const recordPick = document.getElementById("add-item-record-type")?.value?.trim() || "";
     const category = recordPick || defaultRecordCategoryForSlot(browseSlot);
-    const season = document.getElementById("add-item-season")?.value?.trim() || "";
+    const season = normalizeStoredItemSeason(document.getElementById("add-item-season")?.value?.trim() || "");
     const color = document.getElementById("add-item-color")?.value?.trim() || "";
+    const colorCode = document.getElementById("add-item-color-code")?.value?.trim() || "";
     const fabric = document.getElementById("add-item-fabric")?.value?.trim() || "";
     const weight = document.getElementById("add-item-weight")?.value?.trim() || "";
     const size = document.getElementById("add-item-size")?.value?.trim() || "";
     const measuredDimensions =
       document.getElementById("add-item-measured-dimensions")?.value?.trim() || "";
-    const purchaseDate = document.getElementById("add-item-purchase-date")?.value?.trim() || "";
+    const purchaseDate = joinPurchaseDateFromForm(
+      document.getElementById("add-item-purchase-date")?.value?.trim() || "",
+      document.getElementById("add-item-purchase-date-note")?.value?.trim() || ""
+    );
     const notes = document.getElementById("add-item-notes")?.value?.trim() || "";
     const fileInput = document.getElementById("add-item-image");
     trimCoverFileInputToOne(fileInput, () =>
@@ -2882,6 +3283,8 @@
 
     const galleryDeduped = galleryUrls.filter((u) => u && u !== dataUrl);
 
+    const colorTrim = String(color ?? "").trim();
+    const colorCodeTrim = String(colorCode ?? "").trim();
     const newItem = {
       id:
         typeof crypto !== "undefined" && crypto.randomUUID
@@ -2892,7 +3295,8 @@
       section: "",
       category,
       season,
-      color,
+      colour: colorTrim,
+      color: colorTrim,
       fabric,
       weight,
       size,
@@ -2903,6 +3307,7 @@
       notes,
       pillar: "",
     };
+    if (colorCodeTrim) newItem.colorCode = colorCodeTrim;
 
     if (isSupabaseReady()) {
       try {
@@ -3129,6 +3534,7 @@
     }
     media.addEventListener("click", (ev) => {
       if (ev.target.closest(".card__quick-outfit")) return;
+      if (ev.target.closest(".card__swatch--pick")) return;
       if (ev.target.closest(".card__gallery-thumb")) return;
       if (ev.target.closest(".card__season-chip")) return;
       openCardDetail(ev);
@@ -3162,7 +3568,7 @@
     body.appendChild(brand);
     body.appendChild(metaLine);
 
-    mountVariantSwatchStrip(body, item);
+    mountVariantSwatchStrip(body, item, { outfitPick: true, heroImg: img, heroHost: media });
 
     const specs = document.createElement("ul");
     specs.className = "card__specs";
@@ -3188,32 +3594,6 @@
     }
 
     if (specs.children.length) body.appendChild(specs);
-
-    if (isCustomWardrobeItem(item)) {
-      const cardActions = document.createElement("div");
-      cardActions.className = "card__actions";
-      const del = document.createElement("button");
-      del.type = "button";
-      del.className = "btn btn--small btn--danger card__delete-btn";
-      del.textContent = "Delete";
-      const pieceLabel = `${String(item.brand ?? "").trim()} ${String(item.name ?? "").trim()}`.trim() || "this piece";
-      del.setAttribute("aria-label", `Delete ${pieceLabel}`);
-      del.title = "Remove this custom piece from your wardrobe";
-      del.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        if (
-          !confirm(
-            "Delete this piece from your wardrobe? Its fields and images are removed and cannot be restored."
-          )
-        ) {
-          return;
-        }
-        void deleteWardrobePieceFromBrowser(String(item.id));
-      });
-      cardActions.appendChild(del);
-      body.appendChild(cardActions);
-    }
 
     article.appendChild(media);
     article.appendChild(body);
@@ -3293,6 +3673,30 @@
     if (els.emptyWrap) els.emptyWrap.hidden = n > 0;
     els.grid.hidden = n === 0;
     syncFilterSummaryBar();
+  }
+
+  /** Search box: avoid rebuilding the whole grid on every keystroke (main-thread jank). */
+  let searchGridDebounceTimer = null;
+
+  function cancelSearchGridDebounce() {
+    if (searchGridDebounceTimer != null) {
+      clearTimeout(searchGridDebounceTimer);
+      searchGridDebounceTimer = null;
+    }
+  }
+
+  function scheduleRenderGridFromSearchInput() {
+    if (searchGridDebounceTimer != null) clearTimeout(searchGridDebounceTimer);
+    searchGridDebounceTimer = setTimeout(() => {
+      searchGridDebounceTimer = null;
+      renderGrid();
+    }, 180);
+  }
+
+  function flushSearchGridDebounceIfPending() {
+    if (searchGridDebounceTimer == null) return;
+    cancelSearchGridDebounce();
+    renderGrid();
   }
 
   let dragFromIndex = null;
@@ -3379,7 +3783,7 @@
       if (variant) {
         const col = document.createElement("p");
         col.className = "outfit-slot__colour";
-        col.textContent = variant.label;
+        col.textContent = variantCaptionText(variant) || variant.label;
         meta.appendChild(col);
       }
 
@@ -3517,17 +3921,20 @@
 
   /**
    * @param {HTMLElement} listEl
-   * @param {{ key?: string, label?: string, color?: string, image?: string, gallery?: string[], notes?: string }} data
+   * @param {{ key?: string, label?: string, color?: string, colorCode?: string, image?: string, previewImage?: string, gallery?: string[], notes?: string }} data
    */
   function appendVariantEditorRow(listEl, data) {
     const key = String(data.key ?? "").trim() || newEditorVariantKey();
     const label = String(data.label ?? "").trim();
-    const color = String(data.colour ?? "").trim();
+    const color = String(data.colour ?? data.color ?? "").trim();
+    const colorCode = String(data.colorCode ?? data.colour_code ?? data.color_code ?? "").trim();
     const image = String(data.image ?? "").trim();
+    const previewImg = String(data.previewImage ?? "").trim();
     const notes = data.notes != null ? String(data.notes) : "";
     const fs = document.createElement("fieldset");
     fs.className = "item-edit-variant-row";
     if (image) fs.setAttribute("data-prev-image", image);
+    if (previewImg) fs.setAttribute("data-prev-preview", previewImg);
 
     const leg = document.createElement("legend");
     leg.className = "item-edit-variant-legend";
@@ -3551,6 +3958,13 @@
     colorIn.maxLength = 80;
     colorIn.placeholder = "Colour name";
     colorIn.value = color;
+
+    const codeIn = document.createElement("input");
+    codeIn.type = "text";
+    codeIn.className = "item-edit-variant-color-code";
+    codeIn.maxLength = 80;
+    codeIn.placeholder = "Colour code (#hex, SKU…)";
+    codeIn.value = colorCode;
 
     const notesIn = document.createElement("input");
     notesIn.type = "text";
@@ -3584,6 +3998,37 @@
       coverSpan.textContent = "Cover image (required)";
       rmCov.hidden = true;
       coverIn.value = "";
+    });
+
+    const previewLab = document.createElement("label");
+    previewLab.className = "item-edit-variant-preview-wrap";
+    const previewSpan = document.createElement("span");
+    previewSpan.className = "item-edit-variant-cover-label";
+    previewSpan.textContent = previewImg
+      ? "Replace colour preview (optional, swatch only)"
+      : "Colour preview (optional — if empty, strip uses hex from colour code / name, then the code text)";
+    const previewIn = document.createElement("input");
+    previewIn.type = "file";
+    previewIn.className = "item-edit-variant-preview";
+    previewIn.accept = "image/*";
+    previewIn.addEventListener("change", () => {
+      trimCoverFileInputToOne(previewIn);
+      delete fs.dataset.previewRemoved;
+    });
+    previewLab.appendChild(previewSpan);
+    previewLab.appendChild(previewIn);
+
+    const rmPrev = document.createElement("button");
+    rmPrev.type = "button";
+    rmPrev.className = "btn btn--small btn--ghost item-edit-variant-preview-remove";
+    rmPrev.textContent = "Remove colour preview";
+    rmPrev.hidden = !previewImg;
+    rmPrev.addEventListener("click", () => {
+      fs.dataset.previewRemoved = "1";
+      fs.removeAttribute("data-prev-preview");
+      previewSpan.textContent = "Colour preview (optional — if empty, strip uses hex from colour code / name, then the code text)";
+      rmPrev.hidden = true;
+      previewIn.value = "";
     });
 
     const varGalWrap = document.createElement("div");
@@ -3628,9 +4073,12 @@
     fs.appendChild(keyIn);
     fs.appendChild(labelIn);
     fs.appendChild(colorIn);
+    fs.appendChild(codeIn);
     fs.appendChild(notesIn);
     fs.appendChild(coverLab);
     fs.appendChild(rmCov);
+    fs.appendChild(previewLab);
+    fs.appendChild(rmPrev);
     if (varGal.children.length) fs.appendChild(varGalWrap);
     fs.appendChild(rm);
     listEl.appendChild(fs);
@@ -3642,25 +4090,41 @@
    * @param {object} prev
    * @param {(t: string, err?: boolean) => void} setMsg
    * @param {{ cloudItemId?: string }} [opts]
-   * @returns {Promise<{ key: string, label: string, color: string, image: string, gallery: string[], notes: string }[] | null>}
+   * @returns {Promise<{ key: string, label: string, color: string, colorCode: string, image: string, previewImage?: string, gallery: string[], notes: string }[] | null>}
    */
   async function gatherColorVariantsFromEditForm(form, prev, setMsg, opts = {}) {
     const wrap = form.querySelector("#item-edit-variants-wrap");
     if (!wrap || wrap.dataset.active !== "1") return null;
     const listEl = form.querySelector("#item-edit-variants-list");
     if (!listEl) return null;
-    const rows = [...listEl.querySelectorAll(".item-edit-variant-row")];
+    const rawRows = [...listEl.querySelectorAll(".item-edit-variant-row")];
+    const rows = rawRows.filter((row) => {
+      const lab = row.querySelector(".item-edit-variant-label")?.value?.trim() || "";
+      const col = row.querySelector(".item-edit-variant-color")?.value?.trim() || "";
+      const code = row.querySelector(".item-edit-variant-color-code")?.value?.trim() || "";
+      const nts = row.querySelector(".item-edit-variant-notes")?.value?.trim() || "";
+      const prevIm = row.getAttribute("data-prev-image")?.trim() || "";
+      const prevPr = row.getAttribute("data-prev-preview")?.trim() || "";
+      const coverIn = row.querySelector(".item-edit-variant-cover");
+      const file = coverIn?.files?.[0];
+      const previewIn = row.querySelector(".item-edit-variant-preview");
+      const previewFile = previewIn?.files?.[0];
+      const gWrap = row.querySelector(".item-edit-variant-gallery-existing");
+      const hasGal = Boolean(gWrap?.querySelector(".item-edit-gallery-row[data-gallery-url]"));
+      return Boolean(lab || col || code || nts || prevIm || prevPr || file || previewFile || hasGal);
+    });
     if (!rows.length) {
-      setMsg("Add at least one colour row.", true);
+      setMsg("Add at least one colour row with a cover image.", true);
       return null;
     }
-    /** @type {{ key: string, label: string, color: string, image: string, gallery: string[], notes: string }[]} */
+    /** @type {{ key: string, label: string, color: string, colorCode: string, image: string, previewImage?: string, gallery: string[], notes: string }[]} */
     const built = [];
-    const prevVars = Array.isArray(prev?.colorVariants) ? prev.colorVariants : [];
+    const prevVars = getItemColorVariants(prev) || [];
     for (const row of rows) {
       const key = row.querySelector(".item-edit-variant-key")?.value?.trim() || "";
       const label = row.querySelector(".item-edit-variant-label")?.value?.trim() || "";
       const color = row.querySelector(".item-edit-variant-color")?.value?.trim() || "";
+      const colorCode = row.querySelector(".item-edit-variant-color-code")?.value?.trim() || "";
       const notes = row.querySelector(".item-edit-variant-notes")?.value?.trim() || "";
       const coverIn = row.querySelector(".item-edit-variant-cover");
       trimCoverFileInputToOne(/** @type {HTMLInputElement | null} */ (coverIn));
@@ -3683,8 +4147,12 @@
         setMsg("Each colour row needs an internal key (reload and try again).", true);
         return null;
       }
-      if (!label) {
-        setMsg("Each colour needs a label (shown when picking a colour for outfits).", true);
+      const outLabel = (label || color).trim();
+      if (!outLabel) {
+        setMsg(
+          "Each colour needs a label or colour name — fill at least one per row (used when picking a colour for outfits).",
+          true
+        );
         return null;
       }
       if (!image) {
@@ -3701,14 +4169,43 @@
       } else if (match && Array.isArray(match.gallery)) {
         gallery = match.gallery.map((x) => String(x ?? "").trim()).filter(Boolean);
       }
-      built.push({
+
+      const previewRemoved = row.dataset.previewRemoved === "1";
+      const previewInEl = row.querySelector(".item-edit-variant-preview");
+      trimCoverFileInputToOne(/** @type {HTMLInputElement | null} */ (previewInEl));
+      const previewFile2 = previewInEl?.files?.[0];
+      const prevPr = row.getAttribute("data-prev-preview")?.trim() || "";
+      let previewImage = "";
+      if (!previewRemoved) {
+        previewImage = prevPr;
+        if (previewFile2) {
+          try {
+            const cloudId = opts?.cloudItemId && isSupabaseReady() ? String(opts.cloudItemId).trim() : "";
+            previewImage = cloudId
+              ? await uploadWardrobeImageFileToCloud(previewFile2, cloudId, `variant-${key}-preview`)
+              : await fileToStorageDataUrl(previewFile2);
+          } catch (err) {
+            console.warn(err);
+            setMsg("Could not process a colour preview image.", true);
+            return null;
+          }
+        } else if (!previewImage && match) {
+          previewImage = String(match.previewImage ?? "").trim();
+        }
+      }
+
+      const rowObj = {
         key,
-        label,
-        color: color || label,
+        label: label.trim() || outLabel,
+        color: color.trim() || outLabel,
+        colour: color.trim() || outLabel,
+        colorCode: colorCode.trim(),
         image,
         gallery,
         notes,
-      });
+      };
+      if (previewImage) rowObj.previewImage = previewImage;
+      built.push(rowObj);
     }
     return built;
   }
@@ -3737,16 +4234,21 @@
     const browseSlot = form.querySelector("#item-edit-browse-slot")?.value || "";
     const recordPick = form.querySelector("#item-edit-record-type")?.value?.trim() ?? "";
     const category = recordPick || defaultRecordCategoryForSlot(browseSlot);
-    const season = form.querySelector("#item-edit-season")?.value?.trim() || "";
+    const season = normalizeStoredItemSeason(
+      form.querySelector("#item-edit-season")?.value?.trim() || String(prev.season ?? "").trim()
+    );
     const fabric = form.querySelector("#item-edit-fabric")?.value?.trim() || "";
     const weight = form.querySelector("#item-edit-weight")?.value?.trim() || "";
     const size = form.querySelector("#item-edit-size")?.value?.trim() || "";
     const measuredDimensions = form.querySelector("#item-edit-measured-dimensions")?.value?.trim() || "";
-    const purchaseDate = form.querySelector("#item-edit-purchase-date")?.value?.trim() || "";
+    const purchaseDate = joinPurchaseDateFromForm(
+      form.querySelector("#item-edit-purchase-date")?.value?.trim() || "",
+      form.querySelector("#item-edit-purchase-date-note")?.value?.trim() || ""
+    );
     const notes = form.querySelector("#item-edit-notes")?.value?.trim() || "";
 
     const variantsMode = itemEditVariantsActive(form);
-    /** @type {{ key: string, label: string, color: string, image: string, gallery: string[], notes: string }[] | null} */
+    /** @type {{ key: string, label: string, color: string, colorCode: string, image: string, previewImage?: string, gallery: string[], notes: string }[] | null} */
     let colorVariantsBuilt = null;
     if (variantsMode) {
       setMsg("Processing colour images…", false);
@@ -3759,6 +4261,11 @@
         ? String(colorVariantsBuilt[0].color ?? colorVariantsBuilt[0].colour ?? colorVariantsBuilt[0].label ?? "").trim()
         : form.querySelector("#item-edit-color")?.value?.trim() || "";
 
+    const colorCode =
+      variantsMode && colorVariantsBuilt?.length
+        ? String(colorVariantsBuilt[0].colorCode ?? "").trim()
+        : form.querySelector("#item-edit-color-code")?.value?.trim() || "";
+
     if (!brand || !name || !browseSlot) {
       setMsg("Brand, name, and section are required.", true);
       return;
@@ -3766,7 +4273,7 @@
     const slotProbe = {
       ...prev,
       category,
-      season: season || String(prev.season ?? "").trim(),
+      season,
     };
     if (itemSlot(slotProbe) !== browseSlot) {
       setMsg(
@@ -3777,9 +4284,7 @@
     }
 
     let image = String(prev.image ?? "").trim();
-    if (variantsMode && colorVariantsBuilt?.length) {
-      image = String(colorVariantsBuilt[0].image ?? "").trim() || image;
-    } else {
+    if (!(variantsMode && colorVariantsBuilt?.length)) {
       const stripCover = form.querySelector("#item-edit-remove-cover")?.value === "1";
       const coverEl = /** @type {HTMLInputElement | null} */ (form.querySelector("#item-edit-cover"));
       trimCoverFileInputToOne(coverEl);
@@ -3825,6 +4330,8 @@
     }
     gallery = dedupeGalleryUrls(image, gallery, 12);
 
+    const colorTrim = String(color ?? "").trim();
+    const colorCodeTrim = String(colorCode ?? "").trim();
     const updated = {
       ...prev,
       brand,
@@ -3832,7 +4339,6 @@
       section: "",
       category,
       season,
-      color,
       fabric,
       weight,
       size,
@@ -3842,6 +4348,18 @@
       image,
       pillar: "",
     };
+    if (colorTrim) {
+      updated.colour = colorTrim;
+      updated.color = colorTrim;
+    } else {
+      delete updated.colour;
+      delete updated.color;
+    }
+    if (colorCodeTrim) updated.colorCode = colorCodeTrim;
+    else {
+      delete updated.colorCode;
+      delete updated.color_code;
+    }
     if (gallery.length) updated.gallery = gallery;
     else delete updated.gallery;
 
@@ -3856,6 +4374,8 @@
     let customCloudSynced = false;
     /** When saving an archive (seed) override, whether it was flushed to Supabase `wardrobe_app_state`. */
     let archiveCloudSynced = false;
+    /** After custom Supabase save, wardrobe list was refetched — skip a redundant merge pass. */
+    let didCloudListRefresh = false;
 
     if (isCustom) {
       const inWardrobe = loadCustomItems().some((x) => String(x.id) === id);
@@ -3867,14 +4387,21 @@
       if (isSupabaseReady()) {
         try {
           const saved = await saveWardrobeItemToCloud(updated);
-          cloudBackedCustomItems = [
-            saved,
-            ...cloudBackedCustomItems.filter((x) => String(x.id) !== String(saved.id)),
-          ];
           stripCustomIdsFromLocalStorage([id]);
           await mirrorLocalCustomItemsToProjectFile();
           customCloudSynced = true;
           customProjectSynced = false;
+          await deleteSupabaseImagesNoLongerUsed(prev, saved, updated);
+          try {
+            await refreshCloudBackedCustomItems();
+            didCloudListRefresh = true;
+          } catch (re) {
+            console.warn(re);
+            cloudBackedCustomItems = [
+              saved,
+              ...cloudBackedCustomItems.filter((x) => String(x.id) !== String(saved.id)),
+            ];
+          }
         } catch (e) {
           console.warn(e);
           setMsg("Supabase save failed. Check network and RLS policies.", true);
@@ -3917,7 +4444,9 @@
         section: "",
         category,
         season,
-        color,
+        colour: colorTrim,
+        color: colorTrim,
+        colorCode: colorCodeTrim,
         fabric,
         weight,
         size,
@@ -3955,11 +4484,13 @@
     if (!(isCustom && isSupabaseReady() && !customCloudSynced)) {
       setMsg("", false);
     }
-    mergeWardrobeFromSources();
-    if (document.getElementById("grid")) {
-      initFilters();
-      onOutfitChange();
-      renderGrid();
+    if (!didCloudListRefresh) {
+      mergeWardrobeFromSources();
+      if (document.getElementById("grid")) {
+        initFilters();
+        onOutfitChange();
+        renderGrid();
+      }
     }
     const next = itemById.get(id);
     const mount = itemDetailMountRoot();
@@ -4082,7 +4613,7 @@
       const seaSel = document.createElement("select");
       seaSel.id = "item-edit-season";
       const seasonRows = [
-        { value: "All-season", label: "All" },
+        { value: "All-season", label: "All season" },
         { value: "A/W", label: "A/W" },
         { value: "S/S", label: "S/S" },
       ];
@@ -4100,22 +4631,47 @@
       const initialVariants = getItemColorVariants(item);
       const isCustomPiece = String(item.id ?? "").startsWith("custom-");
 
-      /** @type {HTMLLabelElement | null} */
+      /** @type {HTMLElement | null} */
       let colorSingleField = null;
 
       if (!initialVariants) {
+        const colorBlock = document.createElement("div");
+        colorBlock.className = "field field--span2 item-edit-single-colour-block";
+
         const colorIn = document.createElement("input");
         colorIn.type = "text";
         colorIn.id = "item-edit-color";
         colorIn.maxLength = 80;
-        colorIn.value = String(item.colour ?? "");
-        const colorLab = document.createElement("label");
-        colorLab.className = "field";
+        colorIn.autocomplete = "off";
+        colorIn.value = String(item.colour ?? item.color ?? "");
+
+        const colorNameLab = document.createElement("label");
+        colorNameLab.className = "field";
         const cspan = document.createElement("span");
         cspan.className = "field__label";
-        cspan.textContent = "Color (optional)";
-        colorLab.appendChild(cspan);
-        colorLab.appendChild(colorIn);
+        cspan.textContent = "Colour (optional)";
+        colorNameLab.appendChild(cspan);
+        colorNameLab.appendChild(colorIn);
+
+        const colorCodeIn = document.createElement("input");
+        colorCodeIn.type = "text";
+        colorCodeIn.id = "item-edit-color-code";
+        colorCodeIn.maxLength = 80;
+        colorCodeIn.autocomplete = "off";
+        colorCodeIn.placeholder = "#hex, SKU…";
+        colorCodeIn.value = itemColorCode(item);
+
+        const colorCodeLab = document.createElement("label");
+        colorCodeLab.className = "field";
+        const ccspan = document.createElement("span");
+        ccspan.className = "field__label";
+        ccspan.textContent = "Colour code (optional)";
+        colorCodeLab.appendChild(ccspan);
+        colorCodeLab.appendChild(colorCodeIn);
+
+        colorBlock.appendChild(colorNameLab);
+        colorBlock.appendChild(colorCodeLab);
+
         if (isCustomPiece) {
           const migrateHint = document.createElement("p");
           migrateHint.className = "item-edit-variant-migrate-hint";
@@ -4125,11 +4681,11 @@
           migrateBtn.type = "button";
           migrateBtn.className = "btn btn--small btn--ghost item-edit-enable-variants";
           migrateBtn.textContent = "Add another colour…";
-          colorLab.appendChild(migrateHint);
-          colorLab.appendChild(migrateBtn);
+          colorBlock.appendChild(migrateHint);
+          colorBlock.appendChild(migrateBtn);
         }
-        grid.appendChild(colorLab);
-        colorSingleField = colorLab;
+        grid.appendChild(colorBlock);
+        colorSingleField = colorBlock;
       }
 
       const variantsWrap = document.createElement("div");
@@ -4147,7 +4703,7 @@
         const variantsIntro = document.createElement("p");
         variantsIntro.className = "item-edit-variants-intro";
         variantsIntro.textContent =
-          "Edit each colour’s label and colour text. Keys stay fixed so saved outfits keep working — use “Add another colour” for a new option.";
+          "This piece keeps one primary cover for the archive grid; each colour has its own variant cover. The colour strip uses an uploaded preview if set, otherwise a hex from the colour code / name, otherwise the code text, and only then the variant cover. Keys stay fixed — use “Add another colour” for a new option.";
         variantsWrap.appendChild(variantsIntro);
       }
 
@@ -4166,8 +4722,10 @@
           appendVariantEditorRow(listEl, {
             key: v.key,
             label: v.label,
-            color: v.colour,
+            color: v.color ?? v.colour,
+            colorCode: v.colorCode,
             image: v.image,
+            previewImage: v.previewImage,
             gallery: v.gallery,
             notes: v.notes,
           });
@@ -4182,7 +4740,9 @@
           key: newEditorVariantKey(),
           label: "",
           color: "",
+          colorCode: "",
           image: "",
+          previewImage: "",
           gallery: [],
           notes: "",
         });
@@ -4195,7 +4755,9 @@
         const migrateBtn = colorSingleField.querySelector(".item-edit-enable-variants");
         migrateBtn?.addEventListener("click", () => {
           const colorIn = /** @type {HTMLInputElement | null} */ (colorSingleField.querySelector("#item-edit-color"));
+          const codeIn = /** @type {HTMLInputElement | null} */ (colorSingleField.querySelector("#item-edit-color-code"));
           const baseColor = colorIn?.value?.trim() || "";
+          const baseCode = codeIn?.value?.trim() || "";
           const label0 = baseColor || "Colour 1";
           const key0 = slugVariantKeyBase(label0) || "colour-1";
           listEl.innerHTML = "";
@@ -4203,7 +4765,9 @@
             key: key0,
             label: label0,
             color: baseColor,
+            colorCode: baseCode,
             image: String(item.image ?? ""),
+            previewImage: "",
             gallery: itemGalleryList(item),
             notes: "",
           });
@@ -4211,7 +4775,9 @@
             key: newEditorVariantKey(),
             label: "",
             color: "",
+            colorCode: "",
             image: "",
+            previewImage: "",
             gallery: [],
             notes: "",
           });
@@ -4254,19 +4820,24 @@
       measTa.value = String(item.measuredDimensions ?? "");
       addField("Measured dimensions (optional)", measTa);
 
-      const purchaseIn = document.createElement("input");
-      purchaseIn.id = "item-edit-purchase-date";
       const pd = String(item.purchaseDate ?? "").trim();
-      if (/^\d{4}-\d{2}-\d{2}$/.test(pd)) {
-        purchaseIn.type = "date";
-        purchaseIn.value = pd;
-      } else {
-        purchaseIn.type = "text";
-        purchaseIn.maxLength = 80;
-        purchaseIn.placeholder = "YYYY-MM-DD or short note";
-        purchaseIn.value = pd;
-      }
-      addField("Purchase date (optional)", purchaseIn);
+      const { date: purchaseDateValue, note: purchaseNoteValue } = splitPurchaseDateForForm(pd);
+      const purchaseWrap = document.createElement("div");
+      purchaseWrap.className = "item-edit-purchase-fields";
+      const purchaseIn = document.createElement("input");
+      purchaseIn.type = "date";
+      purchaseIn.id = "item-edit-purchase-date";
+      purchaseIn.value = purchaseDateValue;
+      const purchaseNoteIn = document.createElement("input");
+      purchaseNoteIn.type = "text";
+      purchaseNoteIn.id = "item-edit-purchase-date-note";
+      purchaseNoteIn.maxLength = 80;
+      purchaseNoteIn.autocomplete = "off";
+      purchaseNoteIn.placeholder = "Optional note (e.g. approximate, gift)";
+      purchaseNoteIn.value = purchaseNoteValue;
+      purchaseWrap.appendChild(purchaseIn);
+      purchaseWrap.appendChild(purchaseNoteIn);
+      addField("Purchase date (optional)", purchaseWrap);
 
       if (!initialVariants) {
         const removeCoverIn = document.createElement("input");
@@ -4409,15 +4980,6 @@
 
       const act = document.createElement("div");
       act.className = "item-detail__form-actions";
-      const delBtn = document.createElement("button");
-      delBtn.type = "button";
-      delBtn.className = "btn btn--small btn--danger";
-      delBtn.id = "item-detail-delete";
-      delBtn.textContent = "Delete";
-      delBtn.title = isCustomPiece
-        ? "Remove this custom piece from this browser."
-        : "Hide this archive row in this browser (does not change seed files or cloud).";
-      act.appendChild(delBtn);
       const actPush = document.createElement("div");
       actPush.className = "item-detail__form-actions-push";
       const saveBtn = document.createElement("button");
@@ -4435,6 +4997,19 @@
       actPush.appendChild(cancelBtn);
       act.appendChild(actPush);
       form.appendChild(act);
+
+      const delWrap = document.createElement("div");
+      delWrap.className = "item-detail__form-danger";
+      const delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.className = "btn btn--small btn--danger";
+      delBtn.id = "item-detail-delete";
+      delBtn.textContent = "Delete piece…";
+      delBtn.title = isCustomPiece
+        ? "Remove this custom piece from your wardrobe (cannot be undone)."
+        : "Hide this archive row in this browser (does not change seed files or cloud).";
+      delWrap.appendChild(delBtn);
+      form.appendChild(delWrap);
 
       const h2 = document.createElement("h2");
       h2.id = "item-detail-heading";
@@ -4461,7 +5036,7 @@
     brand.textContent = item.brand;
     body.appendChild(brand);
 
-    mountVariantSwatchStrip(body, item);
+    mountVariantSwatchStrip(body, item, { outfitPick: true, heroImg: img, heroHost: media, addToOutfitOnPick: true });
 
     if (!itemEligibleForOutfit(item)) {
       const only = document.createElement("p");
@@ -4524,22 +5099,12 @@
       "Copies text fields only; paths stay as text, embedded images are summarized (not pasted in full).";
     actions.appendChild(copyBtn);
 
-    const isCustom = typeof item.id === "string" && item.id.startsWith("custom-");
     const ed = document.createElement("button");
     ed.type = "button";
     ed.className = "btn btn--small";
     ed.id = "item-detail-edit";
     ed.textContent = "Edit";
     actions.appendChild(ed);
-    const delBtn = document.createElement("button");
-    delBtn.type = "button";
-    delBtn.className = "btn btn--small btn--danger";
-    delBtn.id = "item-detail-delete";
-    delBtn.textContent = "Delete";
-    delBtn.title = isCustom
-      ? "Remove this custom piece from this browser."
-      : "Hide this archive row in this browser (does not change seed files or cloud).";
-    actions.appendChild(delBtn);
     actions.id = "item-detail-actions";
     root.appendChild(actions);
     afterItemDetailPageRender(root, false);
@@ -5020,7 +5585,8 @@
       });
     }
 
-    els.search?.addEventListener("input", renderGrid);
+    els.search?.addEventListener("input", scheduleRenderGridFromSearchInput);
+    els.search?.addEventListener("blur", flushSearchGridDebounceIfPending);
 
     const filtersNav = document.getElementById("filters-nav");
     const filtersMenuBtn = document.getElementById("filters-menu-btn");
@@ -5050,6 +5616,24 @@
     }
 
     initArchiveNavScrollFold();
+
+    globalThis.addEventListener("pageshow", (e) => {
+      const pe = /** @type {PageTransitionEvent} */ (e);
+      if (!pe.persisted) return;
+      if (!document.getElementById("grid")) return;
+      void (async () => {
+        try {
+          if (isSupabaseReady()) {
+            await hydrateArchiveAndSeasonState();
+          }
+          await refreshCloudBackedCustomItems();
+          renderOutfitStrip();
+          renderSavedOutfits();
+        } catch (err) {
+          console.warn("bfcache restore refresh failed", err);
+        }
+      })();
+    });
   }
 
   function seedItemsFromScript() {

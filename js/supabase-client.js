@@ -29,6 +29,9 @@ export function mapRowToItem(row) {
   const cv = meta && Array.isArray(/** @type {{ colorVariants?: unknown }} */ (meta).colorVariants)
     ? /** @type {{ colorVariants: unknown[] }} */ (meta).colorVariants
     : null;
+  const seasonRaw = String(row.season ?? "").trim();
+  const seasonNorm = !seasonRaw || seasonRaw === "All" ? "All-season" : seasonRaw;
+  const colourText = String(row.color ?? "").trim();
   return {
     id: String(row.id ?? ""),
     pillar: String(row.pillar ?? ""),
@@ -36,8 +39,10 @@ export function mapRowToItem(row) {
     category: String(row.category ?? ""),
     brand: String(row.brand ?? ""),
     name: String(row.name ?? ""),
-    season: String(row.season ?? ""),
-    color: String(row.color ?? ""),
+    season: seasonNorm,
+    colour: colourText,
+    color: colourText,
+    colorCode: String(row.color_code ?? "").trim(),
     fabric: String(row.fabric ?? ""),
     weight: String(row.weight ?? ""),
     size: String(row.size ?? ""),
@@ -58,7 +63,7 @@ export async function fetchWardrobeItems(client) {
   const { data, error } = await client
     .from("wardrobe_items")
     .select(
-      "id, pillar, section, category, brand, name, season, color, fabric, weight, size, measured_dimensions, purchase_date, image, gallery, notes, metadata"
+      "id, pillar, section, category, brand, name, season, color, color_code, fabric, weight, size, measured_dimensions, purchase_date, image, gallery, notes, metadata"
     )
     .order("section", { ascending: true })
     .order("category", { ascending: true })

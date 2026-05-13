@@ -17,6 +17,7 @@
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to archive</a>
+    <a class="skip-link" href="#filter-search">Skip to search</a>
     <a class="skip-link" href="#season-nav">Skip to season</a>
     <a class="skip-link" href="#category-nav">Skip to categories</a>
     <a class="skip-link" href="#category-drill">Skip to types</a>
@@ -48,6 +49,17 @@
     </header>
 
     <nav id="filters-nav" class="filters" aria-label="Filter wardrobe">
+      <div class="filters__quick-search" id="filters-quick-search">
+        <label class="category-nav__search field field--grow">
+          <span class="field__label">Search</span>
+          <input
+            id="filter-search"
+            type="search"
+            placeholder="Brand, name, category, season…"
+            autocomplete="off"
+          />
+        </label>
+      </div>
       <button
         type="button"
         class="filters__menu-btn"
@@ -55,7 +67,7 @@
         aria-expanded="false"
         aria-controls="filters-menu-panel"
       >
-        Filters &amp; search
+        Season &amp; categories
       </button>
       <div id="filter-summary-bar" class="filter-summary-bar" hidden>
         <p id="filter-summary-text" class="filter-summary-bar__text"></p>
@@ -64,6 +76,7 @@
         </button>
       </div>
       <div id="filters-menu-panel" class="filters__panel">
+        <div class="filters__collapsible">
         <div id="category-nav" class="category-nav">
         <div class="season-strip" id="season-nav" aria-label="Season">
           <p class="season-strip__label">Season</p>
@@ -71,9 +84,9 @@
             <li role="presentation">
               <button
                 type="button"
-                class="season-strip__tab"
+                class="season-strip__tab is-active"
                 role="tab"
-                aria-selected="false"
+                aria-selected="true"
                 data-season-filter="All"
                 id="season-tab-all"
               >
@@ -83,9 +96,9 @@
             <li role="presentation">
               <button
                 type="button"
-                class="season-strip__tab is-active"
+                class="season-strip__tab"
                 role="tab"
-                aria-selected="true"
+                aria-selected="false"
                 data-season-filter="S/S"
                 id="season-tab-ss"
               >
@@ -190,26 +203,18 @@
               </li>
             </ul>
           </div>
-          <label class="category-nav__search field field--grow">
-            <span class="field__label">Search</span>
-            <input
-              id="filter-search"
-              type="search"
-              placeholder="Brand, name, category, season…"
-              autocomplete="off"
-            />
-          </label>
         </div>
-      </div>
-      <section
-        id="category-drill"
-        class="category-drill"
-        aria-label="Record types in this section"
-        hidden
-      >
-        <div id="category-drill-grid" class="category-drill__grid"></div>
-      </section>
-      <p class="filters__meta" id="filter-count" aria-live="polite"></p>
+        </div>
+        <section
+          id="category-drill"
+          class="category-drill"
+          aria-label="Record types in this section"
+          hidden
+        >
+          <div id="category-drill-grid" class="category-drill__grid"></div>
+        </section>
+        <p class="filters__meta" id="filter-count" aria-live="polite"></p>
+        </div>
       </div>
     </nav>
 
@@ -302,7 +307,7 @@
               <label class="field">
                 <span class="field__label">Season (optional)</span>
                 <select id="add-item-season" name="season">
-                  <option value="All-season" selected>All</option>
+                  <option value="All-season" selected>All season</option>
                   <option value="A/W">A/W</option>
                   <option value="S/S">S/S</option>
                 </select>
@@ -310,6 +315,17 @@
               <label class="field">
                 <span class="field__label">Colour (optional)</span>
                 <input id="add-item-color" name="color" type="text" maxlength="80" autocomplete="off" />
+              </label>
+              <label class="field">
+                <span class="field__label">Colour code (optional)</span>
+                <input
+                  id="add-item-color-code"
+                  name="colorCode"
+                  type="text"
+                  maxlength="80"
+                  autocomplete="off"
+                  placeholder="#hex, SKU…"
+                />
               </label>
               <label class="field">
                 <span class="field__label">Fabric (optional)</span>
@@ -334,9 +350,19 @@
                   autocomplete="off"
                 />
               </label>
-              <label class="field">
+              <label class="field field--span2">
                 <span class="field__label">Purchase date (optional)</span>
-                <input id="add-item-purchase-date" name="purchaseDate" type="date" />
+                <span class="add-item-purchase-fields">
+                  <input id="add-item-purchase-date" name="purchaseDate" type="date" />
+                  <input
+                    id="add-item-purchase-date-note"
+                    name="purchaseDateNote"
+                    type="text"
+                    maxlength="80"
+                    placeholder="Optional note (e.g. approximate, gift)"
+                    autocomplete="off"
+                  />
+                </span>
               </label>
               <label class="field field--file">
                 <span class="field__label">Cover image (optional, one file only)</span>

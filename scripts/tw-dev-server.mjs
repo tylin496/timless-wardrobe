@@ -176,6 +176,14 @@ function listenWithFallback(port, triesLeft) {
     const e = /** @type {NodeJS.ErrnoException} */ (err);
     if (e.code === "EADDRINUSE" && triesLeft > 1) {
       console.warn(`Port ${port} busy, trying ${port + 1}…`);
+      if (port === preferredPort) {
+        console.warn(
+          "Tip: another `npm run dev` may still be running (another terminal, or Ctrl+Z suspended). " +
+            "Open only the URL printed below, or free the port: lsof -nP -iTCP:" +
+            port +
+            " -sTCP:LISTEN"
+        );
+      }
       listenWithFallback(port + 1, triesLeft - 1);
       return;
     }
