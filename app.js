@@ -569,17 +569,19 @@
     const key = String(cfg.SUPABASE_ANON_KEY || "").trim();
 
     if (!url || !key) {
-      console.info("Supabase config not found — running local-only mode.");
+      console.warn("Supabase config missing — APP_CONFIG.SUPABASE_URL or APP_CONFIG.SUPABASE_ANON_KEY is empty. Running local-only mode.");
       return null;
     }
 
     if (!globalThis.supabase?.createClient) {
-      console.warn("Supabase JS SDK not loaded. Add the Supabase CDN script before app.js.");
+      console.warn("Supabase JS SDK not loaded — make sure the Supabase CDN script is loaded before app.js.");
       return null;
     }
 
     try {
-      return globalThis.supabase.createClient(url, key);
+      const client = globalThis.supabase.createClient(url, key);
+      console.info("Supabase client initialized.");
+      return client;
     } catch (err) {
       console.warn("Could not initialize Supabase client.", err);
       return null;
@@ -587,6 +589,14 @@
   }
 
   supabaseClient = initSupabaseClientFromConfig();
+  globalThis.__WARDROBE_SUPABASE_DEBUG__ = () => ({
+    hasAppConfig: Boolean(globalThis.APP_CONFIG),
+    hasSupabaseUrl: Boolean(String(globalThis.APP_CONFIG?.SUPABASE_URL || "").trim()),
+    hasSupabaseAnonKey: Boolean(String(globalThis.APP_CONFIG?.SUPABASE_ANON_KEY || "").trim()),
+    hasSupabaseSdk: Boolean(globalThis.supabase?.createClient),
+    hasClient: Boolean(supabaseClient),
+    isReady: isSupabaseReady(),
+  });
 
   const WARDROBE_TABLE = "wardrobe_items";
   const WARDROBE_IMAGE_BUCKET = "wardrobe-images";
@@ -824,6 +834,18 @@
 
   /** Persist custom rows to localStorage and, when served via `npm run dev`, to `data/custom-items.json`. */
   async function commitCustomItems(rows) {
+    if (isSupabaseReady()) {
+      const cloudIds = new Set(cloudBackedCustomItems.map((r) => String(r?.id ?? "")));
+      const localOnly = (rows || []).filter(
+        (r) => r && String(r.id).startsWith("custom-") && !cloudIds.has(String(r.id))
+      );
+      try {
+        localStorage.setItem(CUSTOM_ITEMS_KEY, JSON.stringify(localOnly));
+      } catch (e) {
+        console.warn(e);
+      }
+      return await syncCustomItemsToProjectFile(localOnly);
+    }
     localStorage.setItem(CUSTOM_ITEMS_KEY, JSON.stringify(rows));
     return await syncCustomItemsToProjectFile(rows);
   }
@@ -865,7 +887,7 @@
     }
   }
 
-  function loadPersistedSeasonNav() {
+  function readSeasonNavFromLocalStorage() {
     try {
       const v = localStorage.getItem(SEASON_NAV_STORAGE_KEY);
       if (v === "A/W" || v === "S/S" || v === "All") return v;
@@ -875,6 +897,11 @@
     return "S/S";
   }
 
+  function loadPersistedSeasonNav() {
+    return readSeasonNavFromLocalStorage();
+  }
+
+  /** Season strip (A/W · S/S · All) stays in localStorage only — ephemeral UI, not synced to Supabase. */
   function persistSeasonNav() {
     try {
       localStorage.setItem(SEASON_NAV_STORAGE_KEY, seasonNavFilter);
@@ -883,7 +910,13 @@
     }
   }
 
-  function loadArchiveOverrides() {
+  /** In-memory archive state; persisted to Supabase when configured (else localStorage). */
+  /** @type {Record<string, object>} */
+  let archiveOverridesState = {};
+  /** @type {Set<string>} */
+  let archiveHiddenState = new Set();
+
+  function readArchiveOverridesFromLocalStorageRaw() {
     try {
       const raw = localStorage.getItem(ITEM_ARCHIVE_OVERRIDES_KEY);
       if (!raw) return {};
@@ -894,27 +927,163 @@
     }
   }
 
-  function saveArchiveOverrides(map) {
-    localStorage.setItem(ITEM_ARCHIVE_OVERRIDES_KEY, JSON.stringify(map));
-  }
-
-  function loadArchiveHiddenIds() {
+  function readArchiveHiddenIdsFromLocalStorageRaw() {
     try {
       const raw = localStorage.getItem(ARCHIVE_HIDDEN_IDS_KEY);
-      if (!raw) return new Set();
+      if (!raw) return [];
       const p = JSON.parse(raw);
-      if (!Array.isArray(p)) return new Set();
-      return new Set(p.map((x) => String(x)));
+      if (!Array.isArray(p)) return [];
+      return p.map((x) => String(x));
     } catch {
-      return new Set();
+      return [];
     }
   }
 
-  function saveArchiveHiddenIds(set) {
+  function installArchiveStateFromPayload(overrides, hiddenIds) {
+    archiveOverridesState =
+      overrides && typeof overrides === "object" && !Array.isArray(overrides) ? { ...overrides } : {};
+    archiveHiddenState = new Set(Array.isArray(hiddenIds) ? hiddenIds.map((x) => String(x)) : []);
+  }
+
+  function applySeasonNavFromLocalStorage() {
+    const v = readSeasonNavFromLocalStorage();
+    if (v === "A/W" || v === "S/S" || v === "All") {
+      seasonNavFilter = v;
+    }
+  }
+
+  function hydrateArchiveStateFromLocalStorageOnly() {
+    installArchiveStateFromPayload(
+      readArchiveOverridesFromLocalStorageRaw(),
+      readArchiveHiddenIdsFromLocalStorageRaw()
+    );
+    applySeasonNavFromLocalStorage();
+  }
+
+  async function flushWardrobeAppStateToSupabase() {
+    if (!isSupabaseReady()) return;
+    const row = {
+      id: "default",
+      archive_overrides: archiveOverridesState,
+      archive_hidden_ids: [...archiveHiddenState],
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await supabaseClient.from("wardrobe_app_state").upsert(row, { onConflict: "id" });
+    if (error) throw error;
+  }
+
+  async function hydrateArchiveAndSeasonState() {
+    if (!isSupabaseReady()) {
+      hydrateArchiveStateFromLocalStorageOnly();
+      return;
+    }
+
+    const lsOv = readArchiveOverridesFromLocalStorageRaw();
+    const lsH = readArchiveHiddenIdsFromLocalStorageRaw();
+
+    const { data, error } = await supabaseClient
+      .from("wardrobe_app_state")
+      .select("archive_overrides, archive_hidden_ids")
+      .eq("id", "default")
+      .maybeSingle();
+
+    if (error) {
+      console.warn("wardrobe_app_state:", error);
+      hydrateArchiveStateFromLocalStorageOnly();
+      return;
+    }
+
+    if (!data) {
+      installArchiveStateFromPayload(lsOv, lsH);
+      applySeasonNavFromLocalStorage();
+      try {
+        await flushWardrobeAppStateToSupabase();
+        localStorage.removeItem(ITEM_ARCHIVE_OVERRIDES_KEY);
+        localStorage.removeItem(ARCHIVE_HIDDEN_IDS_KEY);
+      } catch (e) {
+        console.warn("wardrobe_app_state bootstrap insert:", e);
+      }
+      return;
+    }
+
+    let overrides =
+      data.archive_overrides && typeof data.archive_overrides === "object" && !Array.isArray(data.archive_overrides)
+        ? { ...data.archive_overrides }
+        : {};
+    let hidden = Array.isArray(data.archive_hidden_ids) ? data.archive_hidden_ids.map((x) => String(x)) : [];
+    let migrated = false;
+
+    if (!Object.keys(overrides).length && Object.keys(lsOv).length) {
+      overrides = { ...lsOv };
+      migrated = true;
+    }
+    if (!hidden.length && lsH.length) {
+      hidden = [...lsH];
+      migrated = true;
+    }
+
+    installArchiveStateFromPayload(overrides, hidden);
+    applySeasonNavFromLocalStorage();
+
+    if (migrated) {
+      try {
+        await flushWardrobeAppStateToSupabase();
+        localStorage.removeItem(ITEM_ARCHIVE_OVERRIDES_KEY);
+        localStorage.removeItem(ARCHIVE_HIDDEN_IDS_KEY);
+      } catch (e) {
+        console.warn("Migrate archive state to Supabase failed.", e);
+      }
+    } else if (Object.keys(lsOv).length || lsH.length) {
+      try {
+        localStorage.removeItem(ITEM_ARCHIVE_OVERRIDES_KEY);
+        localStorage.removeItem(ARCHIVE_HIDDEN_IDS_KEY);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  function loadArchiveOverrides() {
+    return { ...archiveOverridesState };
+  }
+
+  async function saveArchiveOverrides(map) {
+    archiveOverridesState = map && typeof map === "object" && !Array.isArray(map) ? { ...map } : {};
+    if (!isSupabaseReady()) {
+      try {
+        localStorage.setItem(ITEM_ARCHIVE_OVERRIDES_KEY, JSON.stringify(archiveOverridesState));
+      } catch (e) {
+        const err = /** @type {any} */ (e);
+        if (err && (err.name === "QuotaExceededError" || err.code === 22)) {
+          const q = new Error("QUOTA");
+          /** @type {any} */ (q).archiveOverrides = true;
+          throw q;
+        }
+        throw e;
+      }
+      return;
+    }
+    await flushWardrobeAppStateToSupabase();
+  }
+
+  function loadArchiveHiddenIds() {
+    return new Set(archiveHiddenState);
+  }
+
+  async function saveArchiveHiddenIds(set) {
+    archiveHiddenState = new Set(set);
+    if (!isSupabaseReady()) {
+      try {
+        localStorage.setItem(ARCHIVE_HIDDEN_IDS_KEY, JSON.stringify([...archiveHiddenState]));
+      } catch (e) {
+        console.warn(e);
+      }
+      return;
+    }
     try {
-      localStorage.setItem(ARCHIVE_HIDDEN_IDS_KEY, JSON.stringify([...set]));
+      await flushWardrobeAppStateToSupabase();
     } catch (e) {
-      console.warn(e);
+      console.warn("saveArchiveHiddenIds (Supabase)", e);
     }
   }
 
@@ -1778,6 +1947,7 @@
     const primaryExistsInArchive = archiveImagePathList.includes(normalizedPrimary);
 
     if (MANUAL_IMAGE_UPLOAD_MODE && !isBlobOrAbsoluteUrl(primary) && !primaryExistsInArchive) {
+      console.info("Image file not found in archive manifest; skipping missing local cover:", primary);
       return [];
     }
 
@@ -2008,6 +2178,9 @@
   }
 
   function persistSavedOutfitsCache() {
+    if (supabaseClient && useCloudOutfits) {
+      return;
+    }
     const payload = {
       version: OUTFIT_STORAGE_VERSION,
       outfits: savedOutfits.map((o) => ({
@@ -2571,8 +2744,9 @@
   }
 
   /**
-   * Remove a piece from this browser’s wardrobe view: custom rows are dropped;
-   * archive / Supabase rows are hidden locally and any override for that id is cleared.
+   * Remove a piece from this browser’s wardrobe view: custom rows are dropped from cloud;
+   * archive (seed) rows are hidden and overrides cleared — when Supabase is configured,
+   * hidden ids and overrides are persisted in `wardrobe_app_state`, not only localStorage.
    */
   async function deleteWardrobePieceFromBrowser(id) {
     const sid = String(id);
@@ -2611,12 +2785,12 @@
     } else {
       const hidden = loadArchiveHiddenIds();
       hidden.add(sid);
-      saveArchiveHiddenIds(hidden);
+      await saveArchiveHiddenIds(hidden);
       try {
         const all = loadArchiveOverrides();
         if (Object.prototype.hasOwnProperty.call(all, sid)) {
           delete all[sid];
-          saveArchiveOverrides(all);
+          await saveArchiveOverrides(all);
         }
       } catch (e) {
         console.warn(e);
@@ -2630,7 +2804,13 @@
       onOutfitChange();
     }
 
-    showToast(isCustom ? "Piece removed." : "Piece removed from this browser.");
+    showToast(
+      isCustom
+        ? "Piece removed."
+        : isSupabaseReady()
+          ? "Removed from view; change saved to your account (Supabase)."
+          : "Removed from this browser only."
+    );
 
     if (!document.getElementById("grid") && String(detailItemId) === sid) {
       globalThis.location.href = "index.html";
@@ -3607,7 +3787,7 @@
       if (coverFile) {
         setMsg("Processing images…", false);
         try {
-          image = isSupabaseReady() && isCustom
+          image = isSupabaseReady()
             ? await uploadWardrobeImageFileToCloud(coverFile, id, "cover-edit")
             : await fileToStorageDataUrl(coverFile);
         } catch (err) {
@@ -3634,10 +3814,9 @@
       : [];
     for (const gf of gFiles.slice(0, 12)) {
       try {
-        const url =
-          isSupabaseReady() && isCustom
-            ? await uploadWardrobeImageFileToCloud(gf, id, `gallery-edit-${gallery.length + 1}`)
-            : await fileToStorageDataUrl(gf, { preferJpeg: true });
+        const url = isSupabaseReady()
+          ? await uploadWardrobeImageFileToCloud(gf, id, `gallery-edit-${gallery.length + 1}`)
+          : await fileToStorageDataUrl(gf, { preferJpeg: true });
         gallery.push(url);
       } catch (e) {
         console.warn(e);
@@ -3675,6 +3854,8 @@
     /** When saving a custom piece, whether `data/custom-items.json` was updated (npm run dev). */
     let customProjectSynced = true;
     let customCloudSynced = false;
+    /** When saving an archive (seed) override, whether it was flushed to Supabase `wardrobe_app_state`. */
+    let archiveCloudSynced = false;
 
     if (isCustom) {
       const inWardrobe = loadCustomItems().some((x) => String(x.id) === id);
@@ -3754,10 +3935,19 @@
       try {
         const all = loadArchiveOverrides();
         all[id] = patch;
-        saveArchiveOverrides(all);
+        await saveArchiveOverrides(all);
+        archiveCloudSynced = isSupabaseReady();
       } catch (e) {
         console.warn(e);
-        setMsg("Could not save (browser storage may be disabled).", true);
+        const err = /** @type {any} */ (e);
+        if (err && err.archiveOverrides) {
+          setMsg(
+            "Could not save: browser storage is full. Remove other edited pieces, clear site data, or keep using cloud URLs for new photos (Supabase).",
+            true
+          );
+        } else {
+          setMsg("Could not save (browser storage may be disabled or full).", true);
+        }
         return;
       }
     }
@@ -3782,7 +3972,9 @@
           : customProjectSynced
             ? "Saved changes (and project file)."
             : "Saved changes. Run npm run dev to mirror to data/custom-items.json."
-        : "Saved changes for this browser (archive override)."
+        : archiveCloudSynced
+          ? "Saved — archive edits synced to your account (Supabase)."
+          : "Saved on this device only (archive override — add Supabase to sync across browsers)."
     );
   }
 
@@ -4946,6 +5138,8 @@
       wardrobeBase = seedItemsFromScript();
       savedOutfits = loadSavedOutfitsFromStorage();
     }
+
+    await hydrateArchiveAndSeasonState();
 
     fileBackedCustomItems = await loadFileBackedCustomItems();
     cloudBackedCustomItems = await loadWardrobeItemsFromCloud();

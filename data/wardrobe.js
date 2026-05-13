@@ -48,7 +48,7 @@ const WARDROBE_ITEMS = [
     color: "Light brown",
     fabric: "Tweed",
     weight: "~450 gsm",
-    image: "images/BROOKS BROTHERS Light Brown Houndstooth Tweed Jacket (~450 gsm).png",
+    image: "images/BROOKS BROTHERS Light Brown Houndstooth Tweed Jacket (450 gsm).png",
     notes: "",
   },
   {
@@ -61,7 +61,7 @@ const WARDROBE_ITEMS = [
     color: "Navy",
     fabric: "Twill",
     weight: "~300 gsm",
-    image: "images/BROOKS BROTHERS Golden Fleece Navy Twill Blazer (~300 gsm).png",
+    image: "images/BROOKS BROTHERS Golden Fleece Navy Twill Blazer.png",
     notes: "",
   },
   {
