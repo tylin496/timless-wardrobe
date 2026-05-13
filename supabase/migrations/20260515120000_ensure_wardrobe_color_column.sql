@@ -1,4 +1,5 @@
--- Align wardrobe_items colour column with PostgREST / app (expects `color`).
+-- Historical: normalised a legacy British `colour` column to American `color` for an older client.
+-- The current app uses British names; `20260601100000_british_spelling_wardrobe_columns.sql` restores `colour` / `colour_code`.
 -- Safe on projects that used British `colour`, missed the column, or already have `color`.
 
 do $$

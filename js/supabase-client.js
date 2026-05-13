@@ -26,12 +26,18 @@ export function mapRowToItem(row) {
     row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
       ? row.metadata
       : null;
-  const cv = meta && Array.isArray(/** @type {{ colorVariants?: unknown }} */ (meta).colorVariants)
-    ? /** @type {{ colorVariants: unknown[] }} */ (meta).colorVariants
-    : null;
+  const cvRaw =
+    meta && Array.isArray(/** @type {{ colourVariants?: unknown }} */ (meta).colourVariants)
+      ? /** @type {{ colourVariants: unknown[] }} */ (meta).colourVariants
+      : meta && Array.isArray(/** @type {{ colorVariants?: unknown }} */ (meta).colorVariants)
+        ? /** @type {{ colorVariants: unknown[] }} */ (meta).colorVariants
+        : null;
   const seasonRaw = String(row.season ?? "").trim();
   const seasonNorm = !seasonRaw || seasonRaw === "All" ? "All-season" : seasonRaw;
-  const colourText = String(row.color ?? "").trim();
+  const colourText = String(row.colour ?? row.color ?? "").trim();
+  const colourCodeVal =
+    String(row.colour_code ?? row.color_code ?? "").trim() ||
+    String(meta?.colourCode ?? meta?.colorCode ?? meta?.colour_code ?? meta?.color_code ?? "").trim();
   return {
     id: String(row.id ?? ""),
     pillar: String(row.pillar ?? ""),
@@ -41,8 +47,7 @@ export function mapRowToItem(row) {
     name: String(row.name ?? ""),
     season: seasonNorm,
     colour: colourText,
-    color: colourText,
-    colorCode: String(row.color_code ?? "").trim(),
+    colourCode: colourCodeVal,
     fabric: String(row.fabric ?? ""),
     weight: String(row.weight ?? ""),
     size: String(row.size ?? ""),
@@ -51,7 +56,7 @@ export function mapRowToItem(row) {
     image: String(row.image ?? ""),
     gallery: normalizeGallery(row.gallery),
     notes: String(row.notes ?? ""),
-    ...(cv && cv.length ? { colorVariants: cv } : {}),
+    ...(cvRaw && cvRaw.length ? { colourVariants: cvRaw } : {}),
   };
 }
 
@@ -62,9 +67,7 @@ export function mapRowToItem(row) {
 export async function fetchWardrobeItems(client) {
   const { data, error } = await client
     .from("wardrobe_items")
-    .select(
-      "id, pillar, section, category, brand, name, season, color, color_code, fabric, weight, size, measured_dimensions, purchase_date, image, gallery, notes, metadata"
-    )
+    .select("*")
     .order("section", { ascending: true })
     .order("category", { ascending: true })
     .order("brand", { ascending: true })
@@ -76,24 +79,29 @@ export async function fetchWardrobeItems(client) {
 
 /**
  * @param {import('@supabase/supabase-js').SupabaseClient} client
- * @returns {Promise<{ ok: true, outfits: { id: string, name: string, slots: { itemId: string, colorKey?: string }[], createdAt: string }[] } | { ok: false, error: string }>}
+ * @returns {Promise<{ ok: true, outfits: { id: string, name: string, slots: { itemId: string, colourKey?: string }[], createdAt: string }[] } | { ok: false, error: string }>}
  */
 export async function fetchOutfits(client) {
   const { data, error } = await client
     .from("outfits")
-    .select("id, name, created_at, outfit_items(item_id, sort_order, color_key)")
+    .select("id, name, created_at, outfit_items(item_id, sort_order, colour_key)")
     .order("created_at", { ascending: false });
   if (error) return { ok: false, error: error.message };
 
-  /** @type {{ id: string, name: string, slots: { itemId: string, colorKey?: string }[], createdAt: string }[]} */
+  /** @type {{ id: string, name: string, slots: { itemId: string, colourKey?: string }[], createdAt: string }[]} */
   const outfits = [];
   for (const row of data || []) {
     const links = Array.isArray(row.outfit_items) ? row.outfit_items : [];
     links.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
     const slots = links.map((x) => {
       const itemId = String(x.item_id ?? "").trim();
-      const ck = x.color_key != null ? String(x.color_key).trim() : "";
-      return ck ? { itemId, colorKey: ck } : { itemId };
+      const ck =
+        x.colour_key != null
+          ? String(x.colour_key).trim()
+          : x.color_key != null
+            ? String(x.color_key).trim()
+            : "";
+      return ck ? { itemId, colourKey: ck } : { itemId };
     });
     outfits.push({
       id: String(row.id),
@@ -109,7 +117,7 @@ export async function fetchOutfits(client) {
 
 /**
  * @param {import('@supabase/supabase-js').SupabaseClient} client
- * @param {{ id: string, name: string, slots?: { itemId: string, colorKey?: string }[], itemIds?: string[], createdAt: string }} record
+ * @param {{ id: string, name: string, slots?: { itemId: string, colourKey?: string; colorKey?: string }[], itemIds?: string[], createdAt: string }} record
  */
 export async function insertOutfitWithItems(client, record) {
   const { error: e1 } = await client.from("outfits").insert({
@@ -125,12 +133,15 @@ export async function insertOutfitWithItems(client, record) {
       : Array.isArray(record.itemIds)
         ? record.itemIds.map((itemId) => ({ itemId: String(itemId) }))
         : [];
-  const rows = slots.map((s, sort_order) => ({
-    outfit_id: record.id,
-    item_id: String(s.itemId ?? "").trim(),
-    sort_order,
-    color_key: s.colorKey && String(s.colorKey).trim() ? String(s.colorKey).trim() : null,
-  }));
+  const rows = slots.map((s, sort_order) => {
+    const ck = String(s.colourKey ?? s.colorKey ?? "").trim();
+    return {
+      outfit_id: record.id,
+      item_id: String(s.itemId ?? "").trim(),
+      sort_order,
+      colour_key: ck || null,
+    };
+  });
   const { error: e2 } = await client.from("outfit_items").insert(rows);
   if (e2) {
     await client.from("outfits").delete().eq("id", record.id);
@@ -152,7 +163,7 @@ export async function deleteOutfitById(client, id) {
 /**
  * Replace name and line items for an existing outfit (local id must match cloud row).
  * @param {import('@supabase/supabase-js').SupabaseClient} client
- * @param {{ id: string, name: string, slots: { itemId: string, colorKey?: string }[] }} record
+ * @param {{ id: string, name: string, slots: { itemId: string, colourKey?: string; colorKey?: string }[] }} record
  */
 export async function updateOutfitWithItems(client, record) {
   const { error: eDel } = await client.from("outfit_items").delete().eq("outfit_id", record.id);
@@ -162,12 +173,15 @@ export async function updateOutfitWithItems(client, record) {
   if (eUp) return { ok: false, error: eUp.message };
 
   const slots = Array.isArray(record.slots) ? record.slots : [];
-  const rows = slots.map((s, sort_order) => ({
-    outfit_id: record.id,
-    item_id: String(s.itemId ?? "").trim(),
-    sort_order,
-    color_key: s.colorKey && String(s.colorKey).trim() ? String(s.colorKey).trim() : null,
-  }));
+  const rows = slots.map((s, sort_order) => {
+    const ck = String(s.colourKey ?? s.colorKey ?? "").trim();
+    return {
+      outfit_id: record.id,
+      item_id: String(s.itemId ?? "").trim(),
+      sort_order,
+      colour_key: ck || null,
+    };
+  });
   if (rows.length) {
     const { error: eIns } = await client.from("outfit_items").insert(rows);
     if (eIns) return { ok: false, error: eIns.message };

@@ -21,7 +21,10 @@ alter table public.wardrobe_items
   add column if not exists season text not null default '';
 
 alter table public.wardrobe_items
-  add column if not exists color text not null default '';
+  add column if not exists colour text not null default '';
+
+alter table public.wardrobe_items
+  add column if not exists colour_code text not null default '';
 
 alter table public.wardrobe_items
   add column if not exists fabric text not null default '';

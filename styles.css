@@ -16,7 +16,8 @@
   --tint-mid: rgba(250, 248, 244, 0.65);
   --tint-soft: rgba(250, 248, 244, 0.5);
   --tint-empty: rgba(250, 248, 244, 0.75);
-  --media-skeleton: #ebebeb;
+  /* Photo well behind transparent PNGs — cool neutral (same in light/dark themes). */
+  --media-cutout-canvas: #e6e7e9;
   --thumb-placeholder: #e8e4dc;
   --swatch-empty: #e0e0e0;
   --frost-bg: rgba(255, 255, 255, 0.92);
@@ -52,7 +53,6 @@
     --tint-mid: rgba(40, 38, 35, 0.82);
     --tint-soft: rgba(40, 38, 35, 0.45);
     --tint-empty: rgba(40, 38, 35, 0.72);
-    --media-skeleton: #2c2a27;
     --thumb-placeholder: #2c2a27;
     --swatch-empty: #3a3834;
     --frost-bg: rgba(40, 38, 35, 0.92);
@@ -99,6 +99,10 @@ html {
   scroll-behavior: smooth;
   /* Sticky filters + skip-link targets */
   scroll-padding-top: 6.5rem;
+}
+
+#main:focus {
+  outline: none;
 }
 
 body {
@@ -151,18 +155,31 @@ body {
 .site-header__row {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: space-between;
   gap: 1rem 1.5rem;
 }
 
+.site-header__aside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  align-self: stretch;
+  gap: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
 .site-header__intro {
   flex: 1 1 min(100%, 16rem);
+  min-width: 0;
 }
 
 .site-header__add {
   flex: 0 0 auto;
-  margin-top: 0.2rem;
+  margin-top: 0;
   min-height: var(--tap-min);
   padding-left: 1rem;
   padding-right: 1rem;
@@ -187,7 +204,7 @@ body {
 }
 
 .site-tagline {
-  margin: 0;
+  margin: 0.65rem 0 0;
   max-width: 36rem;
   color: var(--ink-muted);
   font-size: 0.95rem;
@@ -238,11 +255,22 @@ body {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: linear-gradient(180deg, var(--bg) 72%, transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  /* Solid stack instead of backdrop-filter: sticky + blur reliably breaks wheel / touch
+     scrolling on Safari when the record-type drill sits in the same subtree. */
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-elevated) 98%, transparent) 0%,
+    color-mix(in srgb, var(--bg) 94%, transparent) 72%,
+    color-mix(in srgb, var(--bg) 40%, transparent) 100%
+  );
   transition: padding 0.22s var(--ease-out), box-shadow 0.22s var(--ease-out);
   border-bottom: 1px solid transparent;
+}
+
+@supports not (background: color-mix(in srgb, red, blue)) {
+  .filters {
+    background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg) 78%, transparent 100%);
+  }
 }
 
 .filters:not(.filters--menu-open) {
@@ -355,11 +383,20 @@ body {
 }
 
 .filters__panel {
-  display: contents;
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
 }
 
+/* Avoid `display: contents` here — Safari/WebKit can break scroll / hit-testing
+   when combined with sticky + backdrop-filter on the parent nav. */
 .filters__collapsible {
-  display: contents;
+  display: block;
+  margin: 0;
+  padding: 0;
 }
 
 .filters__quick-search {
@@ -379,15 +416,6 @@ body {
 @media (max-width: 720px) {
   .filters__quick-search {
     margin-bottom: 0.55rem;
-  }
-
-  .filters__panel {
-    display: block;
-    margin: 0;
-    padding: 0;
-    border: none;
-    background: transparent;
-    box-shadow: none;
   }
 
   .filters__collapsible {
@@ -430,90 +458,71 @@ body {
   }
 }
 
-/* Archive: fold sticky filter chrome while scrolling down (see initArchiveNavScrollFold in app.js). */
-body.archive-ui--nav-folded #filters-nav.filters:not(.filters--menu-open) {
-  padding: 0.45rem 1.5rem 0.3rem;
-  box-shadow: 0 6px 18px var(--fold-shadow);
+/* Archive: scroll down → hide site header & filter extras; sticky bar ≈ categories + record-type chips (wide). */
+body.archive-ui--nav-folded .site-header {
+  display: none;
 }
 
-body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .season-strip__label,
-body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .category-nav__label,
-body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .filters__quick-search .field__label {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
+@media (min-width: 721px) {
+  body.archive-ui--nav-folded #filters-nav.filters:not(.filters--menu-open) {
+    padding: 0.4rem 1.5rem 0.35rem;
+    box-shadow: 0 6px 18px var(--fold-shadow);
+  }
 
-body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .season-strip {
-  margin-bottom: 0.3rem;
-  padding-bottom: 0.3rem;
-  gap: 0.2rem 0.75rem;
-}
+  body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .filters__quick-search,
+  body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .filter-summary-bar:not([hidden]),
+  body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .filters__meta {
+    display: none !important;
+  }
 
-body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .category-nav {
-  margin-bottom: 0.35rem;
-  padding-bottom: 0.35rem;
-}
+  body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .category-nav__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
 
-body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .category-nav__row {
-  gap: 0.4rem 1rem;
-  align-items: center;
-}
+  body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .category-nav {
+    margin: 0 0 0.35rem;
+    padding: 0 0 0.3rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+  }
 
-body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .season-strip__tab {
-  min-height: 2rem;
-  padding: 0.2rem 0.1rem;
-  font-size: 0.76rem;
-}
+  @supports not (border-bottom-color: color-mix(in srgb, red, blue)) {
+    body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .category-nav {
+      border-bottom-color: var(--line);
+    }
+  }
 
-body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .category-nav__tab {
-  font-size: 0.92rem;
-  min-height: 2rem;
-  padding: 0.22rem 0.05rem;
-}
+  body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .category-nav__row {
+    gap: 0.35rem 0.85rem;
+    align-items: center;
+  }
 
-body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .category-nav__list {
-  gap: 0.12rem 0.75rem;
-}
+  body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .category-nav__list {
+    gap: 0.12rem 0.65rem;
+  }
 
-body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .filters__quick-search input[type="search"] {
-  padding: 0.32rem 0.5rem;
-  font-size: 0.8rem;
-}
+  body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .category-nav__tab {
+    font-size: 0.95rem;
+    min-height: 2.35rem;
+    padding: 0.28rem 0.1rem;
+  }
 
-body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .filters__quick-search {
-  margin-bottom: 0.35rem;
-}
+  body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .category-drill:not([hidden]) {
+    margin: 0 0 0.15rem;
+    padding: 0.42rem 0.65rem 0.5rem;
+  }
 
-body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .category-drill:not([hidden]) {
-  margin-bottom: 0.3rem;
-  padding: 0.3rem 0.55rem 0.38rem;
-}
-
-body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .category-drill__choice {
-  padding: 0.28rem 0.65rem;
-  font-size: 0.72rem;
-}
-
-body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .filters__meta {
-  margin: 0;
-  font-size: 0.76rem;
-  line-height: 1.35;
-}
-
-body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .filter-summary-bar:not([hidden]) {
-  margin: 0 0 0.35rem;
-  padding: 0.38rem 0.55rem;
-}
-
-body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .filter-summary-bar__text {
-  font-size: 0.74rem;
+  body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .category-drill__choice {
+    padding: 0.28rem 0.65rem;
+    font-size: 0.74rem;
+  }
 }
 
 @media (max-width: 720px) {
@@ -532,6 +541,15 @@ body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .filter-summar
   .card__quick-outfit,
   .saved-card {
     transition: none !important;
+  }
+
+  .card:hover {
+    transform: none;
+  }
+
+  .add-item-dialog::backdrop {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   html {
@@ -604,6 +622,26 @@ body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .filter-summar
 .season-strip__tab:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
+}
+
+/* Season strip in the site header: bottom of the right column lines up with “Data & images” (left column). */
+.season-strip--header {
+  margin: 0;
+  padding: 0;
+  border: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+  flex-shrink: 0;
+}
+
+.season-strip--header .season-strip__list {
+  justify-content: flex-end;
+}
+
+.season-strip--header .season-strip__tab {
+  min-height: 2.35rem;
+  padding: 0.28rem 0.12rem;
 }
 
 .category-nav__row {
@@ -685,18 +723,18 @@ body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .filter-summar
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: 0 8px 24px var(--shadow);
+  overflow-anchor: none;
 }
 
 .category-drill__grid {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 0.45rem;
-  overflow-x: auto;
-  overflow-y: hidden;
+  /* No overflow-x: auto — a horizontal scrollport steals vertical wheel / touch
+     scroll when chips fit on one line (Accessories, Watches, Perfume). Shoes
+     often hides this row (single type); Clothing has enough chips to overflow. */
   padding: 0.15rem 0 0.35rem;
-  margin: 0 -0.15rem;
-  scrollbar-width: thin;
-  -webkit-overflow-scrolling: touch;
+  margin: 0;
 }
 
 .category-drill__choice {
@@ -763,7 +801,13 @@ body.archive-ui--nav-folded #filters-nav:not(.filters--menu-open) .filter-summar
 }
 
 select,
-input[type="search"] {
+input[type="search"],
+.add-item-form input[type="text"]:not(.measured-dims-row__label):not(.measured-dims-row__value),
+.add-item-form input[type="date"],
+.add-item-form input[type="number"],
+.item-detail__form input[type="text"]:not(.measured-dims-row__label):not(.measured-dims-row__value),
+.item-detail__form input[type="date"],
+.item-detail__form input[type="number"] {
   font: inherit;
   color: var(--ink);
   background: var(--bg-elevated);
@@ -776,8 +820,14 @@ input[type="search"] {
   width: 100%;
 }
 
-select:focus,
-input[type="search"]:focus {
+select:focus-visible,
+input[type="search"]:focus-visible,
+.add-item-form input[type="text"]:not(.measured-dims-row__label):not(.measured-dims-row__value):focus-visible,
+.add-item-form input[type="date"]:focus-visible,
+.add-item-form input[type="number"]:focus-visible,
+.item-detail__form input[type="text"]:not(.measured-dims-row__label):not(.measured-dims-row__value):focus-visible,
+.item-detail__form input[type="date"]:focus-visible,
+.item-detail__form input[type="number"]:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
@@ -820,6 +870,11 @@ input[type="search"]:focus {
 .btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .btn--ghost {
@@ -985,7 +1040,15 @@ input[type="search"]:focus {
     box-shadow 0.15s var(--ease-out);
 }
 
-.field--block textarea:focus {
+.field--block textarea.textarea-autosize {
+  resize: none;
+  overflow-y: hidden;
+  min-height: 4rem;
+  max-height: 560px;
+  box-sizing: border-box;
+}
+
+.field--block textarea:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
   border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
@@ -993,7 +1056,7 @@ input[type="search"]:focus {
 }
 
 @supports not (border-color: color-mix(in srgb, red, blue)) {
-  .field--block textarea:focus {
+  .field--block textarea:focus-visible {
     border-color: var(--accent);
     box-shadow: none;
   }
@@ -1086,18 +1149,15 @@ input[type="search"]:focus {
 
 @media (max-width: 640px) {
   .outfit-strip {
-    flex-wrap: nowrap;
-    overflow-x: auto;
+    flex-wrap: wrap;
+    overflow-x: visible;
     padding-bottom: 0.35rem;
-    margin-right: -0.25rem;
-    scroll-snap-type: x proximity;
-    -webkit-overflow-scrolling: touch;
+    margin-right: 0;
   }
 
   .outfit-strip .outfit-slot {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
     max-width: min(18rem, 88vw);
-    scroll-snap-align: start;
   }
 }
 
@@ -1200,7 +1260,7 @@ input[type="search"]:focus {
   padding: 0.45rem 0.6rem;
 }
 
-.field--inline input:focus {
+.field--inline input:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
@@ -1349,9 +1409,17 @@ main {
   position: relative;
   display: flex;
   flex-direction: column;
-  background: var(--media-skeleton);
+  background-color: var(--media-cutout-canvas);
+  /* Subtle lift around #E6E7E9 — PNG alpha still shows through unchanged. */
+  background-image: radial-gradient(
+      ellipse 118% 92% at 50% 30%,
+      #eff0f2 0%,
+      transparent 58%
+    ),
+    linear-gradient(168deg, #ececed 0%, var(--media-cutout-canvas) 45%, #dfe0e3 100%);
   overflow: hidden;
   isolation: isolate;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 /* Archive grid hero — design frame 596×748 */
@@ -1367,7 +1435,7 @@ main {
   cursor: pointer;
 }
 
-.card__media--variant-colors .card__gallery-strip {
+.card__media--variant-colours .card__gallery-strip {
   display: none;
 }
 
@@ -1613,10 +1681,9 @@ main {
 .card__gallery-strip {
   flex: 0 0 auto;
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 0.3rem;
   padding: 0.35rem 0.3rem;
-  overflow-x: auto;
   border-top: 1px solid var(--line);
   background: var(--gallery-strip-bg);
 }
@@ -1930,6 +1997,91 @@ main {
   align-items: end;
 }
 
+/* Structured flat measurements (cm) — add-item + item edit */
+.measured-dims-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.measured-dims-dynamic {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+  max-width: 32rem;
+}
+
+.measured-dims-row {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, 1fr) minmax(4.25rem, 6.5rem) auto;
+  gap: 0.35rem 0.5rem;
+  align-items: center;
+}
+
+.measured-dims-row__label,
+.measured-dims-row__value {
+  font: inherit;
+  padding: 0.28rem 0.45rem;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.measured-dims-row__remove {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.measured-dims-toolbar {
+  margin: 0.1rem 0 0;
+}
+
+.measured-dims-grid {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, 10rem) 1fr;
+  gap: 0.35rem 0.65rem;
+  align-items: center;
+  width: 100%;
+  max-width: 28rem;
+}
+
+.measured-dims-grid__label {
+  font-size: 0.82rem;
+  color: var(--ink-muted);
+}
+
+.measured-dims-grid__input {
+  width: 100%;
+  max-width: 10rem;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 0.28rem 0.45rem;
+}
+
+.measured-dims-extra {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  max-width: 28rem;
+}
+
+.measured-dims-extra input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 0.28rem 0.45rem;
+}
+
+.measured-dims-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--ink-muted);
+  max-width: 32rem;
+}
+
 .item-edit-variants-wrap {
   grid-column: 1 / -1;
 }
@@ -1962,9 +2114,20 @@ main {
   gap: 0.4rem;
 }
 
-.item-edit-variant-legend {
+.item-edit-variant-legend-wrap {
   padding: 0;
   margin: 0 0 0.1rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 0.5rem;
+}
+
+.item-edit-variant-legend-wrap .item-edit-variant-legend {
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -1972,9 +2135,22 @@ main {
   color: var(--ink-muted);
 }
 
+.item-edit-variant-reorder {
+  display: inline-flex;
+  gap: 0.2rem;
+  align-items: center;
+}
+
+.item-edit-variant-move-up,
+.item-edit-variant-move-down {
+  min-width: 2rem;
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+}
+
 .item-edit-variant-row .item-edit-variant-label,
-.item-edit-variant-row .item-edit-variant-color,
-.item-edit-variant-row .item-edit-variant-color-code,
+.item-edit-variant-row .item-edit-variant-colour,
+.item-edit-variant-row .item-edit-variant-colour-code,
 .item-edit-variant-row .item-edit-variant-notes {
   width: 100%;
   box-sizing: border-box;
@@ -2058,27 +2234,26 @@ main {
 .item-detail__form-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
+  gap: 0.5rem 0.75rem;
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
   align-items: center;
 }
 
 .item-detail__form-actions-push {
-  margin-left: auto;
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
   align-items: center;
 }
 
-.item-detail__form-danger {
-  margin-top: 1rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid var(--line);
+.item-detail__form-actions .item-detail__form-danger {
+  margin-inline-start: auto;
 }
 
-.item-detail__form-danger .btn {
-  align-self: flex-start;
+.item-detail__form-actions #item-detail-delete {
+  flex-shrink: 0;
 }
 
 .item-detail__edit-msg {
@@ -2130,6 +2305,28 @@ main {
   margin: 0;
 }
 
+.item-detail__meta-measured-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.item-detail__meta-measured-list li {
+  margin: 0;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.item-detail__measured {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
 .item-detail__notes-h {
   margin: 1rem 0 0.35rem;
   font-size: 0.72rem;
@@ -2172,6 +2369,11 @@ main {
   color: var(--ink-muted);
 }
 
+.empty-wrap .btn {
+  min-height: var(--tap-min);
+  padding-inline: 1rem;
+}
+
 #outfit-variant-dialog .add-item-dialog__toolbar {
   justify-content: space-between;
   align-items: center;
@@ -2193,20 +2395,6 @@ main {
 
 .site-footer p {
   margin: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .card {
-    transition: none;
-  }
-
-  .card:hover {
-    transform: none;
-  }
-
-  html {
-    scroll-behavior: auto;
-  }
 }
 
 @media (max-width: 720px) {

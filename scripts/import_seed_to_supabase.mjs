@@ -78,25 +78,40 @@ function pillarFromSection(section) {
 }
 
 function toRows(items) {
-  return items.map((i) => ({
-    id: String(i.id),
-    pillar: String(i.pillar ?? pillarFromSection(i.section)),
-    section: String(i.section ?? ""),
-    category: String(i.category ?? ""),
-    brand: String(i.brand ?? ""),
-    name: String(i.name ?? ""),
-    season: String(i.season ?? ""),
-    color: String(i.color ?? ""),
-    fabric: String(i.fabric ?? ""),
-    weight: String(i.weight ?? ""),
-    size: String(i.size ?? ""),
-    measured_dimensions: String(i.measuredDimensions ?? ""),
-    purchase_date: String(i.purchaseDate ?? ""),
-    image: String(i.image ?? ""),
-    gallery: Array.isArray(i.gallery) ? i.gallery : [],
-    notes: String(i.notes ?? ""),
-    metadata: i.metadata && typeof i.metadata === "object" ? i.metadata : null,
-  }));
+  return items.map((i) => {
+    let metadata =
+      i.metadata && typeof i.metadata === "object" ? { ...i.metadata } : null;
+    if (
+      metadata &&
+      Array.isArray(metadata.colorVariants) &&
+      !Array.isArray(metadata.colourVariants)
+    ) {
+      metadata.colourVariants = metadata.colorVariants;
+      delete metadata.colorVariants;
+    }
+    return {
+      id: String(i.id),
+      pillar: String(i.pillar ?? pillarFromSection(i.section)),
+      section: String(i.section ?? ""),
+      category: String(i.category ?? ""),
+      brand: String(i.brand ?? ""),
+      name: String(i.name ?? ""),
+      season: String(i.season ?? ""),
+      colour: String(i.colour ?? i.color ?? ""),
+      colour_code: String(
+        i.colourCode ?? i.colorCode ?? i.colour_code ?? i.color_code ?? ""
+      ),
+      fabric: String(i.fabric ?? ""),
+      weight: String(i.weight ?? ""),
+      size: String(i.size ?? ""),
+      measured_dimensions: String(i.measuredDimensions ?? ""),
+      purchase_date: String(i.purchaseDate ?? ""),
+      image: String(i.image ?? ""),
+      gallery: Array.isArray(i.gallery) ? i.gallery : [],
+      notes: String(i.notes ?? ""),
+      metadata,
+    };
+  });
 }
 
 const useJson = process.env.USE_JSON === "1" || process.env.USE_JSON === "true";

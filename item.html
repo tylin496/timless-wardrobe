@@ -3,6 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f1eb" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#161514" />
     <title>Timeless Wardrobe</title>
     <link rel="icon" type="image/png" href="favicon.png" />
     <link rel="stylesheet" href="styles.css" />
@@ -14,6 +16,7 @@
     />
   </head>
   <body class="item-page">
+    <a class="skip-link" href="#item-page-main">Skip to main content</a>
     <a class="skip-link" href="#item-detail-heading">Skip to title</a>
     <a class="skip-link" href="#item-detail-actions">Skip to actions</a>
     <a class="skip-link" href="#item-detail-root">Skip to piece</a>
@@ -22,7 +25,7 @@
         <a class="btn btn--ghost item-page-header__back" href="index.html" aria-label="Back">← Archive</a>
       </div>
     </header>
-    <main id="item-page-main" class="item-page-main">
+    <main id="item-page-main" class="item-page-main" tabindex="-1">
       <div id="item-detail-root" class="item-detail__root item-detail__root--page"></div>
     </main>
     <p id="outfit-toast" class="outfit-toast item-page-toast" role="status" aria-live="polite"></p>

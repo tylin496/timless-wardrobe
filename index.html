@@ -18,10 +18,10 @@
   <body>
     <a class="skip-link" href="#main">Skip to archive</a>
     <a class="skip-link" href="#filter-search">Skip to search</a>
+    <a class="skip-link" href="#add-item-open">Skip to add item</a>
     <a class="skip-link" href="#season-nav">Skip to season</a>
     <a class="skip-link" href="#category-nav">Skip to categories</a>
     <a class="skip-link" href="#category-drill">Skip to types</a>
-    <a class="skip-link" href="#add-item-open">Skip to add item</a>
     <a class="skip-link" href="#saved-outfits-heading">Skip to saved outfits</a>
     <header class="site-header">
       <div class="site-header__inner">
@@ -29,22 +29,65 @@
           <div class="site-header__intro">
             <p class="site-eyebrow">Archive</p>
             <h1 class="site-title">Timeless Wardrobe</h1>
+            <p class="site-tagline">
+              <strong>English Heritage × Mediterranean Leisure</strong> — one wardrobe, two moods: country
+              classics and warm-weather ease.
+            </p>
+            <details class="site-meta-details">
+              <summary>Data &amp; images</summary>
+              <p class="site-meta-details__body">
+                Pieces can load from this site’s seed list, your browser (custom items &amp; edits), or Supabase when
+                configured. Image paths in the data should match files under <code>images/</code>.
+              </p>
+            </details>
           </div>
-          <button type="button" class="btn btn--ghost site-header__add" id="add-item-open">
-            Add a piece
-          </button>
+          <div class="site-header__aside">
+            <button type="button" class="btn btn--ghost site-header__add" id="add-item-open">
+              Add a piece
+            </button>
+            <div class="season-strip season-strip--header" id="season-nav" aria-label="Season">
+              <p class="season-strip__label">Season</p>
+              <ul class="season-strip__list" role="tablist">
+                <li role="presentation">
+                  <button
+                    type="button"
+                    class="season-strip__tab is-active"
+                    role="tab"
+                    aria-selected="true"
+                    data-season-filter="All"
+                    id="season-tab-all"
+                  >
+                    All
+                  </button>
+                </li>
+                <li role="presentation">
+                  <button
+                    type="button"
+                    class="season-strip__tab"
+                    role="tab"
+                    aria-selected="false"
+                    data-season-filter="S/S"
+                    id="season-tab-ss"
+                  >
+                    S/S
+                  </button>
+                </li>
+                <li role="presentation">
+                  <button
+                    type="button"
+                    class="season-strip__tab"
+                    role="tab"
+                    aria-selected="false"
+                    data-season-filter="A/W"
+                    id="season-tab-aw"
+                  >
+                    A/W
+                  </button>
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
-        <p class="site-tagline">
-          <strong>English Heritage × Mediterranean Leisure</strong> — one wardrobe, two moods: country
-          classics and warm-weather ease.
-        </p>
-        <details class="site-meta-details">
-          <summary>Data &amp; images</summary>
-          <p class="site-meta-details__body">
-            Pieces can load from this site’s seed list, your browser (custom items &amp; edits), or Supabase when
-            configured. Image paths in the data should match files under <code>images/</code>.
-          </p>
-        </details>
       </div>
     </header>
 
@@ -57,6 +100,11 @@
             type="search"
             placeholder="Brand, name, category, season…"
             autocomplete="off"
+            spellcheck="false"
+            autocorrect="off"
+            autocapitalize="off"
+            enterkeyhint="search"
+            title="Search wardrobe by brand, name, category, season, colour, notes…"
           />
         </label>
       </div>
@@ -67,7 +115,7 @@
         aria-expanded="false"
         aria-controls="filters-menu-panel"
       >
-        Season &amp; categories
+        Categories
       </button>
       <div id="filter-summary-bar" class="filter-summary-bar" hidden>
         <p id="filter-summary-text" class="filter-summary-bar__text"></p>
@@ -78,47 +126,6 @@
       <div id="filters-menu-panel" class="filters__panel">
         <div class="filters__collapsible">
         <div id="category-nav" class="category-nav">
-        <div class="season-strip" id="season-nav" aria-label="Season">
-          <p class="season-strip__label">Season</p>
-          <ul class="season-strip__list" role="tablist">
-            <li role="presentation">
-              <button
-                type="button"
-                class="season-strip__tab is-active"
-                role="tab"
-                aria-selected="true"
-                data-season-filter="All"
-                id="season-tab-all"
-              >
-                All
-              </button>
-            </li>
-            <li role="presentation">
-              <button
-                type="button"
-                class="season-strip__tab"
-                role="tab"
-                aria-selected="false"
-                data-season-filter="S/S"
-                id="season-tab-ss"
-              >
-                S/S
-              </button>
-            </li>
-            <li role="presentation">
-              <button
-                type="button"
-                class="season-strip__tab"
-                role="tab"
-                aria-selected="false"
-                data-season-filter="A/W"
-                id="season-tab-aw"
-              >
-                A/W
-              </button>
-            </li>
-          </ul>
-        </div>
         <div class="category-nav__row">
           <div class="category-nav__primary">
             <p class="category-nav__label">Categories</p>
@@ -223,7 +230,7 @@
         <div class="outfit-dock__head">
           <h2 id="outfit-heading" class="outfit-dock__title">Outfit</h2>
           <p class="outfit-dock__hint" id="outfit-hint">
-            Only <strong>clothing</strong>, <strong>shoes</strong>, <strong>watches</strong>, and <strong>accessories</strong> can go in an outfit. Jewelry and perfume stay in the archive for
+            Only <strong>clothing</strong>, <strong>shoes</strong>, <strong>watches</strong>, and <strong>accessories</strong> can go in an outfit. Jewellery and perfume stay in the archive for
             reference. Drag slots to reorder, then name and save.
           </p>
         </div>
@@ -259,7 +266,7 @@
       </div>
     </section>
 
-    <main id="main">
+    <main id="main" tabindex="-1">
       <div id="grid" class="grid" role="list"></div>
       <div id="empty-wrap" class="empty-wrap" hidden>
         <p id="empty-state-msg" class="empty-wrap__msg">No pieces match these filters.</p>
@@ -273,16 +280,18 @@
       <p>Timeless Wardrobe</p>
     </footer>
 
-    <dialog id="add-item-dialog" class="add-item-dialog" aria-labelledby="add-item-heading">
+    <dialog id="add-item-dialog" class="add-item-dialog" aria-labelledby="add-item-heading" aria-modal="true">
       <div class="add-item-dialog__inner">
         <div class="add-item-dialog__toolbar">
-          <button type="button" class="btn btn--ghost" id="add-item-close">Close</button>
+          <button type="button" class="btn btn--ghost" id="add-item-close" aria-label="Close add piece dialog">
+            Close
+          </button>
         </div>
         <section class="add-item-panel add-item-panel--dialog" id="add-item-panel" aria-labelledby="add-item-heading">
           <div class="add-item-panel__head">
             <h2 id="add-item-heading" class="add-item-panel__title">Add a piece</h2>
             <p class="add-item-panel__hint">
-              Required: <strong>brand</strong>, <strong>name</strong>, <strong>section</strong>, and <strong>record type</strong>. Cover photo is optional (one image only; you can add more later under gallery when editing). Optional fields and extra photos
+              Required: <strong>brand</strong>, <strong>name</strong>, <strong>section</strong>, and <strong>record type</strong>. Photos are optional: in one batch, the <strong>first</strong> file becomes the cover and any further files are saved to the gallery (you can change them when editing). Optional fields and extra photos
               help later when you search or edit. Run <code>npm run dev</code> and open the app from that server so new pieces are written straight to <code>data/custom-items.json</code> in the project (and still cached in the browser). Plain static hosting only keeps a browser copy unless you use cloud sync or export JSON.
             </p>
           </div>
@@ -307,20 +316,20 @@
               <label class="field">
                 <span class="field__label">Season (optional)</span>
                 <select id="add-item-season" name="season">
-                  <option value="All-season" selected>All season</option>
+                  <option value="All-season" selected>All seasons</option>
                   <option value="A/W">A/W</option>
                   <option value="S/S">S/S</option>
                 </select>
               </label>
               <label class="field">
                 <span class="field__label">Colour (optional)</span>
-                <input id="add-item-color" name="color" type="text" maxlength="80" autocomplete="off" />
+                <input id="add-item-colour" name="colour" type="text" maxlength="80" autocomplete="off" />
               </label>
               <label class="field">
                 <span class="field__label">Colour code (optional)</span>
                 <input
-                  id="add-item-color-code"
-                  name="colorCode"
+                  id="add-item-colour-code"
+                  name="colourCode"
                   type="text"
                   maxlength="80"
                   autocomplete="off"
@@ -340,15 +349,9 @@
                 <input id="add-item-size" name="size" type="text" maxlength="120" autocomplete="off" />
               </label>
               <label class="field field--span2">
-                <span class="field__label">Measured dimensions (optional)</span>
-                <input
-                  id="add-item-measured-dimensions"
-                  name="measuredDimensions"
-                  type="text"
-                  maxlength="500"
-                  placeholder="e.g. chest flat 54 cm · waist 48 cm · inseam 78 cm"
-                  autocomplete="off"
-                />
+                <span class="field__label">Measured dimensions (optional, cm)</span>
+                <input type="hidden" id="add-item-measured-dimensions" name="measuredDimensions" value="" />
+                <div class="measured-dims-block" id="add-item-measured-dims-block"></div>
               </label>
               <label class="field field--span2">
                 <span class="field__label">Purchase date (optional)</span>
@@ -364,13 +367,12 @@
                   />
                 </span>
               </label>
-              <label class="field field--file">
-                <span class="field__label">Cover image (optional, one file only)</span>
-                <input id="add-item-image" name="image" type="file" accept="image/*" />
-              </label>
               <label class="field field--file field--span2">
-                <span class="field__label">More images (optional, multi-select, up to 12)</span>
-                <input id="add-item-gallery" name="gallery" type="file" accept="image/*" multiple />
+                <span class="field__label">Photos (optional, multi-select)</span>
+                <input id="add-item-photos" name="photos" type="file" accept="image/*" multiple />
+                <p class="measured-dims-hint">
+                  The first image becomes the cover; any additional images are stored in the gallery (up to 12 gallery images).
+                </p>
               </label>
             </div>
             <div class="add-item-form__preview-wrap">
@@ -378,7 +380,7 @@
             </div>
             <label class="field field--block">
               <span class="field__label">Notes (optional)</span>
-              <textarea id="add-item-notes" name="notes" rows="2" maxlength="2000"></textarea>
+              <textarea id="add-item-notes" name="notes" class="textarea-autosize" rows="2" maxlength="2000"></textarea>
             </label>
             <p id="add-item-form-msg" class="add-item-form__msg" role="status" aria-live="polite"></p>
             <div class="add-item-form__actions">
@@ -396,10 +398,10 @@
       </div>
     </dialog>
 
-    <dialog id="outfit-variant-dialog" class="add-item-dialog" aria-labelledby="outfit-variant-heading">
+    <dialog id="outfit-variant-dialog" class="add-item-dialog" aria-labelledby="outfit-variant-heading" aria-modal="true">
       <div class="add-item-dialog__inner">
         <div class="add-item-dialog__toolbar">
-          <h2 id="outfit-variant-heading" class="add-item-panel__title">Choose colour</h2>
+          <h2 id="outfit-variant-heading" class="add-item-panel__title">Choose a colour</h2>
           <button type="button" class="btn btn--ghost" id="outfit-variant-cancel" aria-label="Close">
             Close
           </button>

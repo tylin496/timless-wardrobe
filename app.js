@@ -5,17 +5,17 @@
 
   /** Split archive rows merged into one id — remap saved outfit lines. */
   const LEGACY_OUTFIT_ITEM_TO_SLOT = new Map([
-    ["uniqlo-ocbd-shirt-blue", { itemId: "uniqlo-ocbd-shirt", colorKey: "blue" }],
-    ["uniqlo-ocbd-shirt-white", { itemId: "uniqlo-ocbd-shirt", colorKey: "white" }],
-    ["uniqlo-ocbd-shirt-pink-stripe", { itemId: "uniqlo-ocbd-shirt", colorKey: "pink-stripe" }],
-    ["uniqlo-ocbd-shirt-blue-striped", { itemId: "uniqlo-ocbd-shirt", colorKey: "blue-striped" }],
-    ["uniqlo-tuck-trousers-grey", { itemId: "uniqlo-tuck-trousers", colorKey: "grey" }],
-    ["uniqlo-tuck-trousers-beige", { itemId: "uniqlo-tuck-trousers", colorKey: "beige" }],
+    ["uniqlo-ocbd-shirt-blue", { itemId: "uniqlo-ocbd-shirt", colourKey: "blue" }],
+    ["uniqlo-ocbd-shirt-white", { itemId: "uniqlo-ocbd-shirt", colourKey: "white" }],
+    ["uniqlo-ocbd-shirt-pink-stripe", { itemId: "uniqlo-ocbd-shirt", colourKey: "pink-stripe" }],
+    ["uniqlo-ocbd-shirt-blue-striped", { itemId: "uniqlo-ocbd-shirt", colourKey: "blue-striped" }],
+    ["uniqlo-tuck-trousers-grey", { itemId: "uniqlo-tuck-trousers", colourKey: "grey" }],
+    ["uniqlo-tuck-trousers-beige", { itemId: "uniqlo-tuck-trousers", colourKey: "beige" }],
   ]);
 
-  function itemColorCode(item) {
+  function itemColourCode(item) {
     if (!item || typeof item !== "object") return "";
-    return String(item.colorCode ?? item.color_code ?? "").trim();
+    return String(item.colourCode ?? item.colorCode ?? item.colour_code ?? item.color_code ?? "").trim();
   }
 
   /** Optional uploaded swatch photo only (`previewImage`); no fallback to variant cover — swatch uses hex or colour code text instead. */
@@ -25,16 +25,27 @@
   }
 
   /**
-   * Optional `colorVariants` on a wardrobe row: same product, different colours / images.
-   * @returns {{ key: string, label: string, color: string, colorCode: string, image: string, previewImage: string, gallery: string[], notes: string }[] | null}
+   * Optional `colourVariants` on a wardrobe row (legacy JSON may use `colorVariants`).
+   * @returns {{ key: string, label: string, colour: string, colourCode: string, image: string, previewImage: string, gallery: string[], notes: string }[] | null}
    */
-  function getItemColorVariants(item) {
-    const raw =
-      Array.isArray(item?.colorVariants) && item.colorVariants.length
-        ? item.colorVariants
-        : Array.isArray(item?.metadata?.colorVariants) && item.metadata.colorVariants.length
-          ? item.metadata.colorVariants
-          : null;
+  function getItemColourVariants(item) {
+    let raw = null;
+    if (Array.isArray(item?.colourVariants) && item.colourVariants.length) raw = item.colourVariants;
+    else if (Array.isArray(item?.colorVariants) && item.colorVariants.length) raw = item.colorVariants;
+    else if (
+      item?.metadata &&
+      typeof item.metadata === "object" &&
+      Array.isArray(item.metadata.colourVariants) &&
+      item.metadata.colourVariants.length
+    )
+      raw = item.metadata.colourVariants;
+    else if (
+      item?.metadata &&
+      typeof item.metadata === "object" &&
+      Array.isArray(item.metadata.colorVariants) &&
+      item.metadata.colorVariants.length
+    )
+      raw = item.metadata.colorVariants;
     if (!raw) return null;
     const out = [];
     for (const v of raw) {
@@ -44,9 +55,9 @@
       if (!key || !image) continue;
       out.push({
         key,
-        label: String(v.label ?? v.colour ?? key).trim() || key,
-        color: String(v.colour ?? v.color ?? "").trim(),
-        colorCode: String(v.colorCode ?? v.colour_code ?? v.color_code ?? "").trim(),
+        label: String(v.label ?? v.colour ?? v.color ?? key).trim() || key,
+        colour: String(v.colour ?? v.color ?? "").trim(),
+        colourCode: String(v.colourCode ?? v.colorCode ?? v.colour_code ?? v.color_code ?? "").trim(),
         image,
         previewImage: String(v.previewImage ?? v.swatchImage ?? "").trim(),
         gallery: Array.isArray(v.gallery) ? v.gallery.map((x) => String(x ?? "").trim()).filter(Boolean) : [],
@@ -59,7 +70,7 @@
   /** First `#rgb` / `#rrggbb` in colour code, colour name, or label for grid swatches. */
   function extractSwatchHexFromVariant(v) {
     const pools = [
-      String(v?.colorCode ?? v?.colour_code ?? v?.color_code ?? "").trim(),
+      String(v?.colourCode ?? v?.colorCode ?? v?.colour_code ?? v?.color_code ?? "").trim(),
       String(v?.colour ?? v?.color ?? "").trim(),
       String(v?.label ?? "").trim(),
     ];
@@ -91,7 +102,7 @@
     if (!v || typeof v !== "object") return "";
     const label = String(v.label ?? "").trim();
     const col = String(v.colour ?? v.color ?? "").trim();
-    const code = String(v.colorCode ?? "").trim();
+    const code = String(v.colourCode ?? "").trim();
     const hex = extractSwatchHexFromVariant(v);
     const parts = [];
     if (label) parts.push(label);
@@ -112,19 +123,20 @@
   }
 
   /**
-   * Colour dots for `colorVariants`. When `heroImg` + `heroHost` are set, tap switches the main photo to that variant’s cover (`image`).
+   * Colour dots for `colourVariants`. When `heroImg` + `heroHost` are set, tap switches the main photo to that variant’s cover (`image`).
    * On the archive grid, use the card’s “+” to add to an outfit. When `addToOutfitOnPick` is true (e.g. item detail page), tap also adds that colour to the outfit if eligible.
    * If only `outfitPick` is set (no hero), tap adds the colour to the outfit.
    * @param {HTMLElement} mountEl
    * @param {object} item
-   * @param {{ outfitPick?: boolean, heroImg?: HTMLImageElement | null, heroHost?: HTMLElement | null, addToOutfitOnPick?: boolean }} [opts]
+   * @param {{ outfitPick?: boolean, heroImg?: HTMLImageElement | null, heroHost?: HTMLElement | null, addToOutfitOnPick?: boolean, showHeroGallery?: boolean }} [opts]
    */
   function mountVariantSwatchStrip(mountEl, item, opts = {}) {
-    const variants = getItemColorVariants(item);
+    const variants = getItemColourVariants(item);
     if (!variants?.length) return;
     const heroImg = opts.heroImg ?? null;
     const heroHost = opts.heroHost ?? null;
     const addToOutfitOnPick = Boolean(opts.addToOutfitOnPick);
+    const showHeroGallery = opts.showHeroGallery !== false;
     const outfitPick = Boolean(opts.outfitPick) && itemEligibleForOutfit(item);
     const interactive = Boolean(heroImg) || outfitPick;
 
@@ -135,9 +147,9 @@
     sw.setAttribute("role", "group");
     sw.setAttribute("aria-label", "Available colours");
 
-    function applyVariantHero(colorKey) {
+    function applyVariantHero(colourKey) {
       if (!heroImg || !heroHost) return;
-      const projected = itemProjectionForOutfitSlot(item, { itemId: String(item.id), colorKey: String(colorKey) });
+      const projected = itemProjectionForOutfitSlot(item, { itemId: String(item.id), colourKey: String(colourKey) });
       heroHost.querySelector(".card__gallery-strip")?.remove();
       wireCoverImageWithFallbacks(heroImg, projected, {
         host: heroHost,
@@ -146,20 +158,20 @@
           if (ti) ti.src = url;
         },
       });
-      if (itemGalleryList(projected).length) {
+      if (showHeroGallery && itemGalleryList(projected).length) {
         mountHeroGalleryStrip(heroHost, heroImg, projected);
       }
       heroImg.alt = imageAltForItem(projected);
       sw.querySelectorAll(".card__swatch").forEach((node) => {
         const nk = /** @type {HTMLElement} */ (node).dataset.variantKey;
-        node.classList.toggle("is-active", nk === String(colorKey));
+        node.classList.toggle("is-active", nk === String(colourKey));
       });
     }
 
     variants.forEach((v, idx) => {
       const lbl = String(v.label ?? v.colour ?? v.color ?? "").trim() || `Colour ${idx + 1}`;
-      const colorText = String(v.colour ?? v.color ?? "").trim();
-      const codeText = String(v.colorCode ?? "").trim();
+      const colourText = String(v.colour ?? v.color ?? "").trim();
+      const codeText = String(v.colourCode ?? "").trim();
       const hex = extractSwatchHexFromVariant(v);
       const el = interactive ? document.createElement("button") : document.createElement("span");
       if (interactive) {
@@ -167,7 +179,7 @@
       }
       el.dataset.variantKey = String(v.key);
       el.className = "card__swatch" + (interactive ? " card__swatch--pick" : "");
-      const tip = [lbl, colorText, codeText].filter(Boolean).join(" · ");
+      const tip = [lbl, colourText, codeText].filter(Boolean).join(" · ");
       if (heroImg) {
         if (addToOutfitOnPick && outfitPick) {
           el.title = tip + " — Show this colour’s cover and add it to the outfit";
@@ -222,7 +234,7 @@
           e.stopPropagation();
           if (heroImg) applyVariantHero(v.key);
           if (outfitPick && (addToOutfitOnPick || !heroImg)) {
-            pushOutfitSlot({ itemId: String(item.id), colorKey: String(v.key) });
+            pushOutfitSlot({ itemId: String(item.id), colourKey: String(v.key) });
           }
         });
       }
@@ -252,29 +264,28 @@
 
   /** Shallow row shaped for cover / gallery resolution for one outfit slot. */
   function itemProjectionForOutfitSlot(item, slot) {
-    const vars = getItemColorVariants(item);
-    if (!vars || !slot?.colorKey) return item;
-    const v = vars.find((x) => x.key === slot.colorKey);
+    const vars = getItemColourVariants(item);
+    if (!vars || !slot?.colourKey) return item;
+    const v = vars.find((x) => x.key === slot.colourKey);
     if (!v) return item;
     const baseId = String(item.id ?? "");
-    const vColour = String(v.color ?? v.colour ?? "").trim();
-    const vCode = String(v.colorCode ?? "").trim();
+    const vColour = String(v.colour ?? v.color ?? "").trim();
+    const vCode = String(v.colourCode ?? "").trim();
     const vGal = Array.isArray(v.gallery) ? v.gallery : [];
     const itemGal = Array.isArray(item.gallery) ? item.gallery : [];
     return {
       ...item,
       image: v.image,
       colour: vColour || item.colour,
-      color: vColour || item.colour,
-      colorCode: vCode || itemColorCode(item),
+      colourCode: vCode || itemColourCode(item),
       gallery: vGal.length ? vGal : itemGal,
-      __coverCacheKey: `${baseId}::${slot.colorKey}`,
+      __coverCacheKey: `${baseId}::${slot.colourKey}`,
     };
   }
 
   function outfitSlotKey(slot) {
     const id = String(slot?.itemId ?? "").trim();
-    const ck = String(slot?.colorKey ?? "").trim();
+    const ck = String(slot?.colourKey ?? slot?.colorKey ?? "").trim();
     return `${id}::${ck}`;
   }
 
@@ -284,19 +295,19 @@
       const itemId = raw.trim();
       if (!itemId) return null;
       const leg = LEGACY_OUTFIT_ITEM_TO_SLOT.get(itemId);
-      if (leg) return { itemId: leg.itemId, colorKey: leg.colorKey };
+      if (leg) return { itemId: leg.itemId, colourKey: leg.colourKey };
       return { itemId };
     }
     if (typeof raw === "object" && raw.itemId != null) {
       let itemId = String(raw.itemId).trim();
-      let colorKey = raw.colorKey != null ? String(raw.colorKey).trim() : "";
+      let colourKey = String(raw.colourKey ?? raw.colorKey ?? "").trim();
       const leg = LEGACY_OUTFIT_ITEM_TO_SLOT.get(itemId);
       if (leg) {
         itemId = leg.itemId;
-        if (!colorKey) colorKey = leg.colorKey;
+        if (!colourKey) colourKey = String(leg.colourKey ?? "").trim();
       }
       if (!itemId) return null;
-      return colorKey ? { itemId, colorKey } : { itemId };
+      return colourKey ? { itemId, colourKey } : { itemId };
     }
     return null;
   }
@@ -373,7 +384,7 @@
    */
   const STATIC_RECORD_FALLBACK_BY_SLOT = {
     [SLOT_CLOTHING]: "Tops",
-    [SLOT_ACCESSORIES]: "Small accessories",
+    [SLOT_ACCESSORIES]: "Hats",
     [SLOT_SHOES]: "Footwear",
     [SLOT_WATCHES]: "Dress watch",
     [SLOT_JEWELRY]: "Necklace",
@@ -418,6 +429,8 @@
     "Sports watch": "Sports watch",
     Accessories: "Accessories",
     "Small accessories": "Small accessories",
+    Bags: "Bags",
+    Hats: "Hats",
   };
 
   function friendlyRecordCategory(raw) {
@@ -442,12 +455,12 @@
     lines.push(`ID: ${item.id ?? ""}`);
     lines.push(`Brand: ${String(item.brand ?? "").trim()}`);
     lines.push(`Name: ${String(item.name ?? "").trim()}`);
-    lines.push(`Name (display line): ${displayNameWithoutLeadingColor(item)}`);
+    lines.push(`Name (display line): ${displayNameWithoutLeadingColour(item)}`);
     lines.push(`Browse category: ${categoryDisplayLabel(itemSlot(item))}`);
     lines.push(`Record category: ${recordCategoryForDrill(item, itemSlot(item))}`);
     lines.push(`Season: ${seasonUiLabel(item.season)}`);
-    lines.push(`Color: ${String(item.colour ?? "").trim()}`);
-    lines.push(`Colour code: ${itemColorCode(item) || "(none)"}`);
+    lines.push(`Colour: ${String(item.colour ?? "").trim()}`);
+    lines.push(`Colour code: ${itemColourCode(item) || "(none)"}`);
     lines.push(`Fabric: ${String(item.fabric ?? "").trim()}`);
     lines.push(`Weight / specs: ${String(item.weight ?? "").trim()}`);
     lines.push(`Size: ${String(item.size ?? "").trim()}`);
@@ -569,6 +582,7 @@
     }
 
     if (rawCat === "Small accessories") return SLOT_ACCESSORIES;
+    if (rawCat === "Bags" || rawCat === "Hats" || rawCat === "帽子") return SLOT_ACCESSORIES;
 
     if (rawCat === "Clothing (incl. shoes)") return SLOT_CLOTHING;
 
@@ -651,7 +665,7 @@
     );
   }
 
-  /** Outfit builder: clothing, shoes, watches, and accessories — jewelry and perfume stay archive-only. */
+  /** Outfit builder: clothing, shoes, watches, and accessories — jewellery and perfume stay archive-only. */
   function itemEligibleForOutfit(item) {
     if (!item) return false;
     const s = itemSlot(item);
@@ -691,10 +705,13 @@
     Ring: 72,
     Accessories: 13,
     "Small accessories": 13,
+    Bags: 12,
+    Hats: 13,
   };
 
   /** Record types always listed in add/edit `<select>` for these slots (even with zero items). */
   const KNOWN_RECORD_TYPES_BY_SLOT = {
+    [SLOT_ACCESSORIES]: ["Bags", "Hats"],
     [SLOT_JEWELRY]: ["Necklace", "Bracelet", "Ring"],
     [SLOT_WATCHES]: ["Beater", "Dress watch", "Dive watch", "Sports watch"],
   };
@@ -717,8 +734,8 @@
     if (sDiff !== 0) return sDiff;
     const rDiff = recordCategoryRank(a) - recordCategoryRank(b);
     if (rDiff !== 0) return rDiff;
-    const ca = recordCategoryForDrill(a, itemSlot(a));
-    const cb = recordCategoryForDrill(b, itemSlot(b));
+    const ca = String(recordCategoryForDrill(a, itemSlot(a)) ?? "");
+    const cb = String(recordCategoryForDrill(b, itemSlot(b)) ?? "");
     return ca.localeCompare(cb, undefined, { sensitivity: "base" });
   }
 
@@ -799,13 +816,20 @@
     const name = String(row.name ?? "").trim();
     if (!id || !brand || !name) return null;
     const meta = row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata) ? row.metadata : null;
-    const cvFromMeta = meta && Array.isArray(meta.colorVariants) ? meta.colorVariants : null;
-    const colorVariants =
-      Array.isArray(row.colorVariants) && row.colorVariants.length
-        ? row.colorVariants
-        : cvFromMeta && cvFromMeta.length
-          ? cvFromMeta
+    const cvFromMeta =
+      meta && Array.isArray(meta.colourVariants) && meta.colourVariants.length
+        ? meta.colourVariants
+        : meta && Array.isArray(meta.colorVariants) && meta.colorVariants.length
+          ? meta.colorVariants
           : null;
+    const colourVariants =
+      Array.isArray(row.colourVariants) && row.colourVariants.length
+        ? row.colourVariants
+        : Array.isArray(row.colorVariants) && row.colorVariants.length
+          ? row.colorVariants
+          : cvFromMeta && cvFromMeta.length
+            ? cvFromMeta
+            : null;
     const out = {
       ...row,
       id,
@@ -814,7 +838,7 @@
       category: String(row.category ?? "").trim(),
       season: normalizeStoredItemSeason(row.season),
       colour: String(row.colour ?? row.color ?? "").trim(),
-      colorCode: String(row.color_code ?? "").trim(),
+      colourCode: String(row.colour_code ?? row.color_code ?? "").trim(),
       fabric: String(row.fabric ?? "").trim(),
       weight: String(row.weight ?? "").trim(),
       size: String(row.size ?? "").trim(),
@@ -826,16 +850,17 @@
       metadata: row.metadata ?? null,
       __source: "supabase",
     };
-    if (colorVariants) out.colorVariants = colorVariants;
+    if (colourVariants) out.colourVariants = colourVariants;
     return out;
   }
 
   function itemToCloudRow(item) {
     const meta =
       item.metadata && typeof item.metadata === "object" && !Array.isArray(item.metadata) ? { ...item.metadata } : {};
-    if (Array.isArray(item.colorVariants) && item.colorVariants.length) {
-      meta.colorVariants = item.colorVariants;
+    if (Array.isArray(item.colourVariants) && item.colourVariants.length) {
+      meta.colourVariants = item.colourVariants;
     } else {
+      delete meta.colourVariants;
       delete meta.colorVariants;
     }
     const metadataOut = Object.keys(meta).length ? meta : null;
@@ -847,8 +872,8 @@
       brand: String(item.brand ?? "").trim(),
       name: String(item.name ?? "").trim(),
       season: normalizeStoredItemSeason(item.season),
-      color: String(item.colour ?? item.color ?? "").trim(),
-      color_code: itemColorCode(item),
+      colour: String(item.colour ?? item.color ?? "").trim(),
+      colour_code: itemColourCode(item),
       fabric: String(item.fabric ?? "").trim(),
       weight: String(item.weight ?? "").trim(),
       size: String(item.size ?? "").trim(),
@@ -944,7 +969,7 @@
     for (const u of itemGalleryList(item)) {
       add(u);
     }
-    const variants = getItemColorVariants(item);
+    const variants = getItemColourVariants(item);
     if (variants) {
       for (const v of variants) {
         add(v.image);
@@ -971,7 +996,7 @@
     }
     add(item.image);
     for (const u of itemGalleryList(item)) add(u);
-    const variants = getItemColorVariants(item);
+    const variants = getItemColourVariants(item);
     if (variants) {
       for (const v of variants) {
         add(v.image);
@@ -1056,7 +1081,7 @@
         ...x,
         image: String(x.image ?? "").trim(),
         season: normalizeStoredItemSeason(x.season),
-        colorCode: String(x.colorCode ?? x.color_code ?? "").trim(),
+        colourCode: String(x.colourCode ?? x.colorCode ?? x.colour_code ?? x.color_code ?? "").trim(),
       }));
   }
 
@@ -1429,10 +1454,10 @@
     rebuildArchiveImagePathList();
   }
 
-  /** @type {{ itemId: string, colorKey?: string }[]} */
+  /** @type {{ itemId: string, colourKey?: string }[]} */
   let currentOutfitSlots = [];
 
-  /** @type {{ id: string, name: string, slots: { itemId: string, colorKey?: string }[], createdAt: string }[]} */
+  /** @type {{ id: string, name: string, slots: { itemId: string, colourKey?: string }[], createdAt: string }[]} */
   let savedOutfits = [];
 
   /** When set, the next "Save outfit" updates this saved row instead of creating a new one. */
@@ -1541,15 +1566,15 @@
       friendlyRecordCategory(String(item.category ?? "")),
       item.season,
       item.colour,
-      itemColorCode(item),
+      itemColourCode(item),
       item.fabric,
       item.weight,
       item.size,
       item.measuredDimensions,
       item.purchaseDate,
       item.notes,
-      ...(getItemColorVariants(item)?.map((v) =>
-        [v.label, v.colour, v.color, v.colorCode, v.key].filter(Boolean).join(" ")
+      ...(getItemColourVariants(item)?.map((v) =>
+        [v.label, v.colour, v.color, v.colourCode, v.key].filter(Boolean).join(" ")
       ) ?? []),
     ]
       .filter(Boolean)
@@ -1603,7 +1628,8 @@
       return;
     }
     bar.hidden = false;
-    text.textContent = `${countNarrowingFilterDims()} active — ${summary}`;
+    const nFilters = countNarrowingFilterDims();
+    text.textContent = `${nFilters} filter${nFilters === 1 ? "" : "s"} active — ${summary}`;
   }
 
   function countItemsForCurrentSeasonTab() {
@@ -1632,10 +1658,10 @@
     return true;
   }
 
-  /** UI / export: blank, `All-season`, or `All` → label "All season". */
+  /** UI / export: blank, `All-season`, or `All` → label "All seasons". */
   function seasonUiLabel(raw) {
     const s = String(raw ?? "").trim();
-    if (!s || s === "All-season" || s === "All") return "All season";
+    if (!s || s === "All-season" || s === "All") return "All seasons";
     if (s === "A/W" || s === "S/S") return s;
     return s;
   }
@@ -1714,7 +1740,7 @@
   }
 
   /**
-   * Legacy jewelry record types removed from the UI — fold into concrete drill keys.
+   * Legacy jewellery record types removed from the UI — fold into concrete drill keys.
    * @param {string} raw
    */
   function mapJewelleryFutureToConcreteDrillKey(raw) {
@@ -1749,6 +1775,8 @@
     const broadAccessories = slot === SLOT_ACCESSORIES && (raw === slot || raw === "Accessories");
     if (broadClothing || broadAccessories) return defaultRecordCategoryForSlot(slot);
 
+    if (slot === SLOT_ACCESSORIES && (raw === "Small accessories" || raw === "帽子")) return "Hats";
+
     return raw;
   }
 
@@ -1779,6 +1807,8 @@
     if (r === "手鏈") return "Bracelet";
     if (r === "戒指") return "Ring";
     if (r === "潛水錶") return "Dive watch";
+    if (r === "Small accessories") return "Hats";
+    if (r === "帽子") return "Hats";
     return r;
   }
 
@@ -1930,10 +1960,10 @@
   }
 
   /**
-   * Title line: when `color` is set and the name repeats it at the start, strip it (colour lives in specs).
+   * Title line: when a descriptive colour is set and the name repeats it at the start, strip it (colour lives in specs).
    * Does not strip when the leading colour is the first half of a compound material (e.g. Camel Hair, Navy Wool).
    */
-  function displayNameWithoutLeadingColor(item) {
+  function displayNameWithoutLeadingColour(item) {
     const name = String(item?.name ?? "").trim();
     const col = String(item?.colour ?? "").trim();
     if (!name || !col) return name;
@@ -1960,9 +1990,9 @@
   }
 
   function imageAltForItem(item) {
-    const dn = displayNameWithoutLeadingColor(item);
+    const dn = displayNameWithoutLeadingColour(item);
     const col = String(item?.colour ?? "").trim();
-    const code = itemColorCode(item);
+    const code = itemColourCode(item);
     if (col || code) {
       const tail = [col, code].filter(Boolean).join(" · ");
       return `${item.brand} — ${dn} (${tail})`;
@@ -1972,12 +2002,12 @@
 
   function specParts(item) {
     const parts = [];
-    const vars = getItemColorVariants(item);
+    const vars = getItemColourVariants(item);
     if (vars?.length) {
       parts.push(`${vars.length} colours: ${vars.map((v) => v.label).join(", ")}`);
     } else {
       if (item.colour) parts.push(item.colour);
-      const cc = itemColorCode(item);
+      const cc = itemColourCode(item);
       if (cc) parts.push(cc);
     }
     if (item.fabric) parts.push(item.fabric);
@@ -2011,7 +2041,7 @@
         const u = String(g ?? "").trim();
         if (u && !u.startsWith("data:")) seen.add(u);
       }
-      const vars = getItemColorVariants(it);
+      const vars = getItemColourVariants(it);
       if (vars) {
         for (const v of vars) {
           const im = String(v.image ?? "").trim();
@@ -2257,7 +2287,7 @@
       }
     }
     pushFrom(looseTokens(item.brand), 2);
-    pushFrom(looseTokens(displayNameWithoutLeadingColor(item)));
+    pushFrom(looseTokens(displayNameWithoutLeadingColour(item)));
     pushFrom(looseTokens(item.name));
     return out;
   }
@@ -2291,7 +2321,7 @@
       for (const u of itemGalleryList(item)) {
         if (isDisplayableCloudImageUrl(u)) add(u);
       }
-      const vars = getItemColorVariants(item);
+      const vars = getItemColourVariants(item);
       if (vars) {
         for (const v of vars) {
           const u = String(v?.image ?? "").trim();
@@ -2443,7 +2473,7 @@
       btn.appendChild(ti);
       btn.addEventListener("click", () => {
         heroImgEl.src = url;
-        heroImgEl.alt = `${item.brand} — ${displayNameWithoutLeadingColor(item)} (detail)`;
+        heroImgEl.alt = `${item.brand} — ${displayNameWithoutLeadingColour(item)} (detail)`;
         setActive(btn);
       });
       strip.appendChild(btn);
@@ -2528,13 +2558,13 @@
     if (!item) return;
     if (!itemEligibleForOutfit(item)) {
       showToast(
-        "Only clothing, shoes, watches, and accessories go into outfits — jewelry and perfume stay in the archive."
+        "Only clothing, shoes, watches, and accessories go into outfits — jewellery and perfume stay in the archive."
       );
       return;
     }
     const k = outfitSlotKey(slot);
     if (outfitSlotKeySet().has(k)) {
-      showToast("This colour is already in the outfit.");
+      showToast("This colour is already in this outfit.");
       return;
     }
     if (currentOutfitSlots.length >= MAX_OUTFIT_ITEMS) {
@@ -2552,7 +2582,7 @@
 
   function openOutfitVariantPicker(itemId) {
     const item = itemById.get(itemId);
-    const vars = item ? getItemColorVariants(item) : null;
+    const vars = item ? getItemColourVariants(item) : null;
     const dlg = document.getElementById("outfit-variant-dialog");
     const sel = document.getElementById("outfit-variant-select");
     const title = document.getElementById("outfit-variant-title");
@@ -2566,7 +2596,7 @@
       sel.appendChild(o);
     }
     if (title) {
-      title.textContent = `${item.brand} — ${displayNameWithoutLeadingColor(item)}`;
+      title.textContent = `${item.brand} — ${displayNameWithoutLeadingColour(item)}`;
     }
     try {
       dlg.showModal();
@@ -2579,7 +2609,7 @@
   function addToOutfit(id) {
     const item = itemById.get(id);
     if (!item) return;
-    const vars = getItemColorVariants(item);
+    const vars = getItemColourVariants(item);
     if (vars?.length) {
       openOutfitVariantPicker(id);
       return;
@@ -2640,7 +2670,7 @@
       return;
     }
     const slots = currentOutfitSlots.map((s) =>
-      s.colorKey ? { itemId: s.itemId, colorKey: s.colorKey } : { itemId: s.itemId }
+      s.colourKey ? { itemId: s.itemId, colourKey: s.colourKey } : { itemId: s.itemId }
     );
 
     const editId = editingSavedOutfitId;
@@ -3020,8 +3050,22 @@
         await Promise.all(next.gallery.map((u) => (u ? shrinkDataUrlForStorage(String(u)) : "")))
       ).filter(Boolean);
     }
-    if (Array.isArray(next.colorVariants) && next.colorVariants.length) {
-      next.colorVariants = await Promise.all(
+    if (Array.isArray(next.colourVariants) && next.colourVariants.length) {
+      next.colourVariants = await Promise.all(
+        next.colourVariants.map(async (v) => {
+          const nv = { ...v };
+          if (nv.image) nv.image = await shrinkDataUrlForStorage(String(nv.image));
+          if (nv.previewImage) nv.previewImage = await shrinkDataUrlForStorage(String(nv.previewImage));
+          if (Array.isArray(nv.gallery) && nv.gallery.length) {
+            nv.gallery = (
+              await Promise.all(nv.gallery.map((u) => (u ? shrinkDataUrlForStorage(String(u)) : "")))
+            ).filter(Boolean);
+          }
+          return nv;
+        })
+      );
+    } else if (Array.isArray(next.colorVariants) && next.colorVariants.length) {
+      next.colourVariants = await Promise.all(
         next.colorVariants.map(async (v) => {
           const nv = { ...v };
           if (nv.image) nv.image = await shrinkDataUrlForStorage(String(nv.image));
@@ -3034,6 +3078,7 @@
           return nv;
         })
       );
+      delete next.colorVariants;
     }
     return next;
   }
@@ -3097,6 +3142,16 @@
     } catch {
       return String(o);
     }
+  }
+
+  /** Short line for wardrobe_items upsert failures (add / edit / duplicate). */
+  function messageForFailedWardrobeUpsert(err) {
+    const detail = formatSupabaseUserMessage(err);
+    if (!detail) {
+      return "Supabase save failed — check project URL, anon key, and network. If the DB is new, run pending migrations (see supabase/migrations).";
+    }
+    const d = detail.length > 140 ? `${detail.slice(0, 137)}…` : detail;
+    return `Supabase save failed: ${d}`;
   }
 
   function toastCloudDeleteFailure(step, err) {
@@ -3223,8 +3278,8 @@
     const recordPick = document.getElementById("add-item-record-type")?.value?.trim() || "";
     const category = recordPick || defaultRecordCategoryForSlot(browseSlot);
     const season = normalizeStoredItemSeason(document.getElementById("add-item-season")?.value?.trim() || "");
-    const color = document.getElementById("add-item-color")?.value?.trim() || "";
-    const colorCode = document.getElementById("add-item-color-code")?.value?.trim() || "";
+    const colourVal = document.getElementById("add-item-colour")?.value?.trim() || "";
+    const colourCodeInput = document.getElementById("add-item-colour-code")?.value?.trim() || "";
     const fabric = document.getElementById("add-item-fabric")?.value?.trim() || "";
     const weight = document.getElementById("add-item-weight")?.value?.trim() || "";
     const size = document.getElementById("add-item-size")?.value?.trim() || "";
@@ -3235,11 +3290,10 @@
       document.getElementById("add-item-purchase-date-note")?.value?.trim() || ""
     );
     const notes = document.getElementById("add-item-notes")?.value?.trim() || "";
-    const fileInput = document.getElementById("add-item-image");
-    trimCoverFileInputToOne(fileInput, () =>
-      showAddItemFormMsg("Cover is limited to one image — using the first file only.", false)
-    );
-    const file = fileInput?.files?.[0];
+    const photosInput = document.getElementById("add-item-photos");
+    const photoFiles = photosInput?.files ? Array.from(photosInput.files) : [];
+    const file = photoFiles[0];
+    const galleryFiles = photoFiles.slice(1);
     if (!brand || !name || !browseSlot) {
       showAddItemFormMsg("Fill required fields (brand, name, section).", true);
       return;
@@ -3249,8 +3303,6 @@
       return;
     }
 
-    const galleryInput = document.getElementById("add-item-gallery");
-    const galleryFiles = galleryInput?.files ? Array.from(galleryInput.files) : [];
     if (file || galleryFiles.length) showAddItemFormMsg("Processing images…", false);
 
     let dataUrl = "";
@@ -3283,8 +3335,8 @@
 
     const galleryDeduped = galleryUrls.filter((u) => u && u !== dataUrl);
 
-    const colorTrim = String(color ?? "").trim();
-    const colorCodeTrim = String(colorCode ?? "").trim();
+    const colourTrim = String(colourVal ?? "").trim();
+    const colourCodeTrim = String(colourCodeInput ?? "").trim();
     const newItem = {
       id:
         typeof crypto !== "undefined" && crypto.randomUUID
@@ -3295,8 +3347,7 @@
       section: "",
       category,
       season,
-      colour: colorTrim,
-      color: colorTrim,
+      colour: colourTrim,
       fabric,
       weight,
       size,
@@ -3307,7 +3358,7 @@
       notes,
       pillar: "",
     };
-    if (colorCodeTrim) newItem.colorCode = colorCodeTrim;
+    if (colourCodeTrim) newItem.colourCode = colourCodeTrim;
 
     if (isSupabaseReady()) {
       try {
@@ -3327,7 +3378,7 @@
         return;
       } catch (err) {
         console.warn(err);
-        showAddItemFormMsg("Supabase save failed.", true);
+        showAddItemFormMsg(messageForFailedWardrobeUpsert(err), true);
         return;
       }
     }
@@ -3376,11 +3427,97 @@
     document.getElementById("add-item-dialog")?.close();
   }
 
+  /**
+   * Clone any visible piece into a new `custom-*` row (same image URLs / data; name gets " (copy)").
+   * Archive seed rows become a new custom entry; does not change seed files.
+   */
+  function buildDuplicateCustomItem(src) {
+    const id =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? `custom-${crypto.randomUUID()}`
+        : `custom-${Date.now()}`;
+    const nameBase = String(src?.name ?? "").trim();
+    const dupName = nameBase ? `${nameBase} (copy)` : "Untitled (copy)";
+
+    const main = String(src?.image ?? "").trim();
+    const galleryDeduped = dedupeGalleryUrls(main, itemGalleryList(src), 12);
+
+    /** @type {Record<string, unknown>} */
+    const dup = {
+      id,
+      brand: String(src?.brand ?? "").trim(),
+      name: dupName,
+      section: String(src?.section ?? "").trim(),
+      category: String(src?.category ?? "").trim(),
+      season: normalizeStoredItemSeason(src?.season),
+      colour: String(src?.colour ?? src?.color ?? "").trim(),
+      fabric: String(src?.fabric ?? "").trim(),
+      weight: String(src?.weight ?? "").trim(),
+      size: String(src?.size ?? "").trim(),
+      measuredDimensions: String(src?.measuredDimensions ?? src?.measured_dimensions ?? "").trim(),
+      purchaseDate: String(src?.purchaseDate ?? src?.purchase_date ?? "").trim(),
+      image: main,
+      notes: String(src?.notes ?? "").trim(),
+      pillar: String(src?.pillar ?? "").trim(),
+    };
+    if (galleryDeduped.length) dup.gallery = galleryDeduped;
+
+    const cc = itemColourCode(src);
+    if (cc) dup.colourCode = cc;
+
+    const vars = getItemColourVariants(src);
+    if (vars?.length) {
+      dup.colourVariants = vars.map((v) => {
+        const vim = String(v.image ?? "").trim();
+        const g = dedupeGalleryUrls(vim, Array.isArray(v.gallery) ? v.gallery : [], 12);
+        const col = String(v.colour ?? v.color ?? "").trim();
+        return {
+          key: String(v.key ?? "").trim(),
+          label: String(v.label ?? "").trim(),
+          colour: col,
+          colourCode: String(v.colourCode ?? "").trim(),
+          image: vim,
+          previewImage: String(v.previewImage ?? "").trim(),
+          notes: String(v.notes ?? "").trim(),
+          gallery: g,
+        };
+      });
+    }
+
+    return /** @type {typeof src} */ (dup);
+  }
+
+  /** Insert one new custom row using the same paths as “Add a piece” (Supabase vs localStorage + optional shrink). */
+  async function persistNewCustomItemRow(row) {
+    if (isSupabaseReady()) {
+      const saved = await saveWardrobeItemToCloud(row);
+      cloudBackedCustomItems = [
+        saved,
+        ...cloudBackedCustomItems.filter((x) => String(x.id) !== String(saved.id)),
+      ];
+      mergeWardrobeFromSources();
+      return String(saved.id);
+    }
+    const list = loadCustomItems();
+    list.unshift(row);
+    try {
+      await commitCustomItems(list);
+    } catch (e) {
+      const err = /** @type {any} */ (e);
+      const quota = err && (err.name === "QuotaExceededError" || err.code === 22);
+      if (!quota) throw e;
+      list[0] = await shrinkCustomItemRowForQuota(row);
+      await commitCustomItems(list);
+    }
+    mergeWardrobeFromSources();
+    return String(row.id);
+  }
+
   function initAddItemForm() {
     const form = document.getElementById("add-item-form");
     const cat = document.getElementById("add-item-category");
     const recordSel = document.getElementById("add-item-record-type");
-    const imgInput = document.getElementById("add-item-image");
+    const photosInput = document.getElementById("add-item-photos");
     const preview = document.getElementById("add-item-preview");
     if (!form || !cat || !recordSel) return;
     cat.innerHTML = "";
@@ -3397,11 +3534,8 @@
     cat.addEventListener("change", syncAddItemRecordTypes);
     syncAddItemRecordTypes();
 
-    imgInput?.addEventListener("change", () => {
-      trimCoverFileInputToOne(imgInput, () =>
-        showAddItemFormMsg("Cover is limited to one image — using the first file only.", false)
-      );
-      const f = imgInput.files?.[0];
+    photosInput?.addEventListener("change", () => {
+      const f = photosInput.files?.[0];
       if (!preview) return;
       if (!f) {
         preview.hidden = true;
@@ -3457,13 +3591,13 @@
   }
 
   function createCard(item) {
-    const variants = getItemColorVariants(item);
+    const variants = getItemColourVariants(item);
     const inOutfit = outfitIdSet().has(item.id);
     const allVariantKeys =
       variants?.map((v) => v.key) ??
       [];
     const takenKeys = new Set(
-      currentOutfitSlots.filter((s) => s.itemId === item.id && s.colorKey).map((s) => String(s.colorKey))
+      currentOutfitSlots.filter((s) => s.itemId === item.id && s.colourKey).map((s) => String(s.colourKey))
     );
     const everyVariantTaken =
       Boolean(variants?.length) && allVariantKeys.length > 0 && allVariantKeys.every((k) => takenKeys.has(k));
@@ -3480,7 +3614,7 @@
 
     const media = document.createElement("div");
     media.className = "card__media card__media--opens-detail";
-    if (variants?.length) media.classList.add("card__media--variant-colors");
+    if (variants?.length) media.classList.add("card__media--variant-colours");
 
     const img = document.createElement("img");
     img.className = "card__media-img";
@@ -3497,11 +3631,6 @@
     });
 
     media.appendChild(img);
-    if (!variants?.length) {
-      mountHeroGalleryStrip(media, img, item);
-    } else if (itemGalleryList(item).length) {
-      mountHeroGalleryStrip(media, img, item);
-    }
 
     const rawSe = String(item.season ?? "").trim();
     if (rawSe === "A/W" || rawSe === "S/S") {
@@ -3518,7 +3647,7 @@
       quick.dataset.outfitAdd = item.id;
       const blocked = everyVariantTaken || singleTaken;
       if (variants?.length) {
-        quick.title = everyVariantTaken ? "Every colour is already in this outfit." : "Add a colour to outfit";
+        quick.title = everyVariantTaken ? "Every colour is already in this outfit." : "Add a colour to this outfit";
       } else {
         quick.title = singleTaken ? "Already in this outfit." : "Add to outfit";
       }
@@ -3545,7 +3674,7 @@
 
     const title = document.createElement("h2");
     title.className = "card__title card__title--opens-detail";
-    title.textContent = displayNameWithoutLeadingColor(item);
+    title.textContent = displayNameWithoutLeadingColour(item);
     title.title = openHint;
     title.tabIndex = 0;
     title.addEventListener("click", openCardDetail);
@@ -3568,7 +3697,12 @@
     body.appendChild(brand);
     body.appendChild(metaLine);
 
-    mountVariantSwatchStrip(body, item, { outfitPick: true, heroImg: img, heroHost: media });
+    mountVariantSwatchStrip(body, item, {
+      outfitPick: true,
+      heroImg: img,
+      heroHost: media,
+      showHeroGallery: false,
+    });
 
     const specs = document.createElement("ul");
     specs.className = "card__specs";
@@ -3721,7 +3855,7 @@
       const item = itemById.get(pieceSlot.itemId);
       if (!item) return;
       const proj = itemProjectionForOutfitSlot(item, pieceSlot);
-      const variant = getItemColorVariants(item)?.find((v) => v.key === pieceSlot.colorKey);
+      const variant = getItemColourVariants(item)?.find((v) => v.key === pieceSlot.colourKey);
 
       const slot = document.createElement("div");
       slot.className = "outfit-slot";
@@ -3777,7 +3911,7 @@
       b.textContent = item.brand;
       const nm = document.createElement("p");
       nm.className = "outfit-slot__name";
-      nm.textContent = displayNameWithoutLeadingColor(item);
+      nm.textContent = displayNameWithoutLeadingColour(item);
       meta.appendChild(b);
       meta.appendChild(nm);
       if (variant) {
@@ -3921,13 +4055,13 @@
 
   /**
    * @param {HTMLElement} listEl
-   * @param {{ key?: string, label?: string, color?: string, colorCode?: string, image?: string, previewImage?: string, gallery?: string[], notes?: string }} data
+   * @param {{ key?: string, label?: string, colour?: string, colourCode?: string, image?: string, previewImage?: string, gallery?: string[], notes?: string }} data
    */
   function appendVariantEditorRow(listEl, data) {
     const key = String(data.key ?? "").trim() || newEditorVariantKey();
     const label = String(data.label ?? "").trim();
-    const color = String(data.colour ?? data.color ?? "").trim();
-    const colorCode = String(data.colorCode ?? data.colour_code ?? data.color_code ?? "").trim();
+    const colourVal = String(data.colour ?? data.color ?? "").trim();
+    const colourCode = String(data.colourCode ?? data.colour_code ?? data.color_code ?? "").trim();
     const image = String(data.image ?? "").trim();
     const previewImg = String(data.previewImage ?? "").trim();
     const notes = data.notes != null ? String(data.notes) : "";
@@ -3952,19 +4086,19 @@
     labelIn.placeholder = "Label (outfit picker)";
     labelIn.value = label;
 
-    const colorIn = document.createElement("input");
-    colorIn.type = "text";
-    colorIn.className = "item-edit-variant-color";
-    colorIn.maxLength = 80;
-    colorIn.placeholder = "Colour name";
-    colorIn.value = color;
+    const colourIn = document.createElement("input");
+    colourIn.type = "text";
+    colourIn.className = "item-edit-variant-colour";
+    colourIn.maxLength = 80;
+    colourIn.placeholder = "Colour name";
+    colourIn.value = colourVal;
 
     const codeIn = document.createElement("input");
     codeIn.type = "text";
-    codeIn.className = "item-edit-variant-color-code";
+    codeIn.className = "item-edit-variant-colour-code";
     codeIn.maxLength = 80;
     codeIn.placeholder = "Colour code (#hex, SKU…)";
-    codeIn.value = colorCode;
+    codeIn.value = colourCode;
 
     const notesIn = document.createElement("input");
     notesIn.type = "text";
@@ -4072,7 +4206,7 @@
     fs.appendChild(leg);
     fs.appendChild(keyIn);
     fs.appendChild(labelIn);
-    fs.appendChild(colorIn);
+    fs.appendChild(colourIn);
     fs.appendChild(codeIn);
     fs.appendChild(notesIn);
     fs.appendChild(coverLab);
@@ -4090,9 +4224,9 @@
    * @param {object} prev
    * @param {(t: string, err?: boolean) => void} setMsg
    * @param {{ cloudItemId?: string }} [opts]
-   * @returns {Promise<{ key: string, label: string, color: string, colorCode: string, image: string, previewImage?: string, gallery: string[], notes: string }[] | null>}
+   * @returns {Promise<{ key: string, label: string, colour: string, colourCode: string, image: string, previewImage?: string, gallery: string[], notes: string }[] | null>}
    */
-  async function gatherColorVariantsFromEditForm(form, prev, setMsg, opts = {}) {
+  async function gatherColourVariantsFromEditForm(form, prev, setMsg, opts = {}) {
     const wrap = form.querySelector("#item-edit-variants-wrap");
     if (!wrap || wrap.dataset.active !== "1") return null;
     const listEl = form.querySelector("#item-edit-variants-list");
@@ -4100,8 +4234,8 @@
     const rawRows = [...listEl.querySelectorAll(".item-edit-variant-row")];
     const rows = rawRows.filter((row) => {
       const lab = row.querySelector(".item-edit-variant-label")?.value?.trim() || "";
-      const col = row.querySelector(".item-edit-variant-color")?.value?.trim() || "";
-      const code = row.querySelector(".item-edit-variant-color-code")?.value?.trim() || "";
+      const col = row.querySelector(".item-edit-variant-colour")?.value?.trim() || "";
+      const code = row.querySelector(".item-edit-variant-colour-code")?.value?.trim() || "";
       const nts = row.querySelector(".item-edit-variant-notes")?.value?.trim() || "";
       const prevIm = row.getAttribute("data-prev-image")?.trim() || "";
       const prevPr = row.getAttribute("data-prev-preview")?.trim() || "";
@@ -4117,14 +4251,14 @@
       setMsg("Add at least one colour row with a cover image.", true);
       return null;
     }
-    /** @type {{ key: string, label: string, color: string, colorCode: string, image: string, previewImage?: string, gallery: string[], notes: string }[]} */
+    /** @type {{ key: string, label: string, colour: string, colourCode: string, image: string, previewImage?: string, gallery: string[], notes: string }[]} */
     const built = [];
-    const prevVars = getItemColorVariants(prev) || [];
+    const prevVars = getItemColourVariants(prev) || [];
     for (const row of rows) {
       const key = row.querySelector(".item-edit-variant-key")?.value?.trim() || "";
       const label = row.querySelector(".item-edit-variant-label")?.value?.trim() || "";
-      const color = row.querySelector(".item-edit-variant-color")?.value?.trim() || "";
-      const colorCode = row.querySelector(".item-edit-variant-color-code")?.value?.trim() || "";
+      const colourTxt = row.querySelector(".item-edit-variant-colour")?.value?.trim() || "";
+      const colourCode = row.querySelector(".item-edit-variant-colour-code")?.value?.trim() || "";
       const notes = row.querySelector(".item-edit-variant-notes")?.value?.trim() || "";
       const coverIn = row.querySelector(".item-edit-variant-cover");
       trimCoverFileInputToOne(/** @type {HTMLInputElement | null} */ (coverIn));
@@ -4147,16 +4281,16 @@
         setMsg("Each colour row needs an internal key (reload and try again).", true);
         return null;
       }
-      const outLabel = (label || color).trim();
+      const outLabel = (label || colourTxt).trim();
       if (!outLabel) {
         setMsg(
-          "Each colour needs a label or colour name — fill at least one per row (used when picking a colour for outfits).",
+          "Each row needs a label or a colour name — fill at least one per row (used when picking a colour for outfits).",
           true
         );
         return null;
       }
       if (!image) {
-        setMsg("Each colour needs a cover image — upload one, or keep an existing row’s image.", true);
+        setMsg("Each row needs a cover image — upload one, or keep an existing row’s image.", true);
         return null;
       }
       const match = prevVars.find((x) => x && String(x.key ?? "").trim() === key);
@@ -4197,9 +4331,8 @@
       const rowObj = {
         key,
         label: label.trim() || outLabel,
-        color: color.trim() || outLabel,
-        colour: color.trim() || outLabel,
-        colorCode: colorCode.trim(),
+        colour: colourTxt.trim() || outLabel,
+        colourCode: colourCode.trim(),
         image,
         gallery,
         notes,
@@ -4248,23 +4381,23 @@
     const notes = form.querySelector("#item-edit-notes")?.value?.trim() || "";
 
     const variantsMode = itemEditVariantsActive(form);
-    /** @type {{ key: string, label: string, color: string, colorCode: string, image: string, previewImage?: string, gallery: string[], notes: string }[] | null} */
-    let colorVariantsBuilt = null;
+    /** @type {{ key: string, label: string, colour: string, colourCode: string, image: string, previewImage?: string, gallery: string[], notes: string }[] | null} */
+    let colourVariantsBuilt = null;
     if (variantsMode) {
       setMsg("Processing colour images…", false);
-      colorVariantsBuilt = await gatherColorVariantsFromEditForm(form, prev, setMsg, { cloudItemId: id });
-      if (colorVariantsBuilt == null) return;
+      colourVariantsBuilt = await gatherColourVariantsFromEditForm(form, prev, setMsg, { cloudItemId: id });
+      if (colourVariantsBuilt == null) return;
     }
 
-    const color =
-      variantsMode && colorVariantsBuilt?.length
-        ? String(colorVariantsBuilt[0].color ?? colorVariantsBuilt[0].colour ?? colorVariantsBuilt[0].label ?? "").trim()
-        : form.querySelector("#item-edit-color")?.value?.trim() || "";
+    const primaryColour =
+      variantsMode && colourVariantsBuilt?.length
+        ? String(colourVariantsBuilt[0].colour ?? colourVariantsBuilt[0].label ?? "").trim()
+        : form.querySelector("#item-edit-colour")?.value?.trim() || "";
 
-    const colorCode =
-      variantsMode && colorVariantsBuilt?.length
-        ? String(colorVariantsBuilt[0].colorCode ?? "").trim()
-        : form.querySelector("#item-edit-color-code")?.value?.trim() || "";
+    const colourCode =
+      variantsMode && colourVariantsBuilt?.length
+        ? String(colourVariantsBuilt[0].colourCode ?? "").trim()
+        : form.querySelector("#item-edit-colour-code")?.value?.trim() || "";
 
     if (!brand || !name || !browseSlot) {
       setMsg("Brand, name, and section are required.", true);
@@ -4284,7 +4417,7 @@
     }
 
     let image = String(prev.image ?? "").trim();
-    if (!(variantsMode && colorVariantsBuilt?.length)) {
+    if (!(variantsMode && colourVariantsBuilt?.length)) {
       const stripCover = form.querySelector("#item-edit-remove-cover")?.value === "1";
       const coverEl = /** @type {HTMLInputElement | null} */ (form.querySelector("#item-edit-cover"));
       trimCoverFileInputToOne(coverEl);
@@ -4330,8 +4463,8 @@
     }
     gallery = dedupeGalleryUrls(image, gallery, 12);
 
-    const colorTrim = String(color ?? "").trim();
-    const colorCodeTrim = String(colorCode ?? "").trim();
+    const colourTrim = String(primaryColour ?? "").trim();
+    const colourCodeTrim = String(colourCode ?? "").trim();
     const updated = {
       ...prev,
       brand,
@@ -4348,25 +4481,23 @@
       image,
       pillar: "",
     };
-    if (colorTrim) {
-      updated.colour = colorTrim;
-      updated.color = colorTrim;
+    if (colourTrim) {
+      updated.colour = colourTrim;
     } else {
       delete updated.colour;
-      delete updated.color;
     }
-    if (colorCodeTrim) updated.colorCode = colorCodeTrim;
+    if (colourCodeTrim) updated.colourCode = colourCodeTrim;
     else {
-      delete updated.colorCode;
+      delete updated.colourCode;
       delete updated.color_code;
     }
     if (gallery.length) updated.gallery = gallery;
     else delete updated.gallery;
 
-    if (variantsMode && colorVariantsBuilt?.length) {
-      updated.colorVariants = colorVariantsBuilt;
+    if (variantsMode && colourVariantsBuilt?.length) {
+      updated.colourVariants = colourVariantsBuilt;
     } else {
-      delete updated.colorVariants;
+      delete updated.colourVariants;
     }
 
     /** When saving a custom piece, whether `data/custom-items.json` was updated (npm run dev). */
@@ -4404,7 +4535,7 @@
           }
         } catch (e) {
           console.warn(e);
-          setMsg("Supabase save failed. Check network and RLS policies.", true);
+          setMsg(messageForFailedWardrobeUpsert(e), true);
           return;
         }
       } else {
@@ -4444,9 +4575,8 @@
         section: "",
         category,
         season,
-        colour: colorTrim,
-        color: colorTrim,
-        colorCode: colorCodeTrim,
+        colour: colourTrim,
+        colourCode: colourCodeTrim,
         fabric,
         weight,
         size,
@@ -4458,8 +4588,8 @@
       };
       if (gallery.length) patch.gallery = gallery;
       else patch.gallery = [];
-      if (variantsMode && colorVariantsBuilt?.length) {
-        patch.colorVariants = colorVariantsBuilt;
+      if (variantsMode && colourVariantsBuilt?.length) {
+        patch.colourVariants = colourVariantsBuilt;
       }
       try {
         const all = loadArchiveOverrides();
@@ -4516,8 +4646,8 @@
 
     const media = document.createElement("div");
     media.className = "card__media item-detail__media";
-    const detailVariants = getItemColorVariants(item);
-    if (detailVariants?.length) media.classList.add("card__media--variant-colors");
+    const detailVariants = getItemColourVariants(item);
+    if (detailVariants?.length) media.classList.add("card__media--variant-colours");
     const img = document.createElement("img");
     img.className = "card__media-img";
     img.alt = imageAltForItem(item);
@@ -4613,7 +4743,7 @@
       const seaSel = document.createElement("select");
       seaSel.id = "item-edit-season";
       const seasonRows = [
-        { value: "All-season", label: "All season" },
+        { value: "All-season", label: "All seasons" },
         { value: "A/W", label: "A/W" },
         { value: "S/S", label: "S/S" },
       ];
@@ -4628,49 +4758,49 @@
       }
       addField("Season (optional)", seaSel);
 
-      const initialVariants = getItemColorVariants(item);
+      const initialVariants = getItemColourVariants(item);
       const isCustomPiece = String(item.id ?? "").startsWith("custom-");
 
       /** @type {HTMLElement | null} */
-      let colorSingleField = null;
+      let colourSingleField = null;
 
       if (!initialVariants) {
-        const colorBlock = document.createElement("div");
-        colorBlock.className = "field field--span2 item-edit-single-colour-block";
+        const colourBlock = document.createElement("div");
+        colourBlock.className = "field field--span2 item-edit-single-colour-block";
 
-        const colorIn = document.createElement("input");
-        colorIn.type = "text";
-        colorIn.id = "item-edit-color";
-        colorIn.maxLength = 80;
-        colorIn.autocomplete = "off";
-        colorIn.value = String(item.colour ?? item.color ?? "");
+        const colourNameInput = document.createElement("input");
+        colourNameInput.type = "text";
+        colourNameInput.id = "item-edit-colour";
+        colourNameInput.maxLength = 80;
+        colourNameInput.autocomplete = "off";
+        colourNameInput.value = String(item.colour ?? item.color ?? "");
 
-        const colorNameLab = document.createElement("label");
-        colorNameLab.className = "field";
+        const colourNameLab = document.createElement("label");
+        colourNameLab.className = "field";
         const cspan = document.createElement("span");
         cspan.className = "field__label";
         cspan.textContent = "Colour (optional)";
-        colorNameLab.appendChild(cspan);
-        colorNameLab.appendChild(colorIn);
+        colourNameLab.appendChild(cspan);
+        colourNameLab.appendChild(colourNameInput);
 
-        const colorCodeIn = document.createElement("input");
-        colorCodeIn.type = "text";
-        colorCodeIn.id = "item-edit-color-code";
-        colorCodeIn.maxLength = 80;
-        colorCodeIn.autocomplete = "off";
-        colorCodeIn.placeholder = "#hex, SKU…";
-        colorCodeIn.value = itemColorCode(item);
+        const colourCodeInput = document.createElement("input");
+        colourCodeInput.type = "text";
+        colourCodeInput.id = "item-edit-colour-code";
+        colourCodeInput.maxLength = 80;
+        colourCodeInput.autocomplete = "off";
+        colourCodeInput.placeholder = "#hex, SKU…";
+        colourCodeInput.value = itemColourCode(item);
 
-        const colorCodeLab = document.createElement("label");
-        colorCodeLab.className = "field";
+        const colourCodeLab = document.createElement("label");
+        colourCodeLab.className = "field";
         const ccspan = document.createElement("span");
         ccspan.className = "field__label";
         ccspan.textContent = "Colour code (optional)";
-        colorCodeLab.appendChild(ccspan);
-        colorCodeLab.appendChild(colorCodeIn);
+        colourCodeLab.appendChild(ccspan);
+        colourCodeLab.appendChild(colourCodeInput);
 
-        colorBlock.appendChild(colorNameLab);
-        colorBlock.appendChild(colorCodeLab);
+        colourBlock.appendChild(colourNameLab);
+        colourBlock.appendChild(colourCodeLab);
 
         if (isCustomPiece) {
           const migrateHint = document.createElement("p");
@@ -4681,11 +4811,11 @@
           migrateBtn.type = "button";
           migrateBtn.className = "btn btn--small btn--ghost item-edit-enable-variants";
           migrateBtn.textContent = "Add another colour…";
-          colorBlock.appendChild(migrateHint);
-          colorBlock.appendChild(migrateBtn);
+          colourBlock.appendChild(migrateHint);
+          colourBlock.appendChild(migrateBtn);
         }
-        grid.appendChild(colorBlock);
-        colorSingleField = colorBlock;
+        grid.appendChild(colourBlock);
+        colourSingleField = colourBlock;
       }
 
       const variantsWrap = document.createElement("div");
@@ -4703,7 +4833,7 @@
         const variantsIntro = document.createElement("p");
         variantsIntro.className = "item-edit-variants-intro";
         variantsIntro.textContent =
-          "This piece keeps one primary cover for the archive grid; each colour has its own variant cover. The colour strip uses an uploaded preview if set, otherwise a hex from the colour code / name, otherwise the code text, and only then the variant cover. Keys stay fixed — use “Add another colour” for a new option.";
+          "This piece keeps one primary cover for the archive grid; each colour has its own variant cover. The colour strip uses an uploaded preview if set, otherwise a hex value from the colour code or name, otherwise the code text, and only then the variant cover. Keys stay fixed — use “Add another colour…” for a new option.";
         variantsWrap.appendChild(variantsIntro);
       }
 
@@ -4714,7 +4844,7 @@
       const addVarBtn = document.createElement("button");
       addVarBtn.type = "button";
       addVarBtn.className = "btn btn--small btn--ghost item-edit-variant-add";
-      addVarBtn.textContent = "Add another colour";
+      addVarBtn.textContent = "Add another colour…";
       addVarBtn.hidden = !initialVariants;
 
       if (initialVariants) {
@@ -4722,8 +4852,8 @@
           appendVariantEditorRow(listEl, {
             key: v.key,
             label: v.label,
-            color: v.color ?? v.colour,
-            colorCode: v.colorCode,
+            colour: v.colour ?? v.color,
+            colourCode: v.colourCode,
             image: v.image,
             previewImage: v.previewImage,
             gallery: v.gallery,
@@ -4739,8 +4869,8 @@
         appendVariantEditorRow(listEl, {
           key: newEditorVariantKey(),
           label: "",
-          color: "",
-          colorCode: "",
+          colour: "",
+          colourCode: "",
           image: "",
           previewImage: "",
           gallery: [],
@@ -4751,21 +4881,23 @@
         addVarBtn.hidden = false;
       });
 
-      if (colorSingleField) {
-        const migrateBtn = colorSingleField.querySelector(".item-edit-enable-variants");
+      if (colourSingleField) {
+        const migrateBtn = colourSingleField.querySelector(".item-edit-enable-variants");
         migrateBtn?.addEventListener("click", () => {
-          const colorIn = /** @type {HTMLInputElement | null} */ (colorSingleField.querySelector("#item-edit-color"));
-          const codeIn = /** @type {HTMLInputElement | null} */ (colorSingleField.querySelector("#item-edit-color-code"));
-          const baseColor = colorIn?.value?.trim() || "";
+          const colourNameEl = /** @type {HTMLInputElement | null} */ (
+            colourSingleField.querySelector("#item-edit-colour")
+          );
+          const codeIn = /** @type {HTMLInputElement | null} */ (colourSingleField.querySelector("#item-edit-colour-code"));
+          const baseColour = colourNameEl?.value?.trim() || "";
           const baseCode = codeIn?.value?.trim() || "";
-          const label0 = baseColor || "Colour 1";
+          const label0 = baseColour || "Colour 1";
           const key0 = slugVariantKeyBase(label0) || "colour-1";
           listEl.innerHTML = "";
           appendVariantEditorRow(listEl, {
             key: key0,
             label: label0,
-            color: baseColor,
-            colorCode: baseCode,
+            colour: baseColour,
+            colourCode: baseCode,
             image: String(item.image ?? ""),
             previewImage: "",
             gallery: itemGalleryList(item),
@@ -4774,8 +4906,8 @@
           appendVariantEditorRow(listEl, {
             key: newEditorVariantKey(),
             label: "",
-            color: "",
-            colorCode: "",
+            colour: "",
+            colourCode: "",
             image: "",
             previewImage: "",
             gallery: [],
@@ -4783,7 +4915,7 @@
           });
           variantsWrap.dataset.active = "1";
           variantsWrap.hidden = false;
-          colorSingleField.hidden = true;
+          colourSingleField.hidden = true;
           addVarBtn.hidden = false;
           const coverField = form.querySelector("#item-edit-cover")?.closest("label");
           if (coverField instanceof HTMLElement) coverField.hidden = true;
@@ -4995,8 +5127,15 @@
       cancelBtn.title = "Discard changes (Esc)";
       actPush.appendChild(saveBtn);
       actPush.appendChild(cancelBtn);
+      const dupBtn = document.createElement("button");
+      dupBtn.type = "button";
+      dupBtn.className = "btn btn--small btn--ghost";
+      dupBtn.id = "item-detail-duplicate";
+      dupBtn.textContent = "Duplicate";
+      dupBtn.title =
+        "Save a copy as a new custom piece (same photos and fields; name gets “ (copy)”) — opens the copy here for editing.";
+      actPush.appendChild(dupBtn);
       act.appendChild(actPush);
-      form.appendChild(act);
 
       const delWrap = document.createElement("div");
       delWrap.className = "item-detail__form-danger";
@@ -5009,7 +5148,8 @@
         ? "Remove this custom piece from your wardrobe (cannot be undone)."
         : "Hide this archive row in this browser (does not change seed files or cloud).";
       delWrap.appendChild(delBtn);
-      form.appendChild(delWrap);
+      act.appendChild(delWrap);
+      form.appendChild(act);
 
       const h2 = document.createElement("h2");
       h2.id = "item-detail-heading";
@@ -5028,7 +5168,7 @@
     const title = document.createElement("h2");
     title.id = "item-detail-heading";
     title.className = "item-detail__title";
-    title.textContent = displayNameWithoutLeadingColor(item);
+    title.textContent = displayNameWithoutLeadingColour(item);
     body.appendChild(title);
 
     const brand = document.createElement("p");
@@ -5090,6 +5230,7 @@
 
     const actions = document.createElement("div");
     actions.className = "item-detail__actions";
+
     const copyBtn = document.createElement("button");
     copyBtn.type = "button";
     copyBtn.className = "btn btn--small btn--ghost";
@@ -5267,6 +5408,33 @@
           if (it) void copyItemPlainTextForAi(it);
           return;
         }
+        if (t?.closest("#item-detail-duplicate")) {
+          const it = itemById.get(detailItemId);
+          if (!it) return;
+          const dupBtnEl = /** @type {HTMLButtonElement | null} */ (mount.querySelector("#item-detail-duplicate"));
+          if (dupBtnEl) dupBtnEl.disabled = true;
+          void (async () => {
+            try {
+              const dup = buildDuplicateCustomItem(it);
+              const newId = await persistNewCustomItemRow(dup);
+              const next = itemById.get(newId);
+              if (!next) {
+                showToast("Duplicate saved but the new piece could not be shown — refresh the page.");
+                return;
+              }
+              renderItemDetailContent(mount, next, { edit: true });
+              replaceItemPageUrl(newId, true);
+              document.title = `${next.brand} — ${displayNameWithoutLeadingColour(next)} · Timeless Wardrobe`;
+              showToast("Duplicate saved — edit this copy below.");
+            } catch (err) {
+              console.warn("duplicate piece", err);
+              showToast(messageForFailedWardrobeUpsert(err));
+            } finally {
+              if (dupBtnEl) dupBtnEl.disabled = false;
+            }
+          })();
+          return;
+        }
         if (t?.closest("#item-detail-edit")) {
           const it = itemById.get(detailItemId);
           if (it) {
@@ -5332,7 +5500,7 @@
       return;
     }
 
-    document.title = `${item.brand} — ${displayNameWithoutLeadingColor(item)} · Timeless Wardrobe`;
+    document.title = `${item.brand} — ${displayNameWithoutLeadingColour(item)} · Timeless Wardrobe`;
     renderItemDetailContent(root, item, { edit: wantEdit });
   }
 
@@ -5348,7 +5516,7 @@
   }
 
   function syncSeasonTabUI() {
-    const nav = document.getElementById("category-nav");
+    const nav = document.getElementById("season-nav");
     if (!nav) return;
     nav.querySelectorAll(".season-strip__tab").forEach((tab) => {
       const v = tab.dataset.seasonFilter ?? "";
@@ -5388,7 +5556,7 @@
       const n = document.getElementById("filters-nav");
       if (!n || n.classList.contains("filters--menu-open")) return;
       const y = globalThis.scrollY ?? globalThis.pageYOffset ?? 0;
-      if (y >= 48) document.body.classList.add("archive-ui--nav-folded");
+      if (ENABLE_ARCHIVE_NAV_SCROLL_FOLD && y >= 48) document.body.classList.add("archive-ui--nav-folded");
     });
   }
 
@@ -5406,7 +5574,7 @@
         const n = document.getElementById("filters-nav");
         if (!n || n.classList.contains("filters--menu-open")) return;
         const y = globalThis.scrollY ?? globalThis.pageYOffset ?? 0;
-        if (y >= 48) document.body.classList.add("archive-ui--nav-folded");
+        if (ENABLE_ARCHIVE_NAV_SCROLL_FOLD && y >= 48) document.body.classList.add("archive-ui--nav-folded");
       });
     }
   }
@@ -5420,11 +5588,18 @@
     syncFilterSummaryBar();
   }
 
+  /** When true, scrolling the archive adds `archive-ui--nav-folded` (Chrome had touch/scroll issues with this). */
+  const ENABLE_ARCHIVE_NAV_SCROLL_FOLD = false;
+
   let archiveNavScrollFoldLastY = 0;
   let archiveNavScrollFoldTicking = false;
 
   /** Sticky #filters-nav: compact “folded” chrome while scrolling down on the archive page. */
   function initArchiveNavScrollFold() {
+    if (!ENABLE_ARCHIVE_NAV_SCROLL_FOLD) {
+      document.body.classList.remove("archive-ui--nav-folded");
+      return;
+    }
     if (!document.getElementById("grid")) return;
     const nav = document.getElementById("filters-nav");
     if (!nav) return;
@@ -5471,7 +5646,7 @@
       const key = sel?.value?.trim();
       pendingOutfitVariantItemId = null;
       dlg?.close();
-      if (id && key) pushOutfitSlot({ itemId: id, colorKey: key });
+      if (id && key) pushOutfitSlot({ itemId: id, colourKey: key });
     });
     dlg?.addEventListener("click", (e) => {
       if (e.target === dlg) {
@@ -5492,21 +5667,25 @@
       showToast("Filters cleared.");
     });
 
+    const seasonNav = document.getElementById("season-nav");
+    if (seasonNav) {
+      seasonNav.addEventListener("click", (e) => {
+        const seasonTab = e.target.closest(".season-strip__tab");
+        if (!seasonTab) return;
+        const v = String(seasonTab.dataset.seasonFilter ?? "").trim();
+        seasonNavFilter = v === "A/W" ? "A/W" : v === "All" ? "All" : "S/S";
+        persistSeasonNav();
+        subcategoryFilter = "";
+        syncSeasonTabUI();
+        validateSubcategoryFilter();
+        renderCategoryDrill();
+        renderGrid();
+      });
+    }
+
     const catNav = document.getElementById("category-nav");
     if (catNav) {
       catNav.addEventListener("click", (e) => {
-        const seasonTab = e.target.closest(".season-strip__tab");
-        if (seasonTab) {
-          const v = String(seasonTab.dataset.seasonFilter ?? "").trim();
-          seasonNavFilter = v === "A/W" ? "A/W" : v === "All" ? "All" : "S/S";
-          persistSeasonNav();
-          subcategoryFilter = "";
-          syncSeasonTabUI();
-          validateSubcategoryFilter();
-          renderCategoryDrill();
-          renderGrid();
-          return;
-        }
         const tab = e.target.closest(".category-nav__tab");
         if (!tab) return;
         categoryNavFilter = tab.dataset.categoryFilter ?? "";
