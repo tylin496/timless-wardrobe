@@ -4,28 +4,11 @@
  * Collection thesis is described in the site header. Each row uses `category` (and optional
  * `season`) for browsing; `section` / `pillar` are legacy fields and not shown in the UI.
  *
- * Images: use Supabase Storage public URLs under bucket `wardrobe-images` (same project as `js/tw-supabase-config.js`).
- * Source rows still name files as `images/<Brand> <Name…>.png`; the normalizer below turns those into full `https://…` URLs at load time (objects must exist at that path in Storage).
+ * Images: full `https://…` public URLs (Supabase `wardrobe-images` bucket; project matches `js/tw-supabase-config.js`).
  * Optional `gallery`: string[] of extra image URLs; `image` is always the cover.
  * Optional `colourVariants`: same product in multiple colours — one archive row; outfit builder asks which colour.
  * Optional `size` (label size), `measuredDimensions` (實量／平量尺寸文字，可空), and `purchaseDate` (YYYY-MM-DD or short text，可空).
  */
-
-const SEED_WARDROBE_IMAGE_PUBLIC_BASE =
-  "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/";
-
-/** @param {string} rel */
-function seedRelativeImageToPublicUrl(rel) {
-  const s = String(rel ?? "").trim().replace(/\\/g, "/");
-  if (!s.startsWith("images/")) return s;
-  return (
-    SEED_WARDROBE_IMAGE_PUBLIC_BASE +
-    s
-      .split("/")
-      .map((seg) => encodeURIComponent(seg))
-      .join("/")
-  );
-}
 
 const WARDROBE_ITEMS = [
   // ——— A/W – Country Classics ———
@@ -40,7 +23,7 @@ const WARDROBE_ITEMS = [
     fabric: "Tweed",
     weight: "620 gsm",
     measuredDimensions: "Chest flat 54 cm · CB length 72 cm (reference)",
-    image: "images/CULTUM Brown Glen Check Tweed Jacket (620 gsm).png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/CULTUM%20Brown%20Glen%20Check%20Tweed%20Jacket%20%28620%20gsm%29.png",
     notes: "",
   },
   {
@@ -53,7 +36,7 @@ const WARDROBE_ITEMS = [
     colour: "Grey",
     fabric: "Tweed",
     weight: "~480 gsm",
-    image: "images/J. PRESS Grey Herringbone Tweed Jacket (~480 gsm).png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/J.%20PRESS%20Grey%20Herringbone%20Tweed%20Jacket%20%28~480%20gsm%29.png",
     notes: "",
   },
   {
@@ -66,7 +49,7 @@ const WARDROBE_ITEMS = [
     colour: "Light brown",
     fabric: "Tweed",
     weight: "~450 gsm",
-    image: "images/BROOKS BROTHERS Light Brown Houndstooth Tweed Jacket (450 gsm).png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/BROOKS%20BROTHERS%20Light%20Brown%20Houndstooth%20Tweed%20Jacket%20%28450%20gsm%29.png",
     notes: "",
   },
   {
@@ -79,7 +62,7 @@ const WARDROBE_ITEMS = [
     colour: "Navy",
     fabric: "Twill",
     weight: "~300 gsm",
-    image: "images/BROOKS BROTHERS Golden Fleece Navy Twill Blazer.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/BROOKS%20BROTHERS%20Golden%20Fleece%20Navy%20Twill%20Blazer.png",
     notes: "",
   },
   {
@@ -92,7 +75,7 @@ const WARDROBE_ITEMS = [
     colour: "Navy",
     fabric: "Wool",
     weight: "265 gsm",
-    image: "images/ACME CULTUM Navy Double-Breasted Super 120s Blazer (265 gsm).png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/ACME%20CULTUM%20Navy%20Double-Breasted%20Super%20120s%20Blazer%20%28265%20gsm%29.png",
     notes: "",
   },
   {
@@ -105,7 +88,7 @@ const WARDROBE_ITEMS = [
     colour: "Camel",
     fabric: "Camel hair",
     weight: "760 gsm",
-    image: "images/SPIER & MACKAY Camel Hair Polo Coat (760 gsm).png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/SPIER%20%26%20MACKAY%20Camel%20Hair%20Polo%20Coat%20%28760%20gsm%29.png",
     notes: "",
   },
   {
@@ -118,7 +101,7 @@ const WARDROBE_ITEMS = [
     colour: "Sage",
     fabric: "Waxed cotton",
     weight: "",
-    image: "images/BARBOUR Sage Beaufort Waxed Jacket.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/BARBOUR%20Sage%20Beaufort%20Waxed%20Jacket.png",
     notes: "",
   },
   {
@@ -131,7 +114,7 @@ const WARDROBE_ITEMS = [
     colour: "Beige",
     fabric: "",
     weight: "",
-    image: "images/BURBERRYS Beige Single-Breasted Balmacaan Coat.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/BURBERRYS%20Beige%20Single-Breasted%20Balmacaan%20Coat.png",
     notes: "",
   },
   {
@@ -144,7 +127,7 @@ const WARDROBE_ITEMS = [
     colour: "Navy",
     fabric: "Ventile",
     weight: "",
-    image: "images/Private White VC Midnight Navy Ventile Harrington.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/Private%20White%20VC%20Midnight%20Navy%20Ventile%20Harrington.png",
     notes: "",
   },
   {
@@ -157,7 +140,7 @@ const WARDROBE_ITEMS = [
     colour: "Ecru",
     fabric: "Sherpa fleece",
     weight: "",
-    image: "images/MUJI Ecru Sherpa Fleece Vest (Olive Trim).png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/MUJI%20Ecru%20Sherpa%20Fleece%20Vest%20%28Olive%20Trim%29.png",
     notes: "",
   },
   {
@@ -170,7 +153,7 @@ const WARDROBE_ITEMS = [
     colour: "Oatmeal beige",
     fabric: "Wool",
     weight: "",
-    image: "images/MUJI Oatmeal Beige Heavy Aran Wool Cable-Knit Jumper.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/MUJI%20Oatmeal%20Beige%20Heavy%20Aran%20Wool%20Cable-Knit%20Jumper.png",
     notes: "",
   },
   {
@@ -183,7 +166,7 @@ const WARDROBE_ITEMS = [
     colour: "Wine",
     fabric: "Wool-cashmere",
     weight: "",
-    image: "images/PRL Wine Polo Bear Wool-Cashmere Jumper.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/PRL%20Wine%20Polo%20Bear%20Wool-Cashmere%20Jumper.png",
     notes: "",
   },
   {
@@ -196,7 +179,7 @@ const WARDROBE_ITEMS = [
     colour: "Brown",
     fabric: "Wool",
     weight: "",
-    image: "images/THE ENGINEER Brown Fair Isle Wool Vest.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/THE%20ENGINEER%20Brown%20Fair%20Isle%20Wool%20Vest.png",
     notes: "",
   },
   {
@@ -209,7 +192,7 @@ const WARDROBE_ITEMS = [
     colour: "Ecru",
     fabric: "Cotton-acrylic",
     weight: "",
-    image: "images/UNIQLO Ecru Cricket Cable-Knit Jumper Vest (Navy Yellow Trim, Cotton-Acrylic).png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/UNIQLO%20Ecru%20Cricket%20Cable-Knit%20Jumper%20Vest%20%28Navy%20Yellow%20Trim%2C%20Cotton-Acrylic%29.png",
     notes: "Filename: if slash is problematic on disk, use a variant without “/” in the filename and adjust this path.",
   },
   {
@@ -222,7 +205,7 @@ const WARDROBE_ITEMS = [
     colour: "Navy",
     fabric: "Wool",
     weight: "",
-    image: "images/MUJI Dark Navy Wool High-Gauge Lightweight V-Neck Cardigan.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/MUJI%20Dark%20Navy%20Wool%20High-Gauge%20Lightweight%20V-Neck%20Cardigan.png",
     notes: "",
   },
   {
@@ -235,7 +218,7 @@ const WARDROBE_ITEMS = [
     colour: "Beige",
     fabric: "Acrylic blend",
     weight: "",
-    image: "images/UNIQLO Beige Kataaze Knit Mock Neck (Acrylic Blend).png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/UNIQLO%20Beige%20Kataaze%20Knit%20Mock%20Neck%20%28Acrylic%20Blend%29.png",
     notes: "",
   },
   {
@@ -248,7 +231,7 @@ const WARDROBE_ITEMS = [
     colour: "Wine / cream",
     fabric: "Cotton",
     weight: "",
-    image: "images/PRL Washed Wine Cream Rugby Shirt.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/PRL%20Washed%20Wine%20Cream%20Rugby%20Shirt.png",
     notes: "Image path uses space instead of “/” if needed for your OS filename.",
   },
   {
@@ -261,7 +244,7 @@ const WARDROBE_ITEMS = [
     colour: "Off-white",
     fabric: "Cotton",
     weight: "",
-    image: "images/MUJI Washed Off-White Breton-Stripe Midweight Boat-Neck 34 Sleeve T-Shirt.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/MUJI%20Washed%20Off-White%20Breton-Stripe%20Midweight%20Boat-Neck%2034%20Sleeve%20T-Shirt.png",
     notes: "",
   },
   {
@@ -274,7 +257,7 @@ const WARDROBE_ITEMS = [
     colour: "Black",
     fabric: "Cotton",
     weight: "",
-    image: "images/THE ENGINEER Black Cotton Long-Sleeve Polo.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/THE%20ENGINEER%20Black%20Cotton%20Long-Sleeve%20Polo.png",
     notes: "",
   },
   {
@@ -287,7 +270,7 @@ const WARDROBE_ITEMS = [
     colour: "Black",
     fabric: "Wool",
     weight: "",
-    image: "images/MUJI Black Fine Knit Wool Ribbed Turtle Neck Lightweight Jumper.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/MUJI%20Black%20Fine%20Knit%20Wool%20Ribbed%20Turtle%20Neck%20Lightweight%20Jumper.png",
     notes: "",
   },
   {
@@ -300,7 +283,7 @@ const WARDROBE_ITEMS = [
     colour: "",
     fabric: "Cotton",
     weight: "",
-    image: "images/UNIQLO OCBD Shirts ×4 (White Light Blue Blue Stripe Pink Stripe).png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/UNIQLO%20OCBD%20Shirts%20%C3%974%20%28White%20Light%20Blue%20Blue%20Stripe%20Pink%20Stripe%29.png",
     notes:
       "Four shirts from the same stack — choose the colour when adding to an outfit. Canonical shirt stack for both capsules; A/W and S/S edits use the same physical shirts.",
     colourVariants: [
@@ -308,25 +291,25 @@ const WARDROBE_ITEMS = [
         key: "blue",
         label: "Blue",
         colour: "Blue",
-        image: "images/UNIQLO OCBD Shirts ×4 (White Light Blue Blue Stripe Pink Stripe).png",
+        image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/UNIQLO%20OCBD%20Shirts%20%C3%974%20%28White%20Light%20Blue%20Blue%20Stripe%20Pink%20Stripe%29.png",
       },
       {
         key: "white",
         label: "White",
         colour: "White",
-        image: "images/UNIQLO OCBD Shirts ×4 (White Light Blue Blue Stripe Pink Stripe).png",
+        image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/UNIQLO%20OCBD%20Shirts%20%C3%974%20%28White%20Light%20Blue%20Blue%20Stripe%20Pink%20Stripe%29.png",
       },
       {
         key: "pink-stripe",
         label: "Pink stripe",
         colour: "Pink stripe",
-        image: "images/UNIQLO OCBD Shirts ×4 (White Light Blue Blue Stripe Pink Stripe).png",
+        image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/UNIQLO%20OCBD%20Shirts%20%C3%974%20%28White%20Light%20Blue%20Blue%20Stripe%20Pink%20Stripe%29.png",
       },
       {
         key: "blue-striped",
         label: "Blue striped",
         colour: "Blue striped",
-        image: "images/UNIQLO OCBD Shirts ×4 (White Light Blue Blue Stripe Pink Stripe).png",
+        image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/UNIQLO%20OCBD%20Shirts%20%C3%974%20%28White%20Light%20Blue%20Blue%20Stripe%20Pink%20Stripe%29.png",
       },
     ],
   },
@@ -340,7 +323,7 @@ const WARDROBE_ITEMS = [
     colour: "Camel",
     fabric: "Corduroy",
     weight: "",
-    image: "images/L.L.BEAN Camel Corduroy Trousers.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/L.L.BEAN%20Camel%20Corduroy%20Trousers.png",
     notes: "",
   },
   {
@@ -353,7 +336,7 @@ const WARDROBE_ITEMS = [
     colour: "",
     fabric: "",
     weight: "",
-    image: "images/UNIQLO Tuck Trousers x2 (Grey Beige, all-season).png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/UNIQLO%20Tuck%20Trousers%20x2%20%28Grey%20Beige%2C%20all-season%29.png",
     notes:
       "Grey and beige from the same cut — pick the colour in the outfit builder. Also worn in S/S – Mediterranean Resort.",
     colourVariants: [
@@ -361,13 +344,13 @@ const WARDROBE_ITEMS = [
         key: "grey",
         label: "Grey",
         colour: "Grey",
-        image: "images/UNIQLO Tuck Trousers x2 (Grey Beige, all-season).png",
+        image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/UNIQLO%20Tuck%20Trousers%20x2%20%28Grey%20Beige%2C%20all-season%29.png",
       },
       {
         key: "beige",
         label: "Beige",
         colour: "Beige",
-        image: "images/UNIQLO Tuck Trousers x2 (Grey Beige, all-season).png",
+        image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/UNIQLO%20Tuck%20Trousers%20x2%20%28Grey%20Beige%2C%20all-season%29.png",
       },
     ],
   },
@@ -381,7 +364,7 @@ const WARDROBE_ITEMS = [
     colour: "Light wash blue / dark orange brown",
     fabric: "Denim",
     weight: "",
-    image: "images/JWA Straight Jeans.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/JWA%20Straight%20Jeans.png",
     notes: "Also listed S/S capsule; single archive row.",
   },
   {
@@ -394,7 +377,7 @@ const WARDROBE_ITEMS = [
     colour: "Cream",
     fabric: "Denim",
     weight: "",
-    image: "images/MUJI Cream Wide-Leg Jeans (all-season).png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/MUJI%20Cream%20Wide-Leg%20Jeans%20%28all-season%29.png",
     notes: "Also worn S/S.",
   },
   {
@@ -407,7 +390,7 @@ const WARDROBE_ITEMS = [
     colour: "Olive brown",
     fabric: "Poly blend",
     weight: "",
-    image: "images/GU olive brown wide-straight trousers (crease front, airy poly-blend, all-season)_2.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/GU%20olive%20brown%20wide-straight%20trousers%20%28crease%20front%2C%20airy%20poly-blend%2C%20all-season%29_2.png",
     notes: "Also worn S/S.",
   },
 
@@ -422,7 +405,7 @@ const WARDROBE_ITEMS = [
     colour: "Ecru",
     fabric: "Linen",
     weight: "~350 gsm",
-    image: "images/THE ENGINEER Ecru Linen Safari Jacket (~350 gsm).png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/THE%20ENGINEER%20Ecru%20Linen%20Safari%20Jacket%20%28~350%20gsm%29.png",
     notes: "",
   },
   {
@@ -435,7 +418,7 @@ const WARDROBE_ITEMS = [
     colour: "Beige",
     fabric: "Linen",
     weight: "~280 gsm",
-    image: "images/PRL Beige Basket-Weave Linen Jacket.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/PRL%20Beige%20Basket-Weave%20Linen%20Jacket.png",
     notes: "",
   },
   {
@@ -448,7 +431,7 @@ const WARDROBE_ITEMS = [
     colour: "Cream",
     fabric: "Linen",
     weight: "",
-    image: "images/ZARA Cream Linen Loop-Collar Shirt.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/ZARA%20Cream%20Linen%20Loop-Collar%20Shirt.png",
     notes: "",
   },
   {
@@ -461,7 +444,7 @@ const WARDROBE_ITEMS = [
     colour: "Navy",
     fabric: "Knit",
     weight: "",
-    image: "images/ZARA Navy Baker Neck Knitted T-Shirt Button-Neck knit T-shirt.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/ZARA%20Navy%20Baker%20Neck%20Knitted%20T-Shirt%20Button-Neck%20knit%20T-shirt.png",
     notes: "",
   },
   {
@@ -474,7 +457,7 @@ const WARDROBE_ITEMS = [
     colour: "Light blue",
     fabric: "Linen",
     weight: "",
-    image: "images/UNIQLO Light Blue Linen Camp Collar Shirt.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/UNIQLO%20Light%20Blue%20Linen%20Camp%20Collar%20Shirt.png",
     notes: "",
   },
   {
@@ -487,7 +470,7 @@ const WARDROBE_ITEMS = [
     colour: "Ice blue",
     fabric: "Knit",
     weight: "",
-    image: "images/ZARA RIB KNIT POLO SHIRT.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/ZARA%20RIB%20KNIT%20POLO%20SHIRT.png",
     notes: "",
   },
   {
@@ -500,7 +483,7 @@ const WARDROBE_ITEMS = [
     colour: "Oatmeal",
     fabric: "",
     weight: "",
-    image: "images/H&M Oatmeal Stripe Camp Collar Shirt.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/H%26M%20Oatmeal%20Stripe%20Camp%20Collar%20Shirt.png",
     notes: "",
   },
   {
@@ -513,7 +496,7 @@ const WARDROBE_ITEMS = [
     colour: "Wine",
     fabric: "Knit",
     weight: "",
-    image: "images/GU Wine Cable-Knit Polo (White Striped Trim).png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/GU%20Wine%20Cable-Knit%20Polo%20%28White%20Striped%20Trim%29.png",
     notes: "",
   },
   {
@@ -526,7 +509,7 @@ const WARDROBE_ITEMS = [
     colour: "Beige",
     fabric: "Knit",
     weight: "",
-    image: "images/H&M Hole-Knit Beige Polo.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/H%26M%20Hole-Knit%20Beige%20Polo.png",
     notes: "",
   },
   {
@@ -539,7 +522,7 @@ const WARDROBE_ITEMS = [
     colour: "Grey",
     fabric: "Knit",
     weight: "",
-    image: "images/ZARA Dark Grey Open-Knit Polo.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/ZARA%20Dark%20Grey%20Open-Knit%20Polo.png",
     notes: "",
   },
   {
@@ -552,7 +535,7 @@ const WARDROBE_ITEMS = [
     colour: "Ecru",
     fabric: "Knit",
     weight: "",
-    image: "images/ZARA Ecru Purl-Knit T-Shirt.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/ZARA%20Ecru%20Purl-Knit%20T-Shirt.png",
     notes: "",
   },
   {
@@ -565,7 +548,7 @@ const WARDROBE_ITEMS = [
     colour: "Slate blue",
     fabric: "Knit",
     weight: "",
-    image: "images/MUJI Slate Blue Lightweight Fine Knit T-Shirt.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/MUJI%20Slate%20Blue%20Lightweight%20Fine%20Knit%20T-Shirt.png",
     notes: "",
   },
   {
@@ -578,7 +561,7 @@ const WARDROBE_ITEMS = [
     colour: "Beige",
     fabric: "Linen",
     weight: "",
-    image: "images/H&M Linen Pleated Shorts (Beige).png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/H%26M%20Linen%20Pleated%20Shorts%20%28Beige%29.png",
     notes: "",
   },
 
@@ -594,7 +577,7 @@ const WARDROBE_ITEMS = [
     fabric: "Scotch grain calf",
     weight: "",
     size: "UK 10 E",
-    image: "images/CROCKETT & JONES Pembroke Tan (UK 10 E).png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/CROCKETT%20%26%20JONES%20Pembroke%20Tan%20%28UK%2010%20E%29.png",
     notes:
       "Type: Full brogue country derby, wing-tip with full punching. Sole: Dainite rubber. Last: 325. Date: 27 Oct 2020.",
   },
@@ -608,7 +591,7 @@ const WARDROBE_ITEMS = [
     colour: "Snuff",
     fabric: "Repello suede",
     weight: "",
-    image: "images/CROCKETT & JONES Chukka Snuff Suede (UK 10 D).png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/CROCKETT%20%26%20JONES%20Chukka%20Snuff%20Suede%20%28UK%2010%20D%29.png",
     notes:
       "Unlined ankle boot; Scotch-guard treated. Sole: single leather. Last: 200. Date: 30 Jan 2023.",
   },
@@ -622,7 +605,7 @@ const WARDROBE_ITEMS = [
     colour: "Color 8",
     fabric: "Horween shell cordovan",
     weight: "",
-    image: "images/ALDEN 563 Tassel Loafer Color 8 Cordovan (US 10.5 E).png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/ALDEN%20563%20Tassel%20Loafer%20Color%208%20Cordovan%20%28US%2010.5%20E%29.png",
     notes: "Handsewn moccasin apron. Sole: single oak leather. Last: Aberdeen. Date: 19 Jan 2023.",
   },
   {
@@ -635,7 +618,7 @@ const WARDROBE_ITEMS = [
     colour: "Café",
     fabric: "Leather (calf)",
     weight: "",
-    image: "images/PARABOOT Ferret Lisse Café (UK 10).png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/PARABOOT%20Ferret%20Lisse%20Caf%C3%A9%20%28UK%2010%29.png",
     notes: "Leather fisherman sandal. Sole: rubber. Date: 3 Aug 2025.",
   },
   {
@@ -648,7 +631,7 @@ const WARDROBE_ITEMS = [
     colour: "White",
     fabric: "Leather",
     weight: "",
-    image: "images/COMMON PROJECTS Achilles Low White (EU 45).png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/COMMON%20PROJECTS%20Achilles%20Low%20White%20%28EU%2045%29.png",
     notes: "Margom cup sole. Date: 28 Nov 2025.",
   },
 
@@ -663,7 +646,7 @@ const WARDROBE_ITEMS = [
     colour: "Gold PVD",
     fabric: "",
     weight: "",
-    image: "images/TISSOT PRX Quartz 35mm Gold PVD – versatile everyday watch.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/TISSOT%20PRX%20Quartz%2035mm%20Gold%20PVD%20%E2%80%93%20versatile%20everyday%20watch.png",
     notes:
       "Price NT$11,309. Ref: T137.210.33.021.00. ETA F06.115 quartz. Case 35mm YG PVD, 9.6mm. Dial: champagne sunburst. Bracelet: integrated gold PVD. Date: 8 Oct 2024. Notes: PRX as gold luxury sports role in collection; future Rolex 16018 as purer successor.",
   },
@@ -677,7 +660,7 @@ const WARDROBE_ITEMS = [
     colour: "Black",
     fabric: "",
     weight: "",
-    image: "images/Tudor Black Bay 58.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/Tudor%20Black%20Bay%2058.png",
     notes:
       "Price NT$82,000. Ref: M79030N. MT5402. 39mm SS, 11.9mm, 20mm lugs. Riveted bracelet. Date: 17 Oct 2024. Heritage sport; vintage Sub lineage; only true sports watch in archive per your notes.",
   },
@@ -691,7 +674,7 @@ const WARDROBE_ITEMS = [
     colour: "Yellow gold",
     fabric: "",
     weight: "",
-    image: "images/Tank Solo, Large Model.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/Tank%20Solo%2C%20Large%20Model.png",
     notes:
       "Price NT$100,000. Ref: W5200004. Cal. 690 quartz. 34.8×27.4mm 18ct YG, 5.55mm, 17mm lugs. Brown alligator. Date: 3 Nov 2024. Solid-gold anchor of the collection.",
   },
@@ -707,7 +690,7 @@ const WARDROBE_ITEMS = [
     colour: "",
     fabric: "",
     weight: "",
-    image: "images/New York.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/New%20York.png",
     notes: "Bergamot, black pepper, oak moss.",
   },
   {
@@ -720,7 +703,7 @@ const WARDROBE_ITEMS = [
     colour: "",
     fabric: "",
     weight: "",
-    image: "images/Grand Soir.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/Grand%20Soir.png",
     notes: "Labdanum, benzoin, vanilla, amber.",
   },
 
@@ -735,7 +718,7 @@ const WARDROBE_ITEMS = [
     colour: "Yellow gold",
     fabric: "",
     weight: "9.6 g",
-    image: "images/Signet Ring (18ct yellow gold, 12 × 14 mm).png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/Signet%20Ring%20%2818ct%20yellow%20gold%2C%2012%20%C3%97%2014%20mm%29.png",
     notes:
       "HK 14 (2020-11-20; confirmed 2026-04-07). Gold 411 CNY/g; making 78. Total ~4,698 CNY ≈ 20,000 TWD (2020). Engraving: Victorian interlaced monogram (TYL). Date: 1 Nov 2020.",
   },
@@ -749,7 +732,7 @@ const WARDROBE_ITEMS = [
     colour: "Gold / ruby",
     fabric: "",
     weight: "8.20 g",
-    image: "images/Ruby Gypsy Ring.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/Ruby%20Gypsy%20Ring.png",
     notes:
       "18ct YG with diamonds; 6.8 mm face. HK 22 (adjusted 22.5–23, 2026-04-07). Ruby 3×4 mm; diamonds 2.3 mm ×2. Total ~5,057 CNY ≈ 22,600 TWD (2024). Inscription: Ad Meliora · 2024. Reference note: turquoise ring Rumpenheim 1843.",
   },
@@ -763,7 +746,7 @@ const WARDROBE_ITEMS = [
     colour: "Yellow gold",
     fabric: "",
     weight: "11.71 g",
-    image: "images/Curb Bracelet (18ct yellow gold, 5.2 mm).png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/Curb%20Bracelet%20%2818ct%20yellow%20gold%2C%205.2%20mm%29.png",
     notes: "20.5 cm. Total ~6,973 CNY ≈ 31,200 TWD (2024). Date: 26 Oct 2024.",
   },
   {
@@ -776,7 +759,7 @@ const WARDROBE_ITEMS = [
     colour: "Yellow gold",
     fabric: "",
     weight: "9.29 g",
-    image: "images/Rolo chain.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/Rolo%20chain.png",
     notes: "50 cm. Total ~4,778 CNY ≈ 21,400 TWD (2024). Date: 20 Aug 2024.",
   },
 
@@ -791,7 +774,7 @@ const WARDROBE_ITEMS = [
     colour: "",
     fabric: "Pt950 1.8 mm (bride) / 18ct YG 2 mm size 13 (groom)",
     weight: "",
-    image: "images/Wedding Bands.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/Wedding%20Bands.png",
     notes:
       "Inscription: spouse name · date (e.g. Edward · 29 Mai). Worn at base when stacked. Reference: bands of Prince Edward Duke of Kent (1767–1820) and Princess Victoria Duchess of Kent (1786–1861).",
   },
@@ -805,7 +788,7 @@ const WARDROBE_ITEMS = [
     colour: "Cornflower blue",
     fabric: "",
     weight: "",
-    image: "images/Future Sapphire Engagement Ring.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/Future%20Sapphire%20Engagement%20Ring.png",
     notes: "Sapphire 8×6 mm (1.3–1.5 ct). Ref: Garrard 1735 sapphire ring.",
   },
   {
@@ -818,7 +801,7 @@ const WARDROBE_ITEMS = [
     colour: "Blue",
     fabric: "Platinum",
     weight: "",
-    image: "images/Future Sapphire Three-Stone Cartier.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/Future%20Sapphire%20Three-Stone%20Cartier.png",
     notes:
       "Emerald-cut sapphire 6.8×5.1 mm ~1.1 ct; tapered baguette sides; ~1 ct diamonds total. Signed Cartier.",
   },
@@ -832,34 +815,8 @@ const WARDROBE_ITEMS = [
     colour: "",
     fabric: "",
     weight: "",
-    image: "images/Future Chain Bracelet Test Weights.png",
+    image: "https://yyzrzmbsxphlhoqzikjn.supabase.co/storage/v1/object/public/wardrobe-images/images/Future%20Chain%20Bracelet%20Test%20Weights.png",
     notes: "Curb 5.2 mm: 7.5 g. Curb 3.6 mm: 3.7 g. Figaro 5.2 mm: 5.7 g.",
   },
 ];
 
-(function normalizeSeedWardrobeImageUrls() {
-  /** @param {string} u */
-  function upgrade(u) {
-    const s = String(u ?? "").trim();
-    return seedRelativeImageToPublicUrl(s);
-  }
-  /** @param {Record<string, unknown>} v */
-  function walkVariant(v) {
-    if (!v || typeof v !== "object") return;
-    if (typeof v.image === "string") v.image = upgrade(v.image);
-    if (typeof v.previewImage === "string") v.previewImage = upgrade(v.previewImage);
-    if (Array.isArray(v.gallery)) {
-      v.gallery = v.gallery.map((g) => (typeof g === "string" ? upgrade(g) : g));
-    }
-  }
-  for (const it of WARDROBE_ITEMS) {
-    if (typeof it.image === "string") it.image = upgrade(it.image);
-    if (Array.isArray(it.gallery)) {
-      it.gallery = it.gallery.map((g) => (typeof g === "string" ? upgrade(g) : g));
-    }
-    const variants = it.colourVariants ?? it.colorVariants;
-    if (Array.isArray(variants)) {
-      for (const v of variants) walkVariant(v);
-    }
-  }
-})();

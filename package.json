@@ -6,7 +6,6 @@
     "dev": "node scripts/tw-dev-server.mjs",
     "export:wardrobe-json": "node scripts/export_wardrobe_json.mjs",
     "db:import-seed": "node scripts/import_seed_to_supabase.mjs",
-    "images:manifest": "node scripts/generate_image_manifest.mjs",
     "storage:prune-orphans": "node scripts/prune_wardrobe_storage_orphans.mjs"
   },
   "dependencies": {

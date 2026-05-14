@@ -34,10 +34,10 @@
               classics and warm-weather ease.
             </p>
             <details class="site-meta-details">
-              <summary>Data &amp; images</summary>
+              <summary>How data loads</summary>
               <p class="site-meta-details__body">
                 Pieces can load from this site’s seed list, your browser (custom items &amp; edits), or Supabase when
-                configured. Image paths in the data should match files under <code>images/</code>.
+                configured. Archive photos use public <code>https://</code> URLs (e.g. Supabase Storage).
               </p>
             </details>
           </div>
@@ -98,6 +98,7 @@
           <input
             id="filter-search"
             type="search"
+            aria-label="Search wardrobe"
             placeholder="Brand, name, category, season…"
             autocomplete="off"
             spellcheck="false"

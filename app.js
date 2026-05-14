@@ -2081,6 +2081,16 @@
     if (!allowed.includes(sub)) subcategoryFilter = "";
   }
 
+  /** Avoid `aria-hidden` + focused descendant (Chrome blocks and UX breaks); call before hiding `#category-drill`. */
+  function blurActiveElementIfInsideCategoryDrill() {
+    const drill = document.getElementById("category-drill");
+    if (!drill) return;
+    const ae = document.activeElement;
+    if (ae instanceof HTMLElement && drill.contains(ae)) {
+      ae.blur();
+    }
+  }
+
   function renderCategoryDrill() {
     const drill = document.getElementById("category-drill");
     const grid = document.getElementById("category-drill-grid");
@@ -2088,19 +2098,21 @@
 
     validateSubcategoryFilter();
 
-    if (!categoryNavFilter) {
+    function hideDrillStrip() {
+      blurActiveElementIfInsideCategoryDrill();
       drill.hidden = true;
-      drill.setAttribute("aria-hidden", "true");
       grid.innerHTML = "";
+    }
+
+    if (!categoryNavFilter) {
+      hideDrillStrip();
       return;
     }
 
     const seasonalPool = poolItemsForDrillSubcategories();
     if (!seasonalPool.length) {
       subcategoryFilter = "";
-      drill.hidden = true;
-      drill.setAttribute("aria-hidden", "true");
-      grid.innerHTML = "";
+      hideDrillStrip();
       return;
     }
 
@@ -2109,9 +2121,7 @@
     /** No sub-type strip when there is nothing to choose or only one record type (main tabs are enough). */
     if (typeKeys.length <= 1) {
       subcategoryFilter = "";
-      drill.hidden = true;
-      drill.setAttribute("aria-hidden", "true");
-      grid.innerHTML = "";
+      hideDrillStrip();
       return;
     }
 
@@ -5521,6 +5531,7 @@
       btn.removeAttribute("aria-hidden");
       btn.tabIndex = 0;
       btn.setAttribute("aria-expanded", nav.classList.contains("filters--menu-open") ? "true" : "false");
+      document.body.classList.remove("archive-ui--nav-folded");
     }
   }
 
@@ -5530,12 +5541,6 @@
     nav.classList.remove("filters--menu-open");
     const btn = document.getElementById("filters-menu-btn");
     if (btn) btn.setAttribute("aria-expanded", "false");
-    queueMicrotask(() => {
-      const n = document.getElementById("filters-nav");
-      if (!n || n.classList.contains("filters--menu-open")) return;
-      const y = globalThis.scrollY ?? globalThis.pageYOffset ?? 0;
-      if (ENABLE_ARCHIVE_NAV_SCROLL_FOLD && y >= 48) document.body.classList.add("archive-ui--nav-folded");
-    });
   }
 
   function toggleFiltersMenuPanel() {
@@ -5547,13 +5552,6 @@
     btn.setAttribute("aria-expanded", open ? "true" : "false");
     if (open) {
       document.body.classList.remove("archive-ui--nav-folded");
-    } else {
-      queueMicrotask(() => {
-        const n = document.getElementById("filters-nav");
-        if (!n || n.classList.contains("filters--menu-open")) return;
-        const y = globalThis.scrollY ?? globalThis.pageYOffset ?? 0;
-        if (ENABLE_ARCHIVE_NAV_SCROLL_FOLD && y >= 48) document.body.classList.add("archive-ui--nav-folded");
-      });
     }
   }
 
@@ -5565,7 +5563,7 @@
     syncFiltersMenuForViewport();
   }
 
-  /** When true, scrolling down on the archive adds `archive-ui--nav-folded` (compact sticky bar; search row hidden via CSS). */
+  /** Desktop (wider than 720px): scroll direction toggles `archive-ui--nav-folded` (hides site header + compacts filters). Narrow viewports skip this — hiding the search row caused layout/scroll feedback loops (“jitter”) on phones. */
   const ENABLE_ARCHIVE_NAV_SCROLL_FOLD = true;
 
   let archiveNavScrollFoldLastY = 0;
@@ -5587,6 +5585,11 @@
       archiveNavScrollFoldTicking = true;
       requestAnimationFrame(() => {
         archiveNavScrollFoldTicking = false;
+        if (isFiltersNarrowViewport()) {
+          body.classList.remove("archive-ui--nav-folded");
+          archiveNavScrollFoldLastY = globalThis.scrollY ?? globalThis.pageYOffset ?? 0;
+          return;
+        }
         const y = globalThis.scrollY ?? globalThis.pageYOffset ?? 0;
         const dy = y - archiveNavScrollFoldLastY;
         if (nav.classList.contains("filters--menu-open")) {
