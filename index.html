@@ -2,7 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="A personal wardrobe archive — browse pieces by category and season, track spend, build outfits, and save looks."
+    />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#faf9f6" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#161514" />
     <title>Timeless Wardrobe</title>
@@ -21,80 +24,127 @@
     <a class="skip-link" href="#add-item-open">Skip to add item</a>
     <a class="skip-link" href="#season-nav">Skip to season</a>
     <a class="skip-link" href="#category-nav">Skip to categories</a>
-    <a class="skip-link" href="#category-drill">Skip to types</a>
     <a class="skip-link" href="#saved-outfits-heading">Skip to saved outfits</a>
+
     <header class="site-header">
       <div class="site-header__inner">
-        <h1 class="site-title">
-          <span class="site-title__primary">Timeless Wardrobe</span>
-          <span class="site-title__territory">
-            <strong>English Heritage × Mediterranean Leisure</strong>
-          </span>
-        </h1>
+        <div class="site-header__brand-nav" aria-label="Primary header">
+          <h1 class="site-title">
+            <a href="#category-nav" id="site-header-home" class="site-title__primary">Timeless Wardrobe</a>
+            <span class="site-title__territory">
+              <strong>English Heritage × Mediterranean Leisure</strong>
+            </span>
+          </h1>
+          <nav class="site-header__primary-nav" aria-label="Main categories">
+            <a href="#category-nav" class="site-header__nav-link" data-category-jump="Clothing">Clothing</a>
+            <a href="#category-nav" class="site-header__nav-link" data-category-jump="Accessories">Accessories</a>
+            <a href="#category-nav" class="site-header__nav-link" data-category-jump="Watches">Watches</a>
+            <a href="#category-nav" class="site-header__nav-link" data-category-jump="Fragrance">Fragrance</a>
+          </nav>
+          <div class="site-header__tools">
+            <div class="site-header__season-mini" id="season-nav-mini" aria-label="Season quick filter">
+              <button
+                type="button"
+                class="site-header__season-mini-tab"
+                data-season-filter="S/S"
+                id="season-mini-ss"
+              >
+                S/S
+              </button>
+              <button
+                type="button"
+                class="site-header__season-mini-tab"
+                data-season-filter="A/W"
+                id="season-mini-aw"
+              >
+                A/W
+              </button>
+            </div>
+            <button
+              type="button"
+              id="site-header-saved-toggle"
+              class="site-header__saved-btn"
+              aria-expanded="false"
+              aria-controls="outfit-dock"
+              aria-label="Open saved outfits"
+              title="Saved outfits"
+            >
+              <span class="site-header__saved-icon" aria-hidden="true">♡</span>
+            </button>
+            <button
+              type="button"
+              id="site-header-search-btn"
+              class="site-header__search-btn"
+              aria-expanded="false"
+              aria-controls="site-header-search-wrap"
+              aria-label="Open search"
+              title="Search"
+            >
+              <span class="site-header__search-icon" aria-hidden="true"></span>
+            </button>
+            <button
+              type="button"
+              id="site-header-menu-btn"
+              class="site-header__menu-btn"
+              aria-expanded="false"
+              aria-controls="site-header-mobile-panel"
+              aria-label="Open categories menu"
+              title="Open categories"
+            >
+              <span class="site-header__menu-icon" aria-hidden="true">
+                <span class="site-header__menu-line site-header__menu-line--top"></span>
+                <span class="site-header__menu-line site-header__menu-line--bottom"></span>
+              </span>
+            </button>
+          </div>
+        </div>
+        <div id="site-header-search-wrap" class="site-header__search-wrap" aria-hidden="true">
+          <div class="site-header__search-surface">
+            <label class="site-header__search-field" for="filter-search">
+              <span class="site-header__search-label">Search</span>
+              <span class="filters__search-field">
+                <input
+                  id="filter-search"
+                  type="search"
+                  aria-label="Search wardrobe"
+                  placeholder="輸入文字搜尋"
+                  autocomplete="off"
+                  spellcheck="false"
+                  autocorrect="off"
+                  autocapitalize="off"
+                  enterkeyhint="search"
+                  title="Search wardrobe by brand, name, category, season, colour, notes…"
+                />
+                <button
+                  type="button"
+                  id="filter-search-clear"
+                  class="filters__search-clear"
+                  aria-label="Clear search"
+                  hidden
+                >
+                  <span class="filters__search-clear-icon" aria-hidden="true">×</span>
+                </button>
+              </span>
+            </label>
+          </div>
+        </div>
+        <div id="site-header-submenu" class="site-header__submenu" hidden>
+          <div id="site-header-submenu-title" class="site-header__submenu-title"></div>
+          <div class="site-header__submenu-body">
+            <div id="site-header-submenu-links" class="site-header__submenu-links"></div>
+            <div id="site-header-submenu-preview" class="site-header__submenu-preview"></div>
+          </div>
+        </div>
+        <nav id="site-header-mobile-panel" class="site-header__mobile-panel" aria-label="Mobile categories">
+          <a href="#category-nav" class="site-header__mobile-link" data-category-jump="Clothing">Clothing</a>
+          <a href="#category-nav" class="site-header__mobile-link" data-category-jump="Accessories">Accessories</a>
+          <a href="#category-nav" class="site-header__mobile-link" data-category-jump="Watches">Watches</a>
+          <a href="#category-nav" class="site-header__mobile-link" data-category-jump="Fragrance">Fragrance</a>
+        </nav>
       </div>
     </header>
 
     <nav id="filters-nav" class="filters" aria-label="Filter wardrobe">
-      <div class="filters__head">
-        <div class="filters__season season-strip" id="season-nav" aria-label="Season">
-        <p class="season-strip__label">Season</p>
-        <ul class="season-strip__list" role="tablist">
-          <li role="presentation">
-            <button
-              type="button"
-              class="season-strip__tab is-active"
-              role="tab"
-              aria-selected="true"
-              data-season-filter="All"
-              id="season-tab-all"
-            >
-              All
-            </button>
-          </li>
-          <li role="presentation">
-            <button
-              type="button"
-              class="season-strip__tab"
-              role="tab"
-              aria-selected="false"
-              data-season-filter="S/S"
-              id="season-tab-ss"
-            >
-              S/S
-            </button>
-          </li>
-          <li role="presentation">
-            <button
-              type="button"
-              class="season-strip__tab"
-              role="tab"
-              aria-selected="false"
-              data-season-filter="A/W"
-              id="season-tab-aw"
-            >
-              A/W
-            </button>
-          </li>
-        </ul>
-      </div>
-      <div class="filters__quick-search" id="filters-quick-search">
-        <label class="category-nav__search field field--grow">
-          <span class="field__label">Search</span>
-          <input
-            id="filter-search"
-            type="search"
-            aria-label="Search wardrobe"
-            placeholder="Brand, name, category, season…"
-            autocomplete="off"
-            spellcheck="false"
-            autocorrect="off"
-            autocapitalize="off"
-            enterkeyhint="search"
-            title="Search wardrobe by brand, name, category, season, colour, notes…"
-          />
-        </label>
-      </div>
-      </div>
       <button
         type="button"
         class="filters__menu-btn"
@@ -151,28 +201,6 @@
                   class="category-nav__tab"
                   role="tab"
                   aria-selected="false"
-                  data-category-filter="Shoes"
-                >
-                  Shoes
-                </button>
-              </li>
-              <li role="presentation">
-                <button
-                  type="button"
-                  class="category-nav__tab"
-                  role="tab"
-                  aria-selected="false"
-                  data-category-filter="Jewellery"
-                >
-                  Jewellery
-                </button>
-              </li>
-              <li role="presentation">
-                <button
-                  type="button"
-                  class="category-nav__tab"
-                  role="tab"
-                  aria-selected="false"
                   data-category-filter="Watches"
                 >
                   Watches
@@ -186,47 +214,46 @@
                   aria-selected="false"
                   data-category-filter="Fragrance"
                 >
-                  Perfume
+                  Fragrance
                 </button>
               </li>
             </ul>
           </div>
         </div>
         </div>
-        <section
-          id="category-drill"
-          class="category-drill"
-          aria-label="Record types in this section"
-          hidden
-        >
-          <div id="category-drill-grid" class="category-drill__grid"></div>
-        </section>
-        <div class="filters__browse-tools" id="filters-browse-tools">
-          <label class="filters__browse-field" for="archive-sort">
-            <span class="filters__browse-label">Sort by</span>
-            <select id="archive-sort" class="filters__browse-select">
-              <option value="archive">Archive order</option>
-              <option value="price-asc">Price · low to high</option>
-              <option value="price-desc">Price · high to low</option>
-              <option value="date-asc">Purchase date · oldest first</option>
-              <option value="date-desc">Purchase date · newest first</option>
-            </select>
-          </label>
-          <label class="filters__browse-field" for="archive-display-currency">
-            <span class="filters__browse-label">Show prices in</span>
-            <select id="archive-display-currency" class="filters__browse-select">
-              <option value="TWD">TWD</option>
-              <option value="USD">USD</option>
-              <option value="EUR">EUR</option>
-              <option value="GBP">GBP</option>
-              <option value="JPY">JPY</option>
-              <option value="CNY">CNY</option>
-              <option value="HKD">HKD</option>
-            </select>
-          </label>
+        <div class="filters__meta-row">
+          <p class="filters__spend-total" id="filter-spend-total" aria-live="polite"></p>
+          <div class="filters__browse-tools" id="filters-browse-tools">
+            <label class="filters__browse-inline" for="archive-display-currency">
+              <span class="filters__browse-inline-label">Price currency</span>
+              <select id="archive-display-currency" class="filters__browse-inline-select">
+                <option value="TWD">TWD</option>
+                <option value="USD">USD</option>
+                <option value="JPY">JPY</option>
+                <option value="CNY">CNY</option>
+              </select>
+            </label>
+          </div>
         </div>
-        <p class="filters__spend-total" id="filter-spend-total" aria-live="polite"></p>
-        <p class="filters__meta" id="filter-count" aria-live="polite"></p>
+        <div class="filters__count-row" id="filter-count-row" aria-live="polite">
+          <span class="filters__count-row__primary" id="filter-count"></span>
+          <button type="button" class="filter-search-chip" id="filter-category-chip" hidden>
+            <span class="filter-search-chip__text" id="filter-category-chip-text"></span>
+            <span class="filter-search-chip__close" aria-hidden="true">×</span>
+          </button>
+          <button type="button" class="filter-search-chip" id="filter-search-chip" hidden>
+            <span class="filter-search-chip__text" id="filter-search-chip-text"></span>
+            <span class="filter-search-chip__close" aria-hidden="true">×</span>
+          </button>
+          <button type="button" class="filter-search-chip" id="filter-colour-chip" hidden>
+            <span class="filter-search-chip__text" id="filter-colour-chip-text"></span>
+            <span class="filter-search-chip__close" aria-hidden="true">×</span>
+          </button>
+          <button type="button" class="filter-search-chip" id="filter-subcategory-chip" hidden>
+            <span class="filter-search-chip__text" id="filter-subcategory-chip-text"></span>
+            <span class="filter-search-chip__close" aria-hidden="true">×</span>
+          </button>
+        </div>
         </div>
       </div>
     </nav>
@@ -251,7 +278,7 @@
       </div>
     </aside>
 
-    <section id="outfit-dock" class="outfit-dock" aria-labelledby="outfit-heading">
+    <section id="outfit-dock" class="outfit-dock" aria-labelledby="outfit-heading" hidden>
       <div class="outfit-dock__builder">
         <div class="outfit-dock__head">
           <h2 id="outfit-heading" class="outfit-dock__title">Outfit</h2>
@@ -282,7 +309,7 @@
           <button type="button" class="btn btn--ghost" id="outfit-clear">Clear</button>
         </div>
       </div>
-      <p id="outfit-toast" class="outfit-toast" role="status" aria-live="polite"></p>
+      <p id="outfit-toast" class="outfit-toast" role="status" aria-live="polite" hidden></p>
       <div class="saved-outfits">
         <h3 class="saved-outfits__title" id="saved-outfits-heading">Saved outfits</h3>
         <ul id="saved-outfits-list" class="saved-outfits__list"></ul>
@@ -293,14 +320,94 @@
     </section>
 
     <main id="main" tabindex="-1">
+      <section class="items-toolbar" aria-label="Item tools">
+        <button
+          type="button"
+          class="items-toolbar__filter-sort-btn"
+          id="archive-filter-drawer-open"
+          aria-haspopup="dialog"
+          aria-controls="archive-filter-drawer"
+          aria-expanded="false"
+        >
+          <span class="items-toolbar__filter-sort-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <line x1="4" y1="21" x2="4" y2="14" />
+              <line x1="4" y1="10" x2="4" y2="3" />
+              <line x1="12" y1="21" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12" y2="3" />
+              <line x1="20" y1="21" x2="20" y2="16" />
+              <line x1="20" y1="12" x2="20" y2="3" />
+              <line x1="1" y1="14" x2="7" y2="14" />
+              <line x1="9" y1="8" x2="15" y2="8" />
+              <line x1="17" y1="16" x2="23" y2="16" />
+            </svg>
+          </span>
+          <span>Filter &amp; Sort</span>
+        </button>
+      </section>
       <div id="grid" class="grid" role="list"></div>
       <div id="empty-wrap" class="empty-wrap" hidden>
         <p id="empty-state-msg" class="empty-wrap__msg">No pieces match these filters.</p>
         <button type="button" class="btn btn--small" id="empty-reset-filters" hidden>
-          Clear category, type &amp; search
+          Clear category, type, colour &amp; search
         </button>
       </div>
     </main>
+
+    <div id="archive-filter-drawer" class="archive-filter-drawer" hidden aria-hidden="true">
+      <button
+        type="button"
+        class="archive-filter-drawer__backdrop"
+        id="archive-filter-drawer-backdrop"
+        tabindex="-1"
+        aria-label="Close filter and sort"
+      ></button>
+      <div
+        class="archive-filter-drawer__sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="archive-filter-drawer-title"
+        tabindex="-1"
+      >
+        <div class="archive-filter-drawer__header">
+          <h2 class="archive-filter-drawer__title" id="archive-filter-drawer-title">Filter &amp; Sort</h2>
+          <button
+            type="button"
+            class="archive-filter-drawer__close"
+            id="archive-filter-drawer-close"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+        <div class="archive-filter-drawer__body">
+          <div class="archive-filter-drawer__section">
+            <span class="items-toolbar__label">Order by</span>
+            <label class="items-toolbar__field archive-filter-drawer__full-row" for="archive-sort">
+              <select id="archive-sort" class="items-toolbar__select archive-filter-drawer__select">
+                <option value="archive">Archive order</option>
+                <option value="price-asc">Price · low to high</option>
+                <option value="price-desc">Price · high to low</option>
+                <option value="date-asc">Purchase date · oldest first</option>
+                <option value="date-desc">Purchase date · newest first</option>
+              </select>
+            </label>
+          </div>
+          <div class="items-toolbar__colour-block archive-filter-drawer__colour" aria-label="Filter by colour">
+            <span class="items-toolbar__colour-heading" id="archive-colour-filter-label">Colour</span>
+            <div
+              class="items-toolbar__colour-chips"
+              role="group"
+              aria-labelledby="archive-colour-filter-label"
+              id="archive-colour-chips"
+            ></div>
+          </div>
+        </div>
+        <div class="archive-filter-drawer__footer">
+          <button type="button" class="btn archive-filter-drawer__done" id="archive-filter-drawer-done">Done</button>
+        </div>
+      </div>
+    </div>
 
     <section class="archive-actions" aria-label="Archive actions">
       <button type="button" class="btn btn--ghost archive-actions__add" id="add-item-open">Add a piece</button>
@@ -450,11 +557,8 @@
                   <select id="add-item-price-currency" name="priceCurrency" aria-label="Price currency">
                     <option value="TWD">TWD</option>
                     <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                    <option value="GBP">GBP</option>
                     <option value="JPY">JPY</option>
                     <option value="CNY">CNY</option>
-                    <option value="HKD">HKD</option>
                   </select>
                 </span>
               </label>

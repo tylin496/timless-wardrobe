@@ -120,8 +120,9 @@
    * If only `outfitPick` is set (no hero), tap adds the colour to the outfit.
    * @param {HTMLElement} mountEl
    * @param {object} item
-   * @param {{ outfitPick?: boolean, heroImg?: HTMLImageElement | null, heroHost?: HTMLElement | null, addToOutfitOnPick?: boolean, showHeroGallery?: boolean, gridCaption?: "compact" }} [opts]
+   * @param {{ outfitPick?: boolean, heroImg?: HTMLImageElement | null, heroHost?: HTMLElement | null, addToOutfitOnPick?: boolean, showHeroGallery?: boolean, gridCaption?: "compact", gridMediaOverlay?: boolean }} [opts]
    * `gridCaption: "compact"` — archive grid only: short caption for multi-colour rows (swatches carry the rest).
+   * `gridMediaOverlay` — archive grid: stack swatches on the hero image (bottom-right), no crop change.
    */
   function mountVariantSwatchStrip(mountEl, item, opts = {}) {
     const variants = getItemColourVariants(item);
@@ -132,10 +133,12 @@
     const showHeroGallery = opts.showHeroGallery !== false;
     const outfitPick = Boolean(opts.outfitPick) && itemEligibleForOutfit(item);
     const gridCaption = opts.gridCaption;
+    const gridMediaOverlay = Boolean(opts.gridMediaOverlay);
     const interactive = Boolean(heroImg) || outfitPick;
 
     const block = document.createElement("div");
-    block.className = "card__swatch-block";
+    block.className =
+      "card__swatch-block" + (gridMediaOverlay ? " card__swatch-block--media-overlay" : "");
     const sw = document.createElement("div");
     sw.className = "card__swatches";
     sw.setAttribute("role", "group");
@@ -241,15 +244,17 @@
     }
 
     block.appendChild(sw);
-    const cap = document.createElement("p");
-    cap.className = "card__swatch-caption";
-    if (gridCaption === "compact" && variants.length > 1) {
-      cap.textContent = `${variants.length} colours`;
-      cap.classList.add("card__swatch-caption--compact");
-    } else {
-      cap.textContent = variants.map(variantCaptionText).join(" · ");
+    if (!gridMediaOverlay) {
+      const cap = document.createElement("p");
+      cap.className = "card__swatch-caption";
+      if (gridCaption === "compact" && variants.length > 1) {
+        cap.textContent = `${variants.length} colours`;
+        cap.classList.add("card__swatch-caption--compact");
+      } else {
+        cap.textContent = variants.map(variantCaptionText).join(" · ");
+      }
+      block.appendChild(cap);
     }
-    block.appendChild(cap);
     mountEl.appendChild(block);
   }
 
@@ -341,11 +346,14 @@
   const ARCHIVE_DISPLAY_CURRENCY_KEY = "timeless-wardrobe-display-currency-v1";
   /** User hid the “browser-only storage” banner; clearing this key shows it again. */
   const LOCAL_DATA_RISK_BANNER_DISMISSED_KEY = "timeless-wardrobe-dismiss-local-risk-v1";
-  const PRICE_CURRENCY_CODES = ["TWD", "USD", "EUR", "GBP", "JPY", "CNY", "HKD"];
+  const PRICE_CURRENCY_CODES = ["TWD", "USD", "JPY", "CNY"];
   const ARCHIVE_SORT_MODES = ["archive", "price-asc", "price-desc", "date-asc", "date-desc"];
+  /** Basic colour archive filter (keyword + hex from labels / `colour` / variants). */
+  const BASIC_COLOUR_FAMILY_KEYS = ["blue", "brown", "red", "white", "black", "beige", "green", "grey"];
+  const BASIC_COLOUR_FILTER_KEY = "timeless-wardrobe-basic-colour-v1";
 
   /** Approximate FX vs USD — display + cross-currency sort only (not live rates). */
-  const FX_TO_USD = { USD: 1, TWD: 0.031, EUR: 1.08, GBP: 1.27, JPY: 0.0067, CNY: 0.14, HKD: 0.128 };
+  const FX_TO_USD = { USD: 1, TWD: 0.031, JPY: 0.0067, CNY: 0.14 };
 
   function loadPersistedArchiveSortMode() {
     try {
@@ -387,6 +395,49 @@
     return c;
   }
 
+  function loadPersistedBasicColourFilter() {
+    try {
+      const v = String(localStorage.getItem(BASIC_COLOUR_FILTER_KEY) || "")
+        .trim()
+        .toLowerCase();
+      if (!v) return "";
+      if (BASIC_COLOUR_FAMILY_KEYS.includes(v)) return v;
+    } catch {
+      /* */
+    }
+    return "";
+  }
+
+  function persistBasicColourFilter(raw) {
+    const v = String(raw ?? "")
+      .trim()
+      .toLowerCase();
+    const ok = BASIC_COLOUR_FAMILY_KEYS.includes(v) ? v : "";
+    try {
+      if (ok) localStorage.setItem(BASIC_COLOUR_FILTER_KEY, ok);
+      else localStorage.removeItem(BASIC_COLOUR_FILTER_KEY);
+    } catch {
+      /* */
+    }
+    return ok;
+  }
+
+  function basicColourLabelEn(key) {
+    if (!key) return "All";
+    return key.slice(0, 1).toUpperCase() + key.slice(1);
+  }
+
+  const BASIC_COLOUR_SWATCH_HEX = {
+    blue: "#3f67c8",
+    brown: "#7b5835",
+    red: "#b73a3a",
+    white: "#f4f4f1",
+    black: "#1b1b1b",
+    beige: "#d1bfa3",
+    green: "#4f7b56",
+    grey: "#8d8e95",
+  };
+
   /**
    * Parse price from form strings or JSON (supports `12.34` and `12,34` as decimal comma).
    * @param {unknown} raw
@@ -413,6 +464,7 @@
 
   let archiveSortMode = loadPersistedArchiveSortMode();
   let archiveDisplayCurrency = loadPersistedDisplayCurrency();
+  let basicColourFilter = loadPersistedBasicColourFilter();
 
   /**
    * Flatten optional price from top-level or `metadata` into `item.price` / `item.priceCurrency`.
@@ -776,18 +828,60 @@
     return (amount * fa) / ta;
   }
 
+  /**
+   * Display-only rounding for archive / cards / spend total.
+   * Currencies without minor units (0 fraction digits, e.g. JPY/KRW/TWD) are half-up rounded on screen.
+   * `item.price` storage stays unchanged.
+   */
   function formatMoneyInCurrency(amount, currencyCode) {
     if (!Number.isFinite(amount)) return "";
+    const raw = String(currencyCode ?? "TWD").trim();
+    const code = /^[A-Za-z]{3}/.test(raw) ? raw.slice(0, 3).toUpperCase() : "TWD";
+    let fractionDigits = 2;
+    try {
+      const resolved = new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: code,
+      }).resolvedOptions();
+      if (Number.isFinite(resolved.maximumFractionDigits)) {
+        fractionDigits = resolved.maximumFractionDigits;
+      }
+    } catch {
+      fractionDigits = code === "TWD" ? 0 : 2;
+    }
+    const roundedAmount = fractionDigits === 0 ? Math.round(Number(amount)) : Number(amount);
+
+    if (code === "TWD") {
+      try {
+        return new Intl.NumberFormat("zh-TW", {
+          style: "currency",
+          currency: "TWD",
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        }).format(Math.round(roundedAmount));
+      } catch {
+        return `NT$${Math.round(roundedAmount).toLocaleString("zh-TW")}`;
+      }
+    }
+
     try {
       return new Intl.NumberFormat(undefined, {
         style: "currency",
-        currency: String(currencyCode).slice(0, 3),
+        currency: code,
         minimumFractionDigits: 0,
-        maximumFractionDigits: 2,
-      }).format(amount);
+        maximumFractionDigits: fractionDigits,
+      }).format(roundedAmount);
     } catch {
-      return `${currencyCode} ${Math.round(amount * 100) / 100}`;
+      if (fractionDigits === 0) return `${code} ${Math.round(roundedAmount)}`;
+      const scale = 10 ** Math.min(3, Math.max(1, fractionDigits));
+      return `${code} ${Math.round(roundedAmount * scale) / scale}`;
     }
+  }
+
+  /** Stored `item.price` is per colourway; multiply for spend / sort when `colourVariants` exist. */
+  function archivePriceColourVariantCount(item) {
+    const vars = getItemColourVariants(item);
+    return vars?.length ? vars.length : 1;
   }
 
   function formattedArchivePriceLine(item, opts = {}) {
@@ -795,15 +889,32 @@
     const p = item?.price;
     if (!Number.isFinite(Number(p))) return "";
     const from = String(item?.priceCurrency ?? "TWD").toUpperCase();
-    const converted = convertPriceAmount(Number(p), from, archiveDisplayCurrency);
-    if (!Number.isFinite(converted)) return "";
-    const shown = formatMoneyInCurrency(converted, archiveDisplayCurrency);
-    if (from !== archiveDisplayCurrency) {
-      const raw = formatMoneyInCurrency(Number(p), from);
-      if (brief) return shown;
-      return `${shown} (${raw})`;
+    const convertedUnit = convertPriceAmount(Number(p), from, archiveDisplayCurrency);
+    if (!Number.isFinite(convertedUnit)) return "";
+    const n = archivePriceColourVariantCount(item);
+    const convertedTotal = convertedUnit * n;
+
+    const unitShown = formatMoneyInCurrency(convertedUnit, archiveDisplayCurrency);
+    const totalShown = formatMoneyInCurrency(convertedTotal, archiveDisplayCurrency);
+
+    if (n <= 1) {
+      if (from !== archiveDisplayCurrency) {
+        const raw = formatMoneyInCurrency(Number(p), from);
+        if (brief) return unitShown;
+        return `${unitShown} (${raw})`;
+      }
+      return unitShown;
     }
-    return shown;
+
+    if (from !== archiveDisplayCurrency) {
+      const rawUnit = formatMoneyInCurrency(Number(p), from);
+      const rawTotalFmt = formatMoneyInCurrency(Number(p) * n, from);
+      if (brief) return totalShown;
+      return `${totalShown} (${n} × ${unitShown}; ${rawTotalFmt} = ${n} × ${rawUnit})`;
+    }
+
+    if (brief) return totalShown;
+    return `${totalShown} (${n} × ${unitShown})`;
   }
 
   function purchaseDateSortMs(item) {
@@ -818,7 +929,9 @@
     const p = item?.price;
     if (!Number.isFinite(Number(p))) return null;
     const from = String(item?.priceCurrency ?? "TWD").toUpperCase();
-    const v = convertPriceAmount(Number(p), from, archiveDisplayCurrency);
+    const unit = convertPriceAmount(Number(p), from, archiveDisplayCurrency);
+    if (!Number.isFinite(unit)) return null;
+    const v = unit * archivePriceColourVariantCount(item);
     return Number.isFinite(v) ? v : null;
   }
 
@@ -861,16 +974,12 @@
   /** Top-level archive category (filter + add-item). */
   const SLOT_CLOTHING = "Clothing";
   const SLOT_ACCESSORIES = "Accessories";
-  const SLOT_SHOES = "Shoes";
-  const SLOT_JEWELRY = "Jewellery";
   const SLOT_WATCHES = "Watches";
   const SLOT_FRAGRANCE = "Fragrance";
 
   const SLOT_OPTIONS = [
     SLOT_CLOTHING,
     SLOT_ACCESSORIES,
-    SLOT_SHOES,
-    SLOT_JEWELRY,
     SLOT_WATCHES,
     SLOT_FRAGRANCE,
   ];
@@ -882,9 +991,7 @@
   const STATIC_RECORD_FALLBACK_BY_SLOT = {
     [SLOT_CLOTHING]: "Tops",
     [SLOT_ACCESSORIES]: "Hats",
-    [SLOT_SHOES]: "Footwear",
-    [SLOT_WATCHES]: "Dress watch",
-    [SLOT_JEWELRY]: "Necklace",
+    [SLOT_WATCHES]: "Watches",
     [SLOT_FRAGRANCE]: "Fragrance",
   };
 
@@ -892,9 +999,9 @@
   const LEGACY_UNSPEC_CATEGORY_TO_SLOT = {
     "Unspecified clothing": SLOT_CLOTHING,
     "Unspecified accessories": SLOT_ACCESSORIES,
-    "Unspecified footwear": SLOT_SHOES,
+    "Unspecified footwear": SLOT_ACCESSORIES,
     "Unspecified watches": SLOT_WATCHES,
-    "Unspecified Jewellery": SLOT_JEWELRY,
+    "Unspecified Jewellery": SLOT_ACCESSORIES,
     "Unspecified perfume": SLOT_FRAGRANCE,
   };
 
@@ -902,32 +1009,39 @@
   let slotRecordFallbackCategory = {};
 
   function categoryDisplayLabel(slot) {
-    if (slot === SLOT_FRAGRANCE) return "Perfume";
+    if (slot === SLOT_CLOTHING) return "Clothing";
+    if (slot === SLOT_WATCHES) return "Watches";
+    if (slot === SLOT_FRAGRANCE) return "Fragrance";
     return slot;
   }
 
   /** Seed / DB `category` → short browse label in drill-down grid. */
   const RECORD_CATEGORY_LABELS = {
-    Jackets: "Jackets & sport coats",
-    Outerwear: "Outerwear & coats",
-    "Mid Layer": "Knitwear & mid layers",
-    "Inner Layer": "Layers & base layers",
-    Shirts: "Shirts",
-    Bottoms: "Trousers & bottoms",
-    Tops: "Tops & polos",
-    Footwear: "Shoes & boots",
-    Fragrance: "Perfume",
-    Necklace: "Necklace",
-    Bracelet: "Bracelet",
-    Ring: "Ring",
-    Beater: "Beater",
-    "Dress watch": "Dress watch",
-    "Dive watch": "Dive watch",
-    "Sports watch": "Sports watch",
+    Jackets: "Jackets",
+    Outerwear: "Outerwear",
+    "Mid Layer": "Layering",
+    "Inner Layer": "Layering",
+    Shirts: "Shirts & Tops",
+    Bottoms: "Trousers",
+    Tops: "Shirts & Tops",
+    Footwear: "Shoes & Boots",
+    Fragrance: "Fragrance",
+    Jewellery: "Jewellery",
+    Necklace: "Jewellery",
+    Bracelet: "Jewellery",
+    Ring: "Jewellery",
+    Beater: "Watches",
+    "Dress watch": "Watches",
+    "Dive watch": "Watches",
+    "Sports watch": "Watches",
+    Watches: "Watches",
     Accessories: "Accessories",
-    "Small accessories": "Small accessories",
+    "Small accessories": "Small Accessories",
     Bags: "Bags",
     Hats: "Hats",
+    Eyewear: "Eyewear",
+    Sunglasses: "Eyewear",
+    Glasses: "Eyewear",
   };
 
   function friendlyRecordCategory(raw) {
@@ -982,7 +1096,13 @@
       const p = item?.price;
       if (Number.isFinite(Number(p))) {
         const cur = String(item?.priceCurrency ?? "TWD").toUpperCase();
-        lines.push(`Price: ${formatMoneyInCurrency(Number(p), cur)}`);
+        const n = archivePriceColourVariantCount(item);
+        const total = Number(p) * n;
+        lines.push(
+          n > 1
+            ? `Price: ${formatMoneyInCurrency(total, cur)} (${n} × ${formatMoneyInCurrency(Number(p), cur)} per colour)`
+            : `Price: ${formatMoneyInCurrency(Number(p), cur)}`
+        );
       } else {
         lines.push("Price: (none)");
       }
@@ -1062,8 +1182,8 @@
   /** Disambiguate former “archive accessories” bucket using record `category` only. */
   function inferAccessoryBucket(item) {
     const cat = String(item.category ?? "").trim();
-    if (cat === "Watches") return SLOT_WATCHES;
     if (
+      cat === "Watches" ||
       cat === "Beater" ||
       cat === "Dress watch" ||
       cat === "Dive watch" ||
@@ -1084,9 +1204,9 @@
       cat === "手鏈" ||
       cat === "戒指"
     )
-      return SLOT_JEWELRY;
-    if (cat === "Footwear") return SLOT_SHOES;
-    if (cat === "Future") return SLOT_JEWELRY;
+      return SLOT_ACCESSORIES;
+    if (cat === "Footwear") return SLOT_ACCESSORIES;
+    if (cat === "Future") return SLOT_ACCESSORIES;
     return SLOT_ACCESSORIES;
   }
 
@@ -1100,7 +1220,17 @@
     }
 
     if (rawCat === "Small accessories") return SLOT_ACCESSORIES;
-    if (rawCat === "Bags" || rawCat === "Hats" || rawCat === "帽子") return SLOT_ACCESSORIES;
+    if (
+      rawCat === "Bags" ||
+      rawCat === "Hats" ||
+      rawCat === "帽子" ||
+      rawCat === "Eyewear" ||
+      rawCat === "Sunglasses" ||
+      rawCat === "Glasses" ||
+      rawCat === "Eyeglasses"
+    ) {
+      return SLOT_ACCESSORIES;
+    }
 
     if (rawCat === "Clothing (incl. shoes)") return SLOT_CLOTHING;
 
@@ -1111,7 +1241,7 @@
     }
     if (SLOT_OPTIONS.includes(rawCat)) return rawCat;
 
-    if (rawCat === "Footwear") return SLOT_SHOES;
+    if (rawCat === "Footwear") return SLOT_ACCESSORIES;
     if (rawCat === "Watches") return SLOT_WATCHES;
     if (
       rawCat === "Beater" ||
@@ -1130,13 +1260,17 @@
       rawCat === "Necklace" ||
       rawCat === "Bracelet" ||
       rawCat === "Ring" ||
+      rawCat === "Eyewear" ||
+      rawCat === "Sunglasses" ||
+      rawCat === "Glasses" ||
+      rawCat === "Eyeglasses" ||
       rawCat === "項鏈" ||
       rawCat === "手鏈" ||
       rawCat === "戒指"
     ) {
-      return SLOT_JEWELRY;
+      return SLOT_ACCESSORIES;
     }
-    if (rawCat === "Future") return SLOT_JEWELRY;
+    if (rawCat === "Future") return SLOT_ACCESSORIES;
 
     if (season === "S/S" || season === "A/W") return SLOT_CLOTHING;
     return SLOT_CLOTHING;
@@ -1169,13 +1303,6 @@
 
   function defaultRecordCategoryForSlot(slot) {
     const s = String(slot ?? "").trim();
-    if (s === SLOT_JEWELRY || s === SLOT_WATCHES) {
-      return (
-        STATIC_RECORD_FALLBACK_BY_SLOT[s] ||
-        slotRecordFallbackCategory[s] ||
-        STATIC_RECORD_FALLBACK_BY_SLOT[SLOT_CLOTHING]
-      );
-    }
     return (
       slotRecordFallbackCategory[s] ||
       STATIC_RECORD_FALLBACK_BY_SLOT[s] ||
@@ -1187,16 +1314,14 @@
   function itemEligibleForOutfit(item) {
     if (!item) return false;
     const s = itemSlot(item);
-    return s === SLOT_CLOTHING || s === SLOT_SHOES || s === SLOT_WATCHES || s === SLOT_ACCESSORIES;
+    return s === SLOT_CLOTHING || s === SLOT_WATCHES || s === SLOT_ACCESSORIES;
   }
 
   /** Browse column order when viewing All (or a main tab without a record-type drill). */
   const BROWSE_SLOT_RANK = {
     [SLOT_CLOTHING]: 0,
     [SLOT_ACCESSORIES]: 1,
-    [SLOT_SHOES]: 2,
-    [SLOT_WATCHES]: 3,
-    [SLOT_JEWELRY]: 4,
+    [SLOT_WATCHES]: 2,
     [SLOT_FRAGRANCE]: 5,
   };
 
@@ -1213,25 +1338,30 @@
     Tops: 5,
     Bottoms: 6,
     Footwear: 7,
+    Watches: 50,
     Beater: 50,
-    "Dress watch": 51,
-    "Dive watch": 52,
-    "Sports watch": 54,
+    "Dress watch": 50,
+    "Dive watch": 50,
+    "Sports watch": 50,
     Fragrance: 9,
-    Necklace: 70,
-    Bracelet: 71,
-    Ring: 72,
+    Jewellery: 14,
+    Necklace: 14,
+    Bracelet: 14,
+    Ring: 14,
     Accessories: 13,
     "Small accessories": 13,
     Bags: 12,
-    Hats: 13,
+    Footwear: 13,
+    Eyewear: 15,
+    Sunglasses: 15,
+    Glasses: 15,
+    Hats: 16,
   };
 
   /** Record types always listed in add/edit `<select>` for these slots (even with zero items). */
   const KNOWN_RECORD_TYPES_BY_SLOT = {
-    [SLOT_ACCESSORIES]: ["Bags", "Hats"],
-    [SLOT_JEWELRY]: ["Necklace", "Bracelet", "Ring"],
-    [SLOT_WATCHES]: ["Beater", "Dress watch", "Dive watch", "Sports watch"],
+    [SLOT_ACCESSORIES]: ["Bags", "Footwear", "Jewellery", "Eyewear", "Hats"],
+    [SLOT_WATCHES]: ["Watches"],
   };
 
   function browseSlotRank(item) {
@@ -1331,9 +1461,11 @@
   function normalizeCloudItemRow(row) {
     if (!row || typeof row !== "object") return null;
     const id = String(row.id ?? "").trim();
-    const brand = String(row.brand ?? "").trim();
-    const name = String(row.name ?? "").trim();
-    if (!id || !brand || !name) return null;
+    if (!id) return null;
+    const brandRaw = String(row.brand ?? "").trim();
+    const nameRaw = String(row.name ?? "").trim();
+    const brand = brandRaw || "[No brand]";
+    const name = nameRaw || "[Untitled]";
     const meta = row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata) ? row.metadata : null;
     const cvFromMeta =
       meta && Array.isArray(meta.colourVariants) && meta.colourVariants.length
@@ -1630,7 +1762,22 @@
       upsert: true,
       contentType: file.type || `image/${fileExtensionFromFile(file)}`,
     });
-    if (error) throw error;
+    if (error) {
+      const where =
+        slot?.type === "main_cover"
+          ? "main cover"
+          : slot?.type === "main_gallery"
+            ? `main gallery #${Math.max(1, Math.floor(Number(slot.index) || 1))}`
+            : slot?.type === "variant_cover"
+              ? `variant cover (${String(slot.key ?? "").trim() || "unknown key"})`
+              : slot?.type === "variant_preview"
+                ? `variant preview (${String(slot.key ?? "").trim() || "unknown key"})`
+                : "image";
+      const detail = formatSupabaseUserMessage(error);
+      throw new Error(
+        `Supabase Storage upload failed at ${where} [${WARDROBE_IMAGE_BUCKET}/${path}]${detail ? `: ${detail}` : ""}`
+      );
+    }
 
     const { data } = supabaseClient.storage.from(WARDROBE_IMAGE_BUCKET).getPublicUrl(path);
     return data?.publicUrl || "";
@@ -1786,7 +1933,65 @@
       console.warn("Could not load Supabase wardrobe items.", error);
       return [];
     }
-    return (data || []).map(normalizeCloudItemRow).filter(Boolean);
+    const rawRows = data || [];
+    console.info("[wardrobe_items] Supabase raw row count:", rawRows.length);
+    const normalized = rawRows
+      .map((row) => {
+        const out = normalizeCloudItemRow(row);
+        if (!out) {
+          const id = row && typeof row === "object" ? String(row.id ?? "").trim() : "";
+          console.warn("[wardrobe_items] dropped row (normalizeCloudItemRow):", id || "(no id)", row);
+        }
+        return out;
+      })
+      .filter(Boolean);
+    console.info("[wardrobe_items] after normalize:", normalized.length);
+    if (rawRows.length !== normalized.length) {
+      console.warn(
+        `[wardrobe_items] ${rawRows.length - normalized.length} row(s) dropped — usually empty id/brand/name in DB`
+      );
+    }
+    return normalized;
+  }
+
+  /**
+   * Supabase is canonical: push any rows that still exist only outside cloud
+   * (seed catalogue + browser/file custom rows) into `wardrobe_items`.
+   * Skips any id listed in `archive_hidden_ids` so user-deleted catalogue rows are not revived by deferred backfill.
+   * @param {object[]} cloudRows current rows fetched from Supabase (or a snapshot thereof)
+   * @returns {Promise<{ synced: number, failed: number }>}
+   */
+  async function syncMissingRowsToSupabase(cloudRows) {
+    if (!isSupabaseReady()) return { synced: 0, failed: 0 };
+    const cloudIds = new Set((cloudRows || []).map((r) => String(r?.id ?? "").trim()).filter(Boolean));
+    const buriedIds = loadArchiveHiddenIds();
+
+    /** @type {Map<string, object>} */
+    const candidatesById = new Map();
+    const pushCandidate = (row) => {
+      if (!row || typeof row !== "object") return;
+      const id = String(row.id ?? "").trim();
+      if (!id || cloudIds.has(id) || buriedIds.has(id) || candidatesById.has(id)) return;
+      candidatesById.set(id, normalizeItemDerivedFields({ ...row }));
+    };
+
+    for (const row of seedItemsFromScript()) pushCandidate(row);
+    for (const row of await loadFileBackedCustomItems()) pushCandidate(row);
+    for (const row of loadLocalStorageCustomOnly()) pushCandidate(row);
+
+    let synced = 0;
+    let failed = 0;
+    for (const row of candidatesById.values()) {
+      try {
+        const saved = await saveWardrobeItemToCloud(row);
+        cloudIds.add(String(saved.id ?? "").trim());
+        synced += 1;
+      } catch (e) {
+        failed += 1;
+        console.warn("syncMissingRowsToSupabase failed for row:", row?.id, e);
+      }
+    }
+    return { synced, failed };
   }
 
   /** Upsert one custom row to `wardrobe_items` and return the normalized row from Postgres. */
@@ -1816,6 +2021,9 @@
 
   /** @type {object[]} */
   let items = [];
+
+  /** Increments whenever `mergeWardrobeFromSources()` rebuilds rows (invalidates main grid structural cache). */
+  let wardrobeRevision = 0;
 
   /** Document-level dismiss listeners for the mobile filters panel (installed once). */
   let filtersMenuDismissListenersInstalled = false;
@@ -1880,10 +2088,7 @@
     return await syncCustomItemsToProjectFile(loadLocalStorageCustomOnly());
   }
 
-  /**
-   * Local custom rows for local mode, or cloud rows only for cloud mode.
-   * This avoids mixing local/file sources when Supabase-backed mode is active.
-   */
+  /** Local custom rows for local mode, or cloud rows only for cloud mode. */
   function loadCustomItems() {
     const cloudRows = Array.isArray(cloudBackedCustomItems) ? cloudBackedCustomItems : [];
     const fromLs = loadLocalStorageCustomOnly();
@@ -1974,6 +2179,7 @@
       seasonNav: readSeasonNavFromLocalStorage(),
       archiveSortMode: loadPersistedArchiveSortMode(),
       displayCurrency: loadPersistedDisplayCurrency(),
+      basicColourFilter: loadPersistedBasicColourFilter(),
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
     const a = document.createElement("a");
@@ -2311,6 +2517,7 @@
     });
     rebuildItemIndex();
     coverResolutionCache.clear();
+    wardrobeRevision += 1;
   }
 
   /** @type {{ itemId: string, colourKey?: string }[]} */
@@ -2324,11 +2531,15 @@
 
   let toastTimer = null;
 
+  /** @type {Element | null} */
+  let archiveFilterDrawerFocusReturn = null;
+
   /** @type {boolean} */
   let useCloudOutfits = false;
   let spendTotalAnimRaf = 0;
   let spendTotalAnimToken = 0;
   let spendTotalCurrentValue = 0;
+  let outfitDockUserToggled = false;
 
   /** Active category tab value (matches `itemSlot()`; empty string = all). */
   let categoryNavFilter = "";
@@ -2348,7 +2559,16 @@
     emptyMsg: document.getElementById("empty-state-msg"),
     emptyReset: document.getElementById("empty-reset-filters"),
     count: document.getElementById("filter-count"),
+    categoryChip: document.getElementById("filter-category-chip"),
+    categoryChipText: document.getElementById("filter-category-chip-text"),
+    searchChip: document.getElementById("filter-search-chip"),
+    searchChipText: document.getElementById("filter-search-chip-text"),
+    colourChip: document.getElementById("filter-colour-chip"),
+    colourChipText: document.getElementById("filter-colour-chip-text"),
+    subcategoryChip: document.getElementById("filter-subcategory-chip"),
+    subcategoryChipText: document.getElementById("filter-subcategory-chip-text"),
     search: document.getElementById("filter-search"),
+    searchClear: document.getElementById("filter-search-clear"),
     outfitStrip: document.getElementById("outfit-strip"),
     outfitEmpty: document.getElementById("outfit-empty"),
     outfitName: document.getElementById("outfit-name"),
@@ -2363,9 +2583,6 @@
   let itemDetailDelegatesInstalled = false;
   let itemDetailPageKeyboardInstalled = false;
   let itemPageBackNavInstalled = false;
-  let itemImageZoomDialogWired = false;
-  /** @type {HTMLElement | null} */
-  let itemImageZoomLastHero = null;
 
   function itemDetailMountRoot() {
     return document.getElementById("item-detail-root");
@@ -2385,60 +2602,67 @@
     });
   }
 
-  /** item.html: full-screen-style dialog to inspect the main photo. */
-  function initItemImageZoomDialog() {
-    const dlg = document.getElementById("item-image-zoom-dialog");
-    const closeBtn = document.getElementById("item-image-zoom-close");
-    const zoomImg = document.getElementById("item-image-zoom-img");
-    if (!dlg || !closeBtn || !zoomImg) return;
-    if (itemImageZoomDialogWired) return;
-    itemImageZoomDialogWired = true;
-
-    function closeZoom() {
-      try {
-        dlg.close();
-      } catch {
-        /* */
-      }
-    }
-
-    closeBtn.addEventListener("click", () => {
-      closeZoom();
-    });
-
-    dlg.addEventListener("click", (e) => {
-      if (e.target === dlg) closeZoom();
-    });
-
-    dlg.addEventListener("close", () => {
-      zoomImg.removeAttribute("src");
-      zoomImg.alt = "";
-      const h = itemImageZoomLastHero;
-      itemImageZoomLastHero = null;
-      if (h && document.contains(h)) queueMicrotask(() => h.focus());
-    });
-  }
-
   /**
+   * item.html hero zoom in-place (inside media frame), with pointer pan.
+   * @param {HTMLElement} media
    * @param {HTMLImageElement} heroImg
    */
-  function openItemImageZoomFromHero(heroImg) {
-    const dlg = document.getElementById("item-image-zoom-dialog");
-    const zoomImg = document.getElementById("item-image-zoom-img");
-    if (!dlg || !zoomImg || !(heroImg instanceof HTMLImageElement)) return;
-    const src = String(heroImg.currentSrc || heroImg.src || "").trim();
-    if (!src) return;
-    itemImageZoomLastHero = heroImg;
-    zoomImg.src = src;
-    zoomImg.alt = String(heroImg.alt || "").trim();
-    try {
-      dlg.showModal();
-    } catch {
-      itemImageZoomLastHero = null;
-      return;
-    }
-    queueMicrotask(() => {
-      document.getElementById("item-image-zoom-close")?.focus();
+  function wireInlineItemHeroZoom(media, heroImg) {
+    if (!(media instanceof HTMLElement) || !(heroImg instanceof HTMLImageElement)) return;
+    media.classList.add("item-detail__media--zoomable");
+    heroImg.classList.add("item-detail__hero-img--zoomable");
+    heroImg.tabIndex = 0;
+    heroImg.title = "Click to zoom, move mouse to inspect details";
+
+    const setOriginFromEvent = (ev) => {
+      const rect = media.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const x = ((ev.clientX - rect.left) / rect.width) * 100;
+      const y = ((ev.clientY - rect.top) / rect.height) * 100;
+      const px = Math.max(0, Math.min(100, x));
+      const py = Math.max(0, Math.min(100, y));
+      heroImg.style.setProperty("--hero-zoom-x", `${px}%`);
+      heroImg.style.setProperty("--hero-zoom-y", `${py}%`);
+    };
+
+    const openZoom = () => {
+      media.classList.add("item-detail__media--zoomed");
+      heroImg.classList.add("item-detail__hero-img--zoomed");
+      heroImg.title = "Click to zoom out";
+    };
+    const closeZoom = () => {
+      media.classList.remove("item-detail__media--zoomed");
+      heroImg.classList.remove("item-detail__hero-img--zoomed");
+      heroImg.style.removeProperty("--hero-zoom-x");
+      heroImg.style.removeProperty("--hero-zoom-y");
+      heroImg.title = "Click to zoom, move mouse to inspect details";
+    };
+    const toggleZoom = () => {
+      if (media.classList.contains("item-detail__media--zoomed")) closeZoom();
+      else openZoom();
+    };
+
+    heroImg.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      toggleZoom();
+    });
+    heroImg.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        toggleZoom();
+      } else if (ev.key === "Escape") {
+        ev.preventDefault();
+        closeZoom();
+      }
+    });
+    media.addEventListener("pointermove", (ev) => {
+      if (!media.classList.contains("item-detail__media--zoomed")) return;
+      setOriginFromEvent(ev);
+    });
+    media.addEventListener("pointerleave", () => {
+      if (!media.classList.contains("item-detail__media--zoomed")) return;
+      heroImg.style.setProperty("--hero-zoom-x", "50%");
+      heroImg.style.setProperty("--hero-zoom-y", "50%");
     });
   }
 
@@ -2478,6 +2702,160 @@
     return s.trim().toLowerCase();
   }
 
+  function extractHexDigitsFromColourText(s) {
+    const out = [];
+    const re = /#([0-9a-f]{3})\b|#([0-9a-f]{6})\b/gi;
+    let m;
+    const str = String(s ?? "");
+    while ((m = re.exec(str))) {
+      let h = (m[1] || m[2] || "").toLowerCase();
+      if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+      if (/^[0-9a-f]{6}$/.test(h)) out.push(h);
+    }
+    return out;
+  }
+
+  function hexRgbToBasicFamily(hex6) {
+    if (!/^[0-9a-f]{6}$/i.test(hex6)) return null;
+    const r = parseInt(hex6.slice(0, 2), 16) / 255;
+    const g = parseInt(hex6.slice(2, 4), 16) / 255;
+    const b = parseInt(hex6.slice(4, 6), 16) / 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const l = (max + min) / 2;
+    const d = max - min;
+    let s = 0;
+    if (d > 1e-5) s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    let hh = 0;
+    if (d > 1e-5) {
+      if (max === r) hh = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+      else if (max === g) hh = ((b - r) / d + 2) / 6;
+      else hh = ((r - g) / d + 4) / 6;
+    }
+    if (l > 0.93 && s < 0.09) return "white";
+    if (l < 0.11) return "black";
+    if (s < 0.11 && l > 0.15 && l < 0.88) return "grey";
+    if (hh < 0.03 || hh > 0.97) return "red";
+    if (hh < 0.085) return "brown";
+    if (hh < 0.17) return "beige";
+    if (hh < 0.52) return "green";
+    if (hh < 0.78) return "blue";
+    return "red";
+  }
+
+  /**
+   * Map one text segment (already lowercased is ok) to basic families. Hex codes in the string win first.
+   * @param {string} segment
+   * @returns {Set<string>}
+   */
+  function basicFamiliesFromColourSegment(segment) {
+    const fams = new Set();
+    const raw = String(segment ?? "").trim();
+    if (!raw) return fams;
+    for (const hx of extractHexDigitsFromColourText(raw)) {
+      const f = hexRgbToBasicFamily(hx);
+      if (f) fams.add(f);
+    }
+    const t = raw.toLowerCase();
+    const textOnly = t.replace(/#[0-9a-f]{3,6}\b/gi, " ");
+    if (!textOnly.trim() && fams.size) return fams;
+
+    const specific = [
+      [/navy|steel\s*blue|steel-blue|powder\s+blue|air\s*force|indigo|denim|azure|cobalt|sapphire|teal|turquoise|aqua|aquamarine|blue|丹寧|天藍|藍色|藍/, "blue"],
+      [/brown|chocolate|espresso|mocha|cognac|mahogany|tobacco|chestnut|camel(?!\s*hair)|hazel\b|咖|咖啡色|咖啡|棕|褐色/, "brown"],
+      [/burgundy|maroon|wine|oxblood|scarlet|crimson|ruby|brick|terracotta|coral|salmon|magenta|fuchsia|rose\b|pink|burgundy|red|紅|紅色|酒紅|玫瑰|粉|珊瑚/, "red"],
+      [/white|ivory|optic\s*white|snow\b(?!\s*wash)|off\s*-?\s*white|cream(?!\s*cotton)|奶白|雪白|米白|白色|白/, "white"],
+      [/black|noir|jet\b|ink\b|黑色|黑/, "black"],
+      [/beige|tan\b|khaki|sand|ecru|oat|latte|natural(?!\s*waist)|bone|stone-wash|camel|khaki|米色|卡其|駝|奶茶|駝色/, "beige"],
+      [/olive|sage|mint|moss|hunter|emerald|jade|forest|green|橄欖|橄欖綠|墨綠|草綠|綠|綠色/, "green"],
+      [/grey|gray|silver|charcoal|graphite|pewter|slate|heather|melange|anthracite|ash|銀灰|灰色|灰/, "grey"],
+    ];
+    for (const [re, fam] of specific) {
+      if (re.test(textOnly)) {
+        fams.add(fam);
+        return fams;
+      }
+    }
+    if (/orange|tangerine|mustard|yellow|gold|lemon|marigold|柑橘|橙|黃|芥|金/.test(textOnly)) {
+      fams.add("beige");
+      return fams;
+    }
+    if (/violet|purple|lavender|plum|eggplant|aubergine|薰衣草|紫/.test(textOnly)) {
+      fams.add("blue");
+      return fams;
+    }
+    return fams;
+  }
+
+  /** @returns {Set<string>} */
+  function inferItemBasicColourFamilies(item) {
+    const fams = new Set();
+    const addRaw = (raw) => {
+      const s = String(raw ?? "").trim();
+      if (!s) return;
+      const chunks = s
+        .split(/[,/&·+]|\/+|\s+-\s+|\s+and\s+|\s+·\s+|[／、]/i)
+        .map((x) => String(x ?? "").trim())
+        .filter(Boolean);
+      const parts = chunks.length ? chunks : [s];
+      for (const p of parts) {
+        for (const f of basicFamiliesFromColourSegment(p)) fams.add(f);
+      }
+    };
+    addRaw(item?.colour);
+    addRaw(itemColourCode(item));
+    const vars = getItemColourVariants(item);
+    if (vars) {
+      for (const v of vars) {
+        addRaw(v.label);
+        addRaw(v.colour || v.color);
+        addRaw(v.colourCode || v.colorCode);
+      }
+    }
+    return fams;
+  }
+
+  function itemMatchesBasicColourFilter(item, bucket) {
+    if (!bucket) return true;
+    const fams = inferItemBasicColourFamilies(item);
+    if (fams.size === 0) return false;
+    return fams.has(bucket);
+  }
+
+  /**
+   * Colour chips should reflect current context (season/category/type/search), excluding colour itself.
+   * This lets users drill by category first, then see only relevant colours.
+   * @returns {Set<string>}
+   */
+  function availableBasicColourFamiliesForCurrentContext() {
+    const f = getFilters();
+    const out = new Set();
+    for (const item of items) {
+      if (!itemPassesSeasonNav(item, f.seasonNav)) continue;
+      if (f.category && itemSlot(item) !== f.category) continue;
+      if (f.subcategory && !itemMatchesDrillSubcategory(item, f.category, f.subcategory)) continue;
+      if (!itemMatchesSearch(item, f.search)) continue;
+      for (const fam of inferItemBasicColourFamilies(item)) out.add(fam);
+    }
+    return out;
+  }
+
+  /** @returns {Map<string, number>} */
+  function basicColourFamilyCountsForCurrentContext() {
+    const f = getFilters();
+    const out = new Map();
+    for (const item of items) {
+      if (!itemPassesSeasonNav(item, f.seasonNav)) continue;
+      if (f.category && itemSlot(item) !== f.category) continue;
+      if (f.subcategory && !itemMatchesDrillSubcategory(item, f.category, f.subcategory)) continue;
+      if (!itemMatchesSearch(item, f.search)) continue;
+      for (const fam of inferItemBasicColourFamilies(item)) {
+        out.set(fam, (out.get(fam) ?? 0) + 1);
+      }
+    }
+    return out;
+  }
+
   function itemMatchesSearch(item, q) {
     if (!q) return true;
     const hay = [
@@ -2512,29 +2890,110 @@
   }
 
   function getFilters() {
+    const allowColour = categoryNavFilter !== SLOT_FRAGRANCE;
     return {
       seasonNav: seasonNavFilter,
       category: categoryNavFilter,
       subcategory: subcategoryFilter,
       search: normalizeSearch(els.search?.value ?? ""),
+      basicColour: allowColour ? basicColourFilter : "",
     };
   }
 
-  /** Category / record-type drill / search — not the season tab. */
+  /** Category / record-type drill / search / colour — not the season tab. */
   function narrowingFiltersActive() {
+    const allowColour = categoryNavFilter !== SLOT_FRAGRANCE;
     return Boolean(
-      categoryNavFilter || String(subcategoryFilter ?? "").trim() || normalizeSearch(els.search?.value ?? "")
+      categoryNavFilter ||
+        String(subcategoryFilter ?? "").trim() ||
+        normalizeSearch(els.search?.value ?? "") ||
+        (allowColour && basicColourFilter)
     );
   }
 
-  function describeNarrowingFiltersForUi() {
+  function describeNarrowingFiltersForUiSansSearch() {
     const bits = [];
     if (categoryNavFilter) bits.push(categoryDisplayLabel(categoryNavFilter));
     const sub = String(subcategoryFilter ?? "").trim();
     if (sub) bits.push(friendlyRecordCategory(sub) || sub);
-    const rawQ = els.search?.value?.trim() ?? "";
-    if (rawQ) bits.push(`“${rawQ}”`);
+    if (basicColourFilter) bits.push(basicColourLabelEn(basicColourFilter));
     return bits.join(" · ");
+  }
+
+  function syncSearchKeywordChip() {
+    const rawQ = els.search?.value?.trim() ?? "";
+    const btn = els.searchChip;
+    const textEl = els.searchChipText;
+    if (!btn || !textEl) return;
+    if (rawQ) {
+      textEl.textContent = rawQ;
+      btn.hidden = false;
+      btn.setAttribute("aria-label", `Remove search “${rawQ}”`);
+    } else {
+      textEl.textContent = "";
+      btn.hidden = true;
+      btn.removeAttribute("aria-label");
+    }
+  }
+
+  function syncCategoryFilterChip() {
+    const btn = els.categoryChip;
+    const textEl = els.categoryChipText;
+    if (!btn || !textEl) return;
+    if (categoryNavFilter) {
+      const label = categoryDisplayLabel(categoryNavFilter) || categoryNavFilter;
+      textEl.textContent = label;
+      btn.hidden = false;
+      btn.setAttribute("aria-label", `Remove category filter “${label}”`);
+    } else {
+      textEl.textContent = "";
+      btn.hidden = true;
+      btn.removeAttribute("aria-label");
+    }
+  }
+
+  function syncColourFilterChip() {
+    const btn = els.colourChip;
+    const textEl = els.colourChipText;
+    if (!btn || !textEl) return;
+    const allowColour = categoryNavFilter !== SLOT_FRAGRANCE;
+    if (allowColour && basicColourFilter) {
+      const label = basicColourLabelEn(basicColourFilter);
+      textEl.textContent = label;
+      btn.hidden = false;
+      btn.setAttribute("aria-label", `Remove colour filter “${label}”`);
+    } else {
+      textEl.textContent = "";
+      btn.hidden = true;
+      btn.removeAttribute("aria-label");
+    }
+  }
+
+  function syncSubcategoryFilterChip() {
+    const btn = els.subcategoryChip;
+    const textEl = els.subcategoryChipText;
+    if (!btn || !textEl) return;
+    const raw = String(subcategoryFilter ?? "").trim();
+    if (raw) {
+      const label = friendlyRecordCategory(raw) || raw;
+      textEl.textContent = label;
+      btn.hidden = false;
+      btn.setAttribute("aria-label", `Remove subcategory filter “${label}”`);
+    } else {
+      textEl.textContent = "";
+      btn.hidden = true;
+      btn.removeAttribute("aria-label");
+    }
+  }
+
+  function clearArchiveKeywordSearchThenRender(options = {}) {
+    const { focusInput = true } = options;
+    if (!els.search) return;
+    cancelSearchGridDebounce();
+    els.search.value = "";
+    syncFilterSearchClearVisibility();
+    renderGrid();
+    if (focusInput) els.search.focus();
   }
 
   function countItemsForCurrentSeasonTab() {
@@ -2545,13 +3004,32 @@
     cancelSearchGridDebounce();
     categoryNavFilter = "";
     subcategoryFilter = "";
+    basicColourFilter = persistBasicColourFilter("");
     if (els.search) els.search.value = "";
+    syncFilterSearchClearVisibility();
+    syncBasicColourFilterChipUi();
     syncCategoryTabUI();
     validateSubcategoryFilter();
     renderCategoryDrill();
     syncFiltersMenuForViewport();
     renderGrid();
     collapseFiltersMenuPanel();
+  }
+
+  /** Logo / home: full archive UI defaults — season, filters, colour, sort order, display currency. */
+  function resetAllArchiveFilters() {
+    seasonNavFilter = "All";
+    persistSeasonNav();
+    syncSeasonTabUI();
+    archiveSortMode = persistArchiveSortMode("archive");
+    archiveDisplayCurrency = persistDisplayCurrency("TWD");
+    const sortSel = document.getElementById("archive-sort");
+    const curSel = document.getElementById("archive-display-currency");
+    if (sortSel) sortSel.value = archiveSortMode;
+    if (curSel) curSel.value = archiveDisplayCurrency;
+    document.body.classList.remove("archive-ui--nav-folded");
+    closeArchiveFilterDrawer();
+    resetNarrowingFilters();
   }
 
   /** Season tab: "All" shows everything; S/S vs A/W use exact match plus `All-season` / blank / item `All`. */
@@ -2626,10 +3104,11 @@
     return n;
   }
 
-  function poolItemsForDrillSubcategories() {
+  function poolItemsForDrillSubcategories(opts = {}) {
+    const respectCategory = opts.respectCategory !== false;
     let pool = items;
     pool = pool.filter((i) => itemPassesSeasonNav(i, seasonNavFilter));
-    if (categoryNavFilter) pool = pool.filter((i) => itemSlot(i) === categoryNavFilter);
+    if (respectCategory && categoryNavFilter) pool = pool.filter((i) => itemSlot(i) === categoryNavFilter);
     return pool;
   }
 
@@ -2639,8 +3118,12 @@
    */
   function mapRemovedWatchRecordTypesToConcrete(raw) {
     const r = String(raw ?? "").trim();
-    if (r === "Watches") return "Sports watch";
-    if (r === "Everyday") return "Dress watch";
+    if (r === "Watches") return "Watches";
+    if (r === "Everyday") return "Watches";
+    if (r === "Beater") return "Watches";
+    if (r === "Dress watch") return "Watches";
+    if (r === "Dive watch") return "Watches";
+    if (r === "Sports watch") return "Watches";
     return r;
   }
 
@@ -2650,8 +3133,9 @@
    */
   function mapJewelleryFutureToConcreteDrillKey(raw) {
     const r = String(raw ?? "").trim();
-    if (r === "Future") return "Ring";
-    if (r === "Jewellery" || r === "Jewellery") return "Necklace";
+    if (r === "Future") return "Jewellery";
+    if (r === "Jewellery" || r === "Jewellery") return "Jewellery";
+    if (r === "Necklace" || r === "Bracelet" || r === "Ring") return "Jewellery";
     return r;
   }
 
@@ -2663,14 +3147,26 @@
     const slot = String(browseSlot ?? "").trim() || itemSlot(item);
     let raw = String(item?.category ?? "").trim();
 
-    if (slot === SLOT_JEWELRY) {
-      if (raw === "項鏈") raw = "Necklace";
-      if (raw === "手鏈") raw = "Bracelet";
-      if (raw === "戒指") raw = "Ring";
+    if (slot === SLOT_ACCESSORIES) {
+      if (raw === "項鏈" || raw === "手鏈" || raw === "戒指") raw = "Jewellery";
+      if (raw === "Sunglasses" || raw === "Glasses" || raw === "Eyeglasses") raw = "Eyewear";
       raw = mapJewelleryFutureToConcreteDrillKey(raw);
+      if (raw === "Footwear") return "Footwear";
+      if (raw === "Small accessories" || raw === "帽子") return "Hats";
+      if (
+        raw === "Watches" ||
+        raw === "Everyday" ||
+        raw === "Beater" ||
+        raw === "Dress watch" ||
+        raw === "Dive watch" ||
+        raw === "Sports watch" ||
+        raw === "潛水錶"
+      ) {
+        return "Hats";
+      }
     }
     if (slot === SLOT_WATCHES) {
-      if (raw === "潛水錶") raw = "Dive watch";
+      if (raw === "潛水錶") raw = "Watches";
       raw = mapRemovedWatchRecordTypesToConcrete(raw);
     }
 
@@ -2679,8 +3175,6 @@
     const broadClothing = slot === SLOT_CLOTHING && (raw === slot || raw === "Clothing");
     const broadAccessories = slot === SLOT_ACCESSORIES && (raw === slot || raw === "Accessories");
     if (broadClothing || broadAccessories) return defaultRecordCategoryForSlot(slot);
-
-    if (slot === SLOT_ACCESSORIES && (raw === "Small accessories" || raw === "帽子")) return "Hats";
 
     return raw;
   }
@@ -2708,10 +3202,8 @@
   /** Legacy Chinese `category` / drill keys saved before English migration. */
   function legacyZhRecordCategoryToEn(raw) {
     const r = String(raw ?? "").trim();
-    if (r === "項鏈") return "Necklace";
-    if (r === "手鏈") return "Bracelet";
-    if (r === "戒指") return "Ring";
-    if (r === "潛水錶") return "Dive watch";
+    if (r === "項鏈" || r === "手鏈" || r === "戒指") return "Jewellery";
+    if (r === "潛水錶") return "Watches";
     if (r === "Small accessories") return "Hats";
     if (r === "帽子") return "Hats";
     return r;
@@ -2723,18 +3215,23 @@
   function fillItemEditRecordTypeSelect(selectEl, browseSlot, preferKey) {
     const slot = String(browseSlot ?? "").trim() || SLOT_CLOTHING;
     let prev = legacyZhRecordCategoryToEn(preferKey);
-    if (slot === SLOT_JEWELRY) prev = mapJewelleryFutureToConcreteDrillKey(prev);
+    if (slot === SLOT_ACCESSORIES) {
+      prev = mapJewelleryFutureToConcreteDrillKey(prev);
+    }
     if (slot === SLOT_WATCHES) prev = mapRemovedWatchRecordTypesToConcrete(prev);
     const pool = items.filter((i) => itemSlot(i) === slot);
     const fall = defaultRecordCategoryForSlot(slot);
     let keys = drillSubcategoryKeysFromPool(slot, pool);
     const knownExtra = KNOWN_RECORD_TYPES_BY_SLOT[slot];
     if (knownExtra?.length) keys = sortRecordTypeKeysForSlot(slot, [...keys, ...knownExtra]);
-    if (slot === SLOT_JEWELRY) {
+    if (slot === SLOT_ACCESSORIES) {
       keys = keys.filter((k) => k && !["Jewellery", "Jewellery", "Future"].includes(k));
+      keys = keys.filter((k) => k && !["Everyday", "Watches", "Beater", "Dress watch", "Dive watch", "Sports watch"].includes(k));
+      if (!keys.includes("Jewellery")) keys.push("Jewellery");
+      keys = sortRecordTypeKeysForSlot(slot, keys);
     }
     if (slot === SLOT_WATCHES) {
-      keys = keys.filter((k) => k && !["Everyday", "Watches"].includes(k));
+      keys = ["Watches"];
     }
     if (!keys.includes(fall)) keys = sortRecordTypeKeysForSlot(slot, [fall, ...keys]);
     if (prev && !keys.includes(prev)) {
@@ -2766,16 +3263,12 @@
       subcategoryFilter = "";
       return;
     }
-    if (categoryNavFilter === SLOT_JEWELRY) {
+    if (categoryNavFilter === SLOT_ACCESSORIES) {
       const j = mapJewelleryFutureToConcreteDrillKey(sub);
       if (j !== sub) {
         subcategoryFilter = j;
         sub = j;
       }
-    }
-    if (categoryNavFilter === SLOT_JEWELRY && sub === "Jewellery") {
-      subcategoryFilter = "Necklace";
-      return;
     }
     if (categoryNavFilter === SLOT_WATCHES) {
       const w = mapRemovedWatchRecordTypesToConcrete(sub);
@@ -2829,9 +3322,17 @@
     }
 
     const typeKeys = [...new Set(drillSubcategoryKeysFromPool(categoryNavFilter, seasonalPool).filter(Boolean))];
+    const typeEntries = [];
+    const seenTypeLabels = new Set();
+    for (const raw of typeKeys) {
+      const label = friendlyRecordCategory(raw) || raw;
+      if (seenTypeLabels.has(label)) continue;
+      seenTypeLabels.add(label);
+      typeEntries.push({ raw, label });
+    }
 
     /** No sub-type strip when there is nothing to choose or only one record type (main tabs are enough). */
-    if (typeKeys.length <= 1) {
+    if (typeEntries.length <= 1) {
       subcategoryFilter = "";
       hideDrillStrip();
       return;
@@ -2839,24 +3340,22 @@
 
     grid.innerHTML = "";
 
-    function appendChoice(rawValue, label, isAll) {
+    function appendChoice(rawValue, label) {
       const b = document.createElement("button");
       b.type = "button";
-      b.className = "category-drill__choice" + (isAll ? " category-drill__choice--all" : "");
-      const active = isAll ? subcategoryFilter === "" : subcategoryFilter === rawValue;
+      b.className = "category-drill__choice";
+      const active = subcategoryFilter === rawValue;
       if (active) b.classList.add("is-active");
-      b.dataset.subcategory = isAll ? "" : rawValue;
+      b.dataset.subcategory = rawValue;
       b.textContent = label;
       grid.appendChild(b);
     }
 
-    appendChoice("", "All types", true);
-    for (const raw of typeKeys) {
-      appendChoice(raw, friendlyRecordCategory(raw) || raw, false);
+    for (const { raw, label } of typeEntries) {
+      appendChoice(raw, label);
     }
 
-    /** Safety net: never show an empty/meaningless strip (e.g. no concrete chips beyond “All types”). */
-    if (grid.childElementCount <= 1) {
+    if (grid.childElementCount <= 0) {
       subcategoryFilter = "";
       hideDrillStrip();
       return;
@@ -2873,6 +3372,7 @@
       if (f.category && itemSlot(item) !== f.category) return false;
       if (f.subcategory && !itemMatchesDrillSubcategory(item, f.category, f.subcategory)) return false;
       if (!itemMatchesSearch(item, f.search)) return false;
+      if (!itemMatchesBasicColourFilter(item, f.basicColour)) return false;
       return true;
     });
   }
@@ -2931,7 +3431,10 @@
     } else {
       if (item.colour) parts.push(item.colour);
     }
-    if (!forGrid) {
+    if (forGrid) {
+      const w = String(item.weight ?? "").trim();
+      if (w) parts.push(w);
+    } else {
       if (item.fabric) parts.push(item.fabric);
       if (item.weight) parts.push(item.weight);
     }
@@ -3189,13 +3692,19 @@
   function showToast(msg) {
     const toastEl = els.outfitToast || document.getElementById("outfit-toast");
     if (!toastEl) return;
-    toastEl.textContent = msg || "";
+    const text = String(msg ?? "").trim();
     if (toastTimer) clearTimeout(toastTimer);
-    if (msg) {
+    toastTimer = null;
+    toastEl.textContent = text;
+    if (text) {
+      toastEl.hidden = false;
       toastTimer = setTimeout(() => {
         toastEl.textContent = "";
+        toastEl.hidden = true;
         toastTimer = null;
       }, 3800);
+    } else {
+      toastEl.hidden = true;
     }
   }
 
@@ -3849,6 +4358,28 @@
   }
 
   /** Short line for wardrobe_items upsert failures (add / edit / duplicate). */
+  const CLOUD_WRITE_REQUIRED_MESSAGE =
+    "Cloud save is required. Supabase is not connected yet — configure js/tw-supabase-config.js (URL + anon key) and retry.";
+
+  function messageForCloudUploadFailure(context, err) {
+    const detail = formatSupabaseUserMessage(err);
+    if (!detail) return `Cloud upload failed (${context}).`;
+    if (/row-level security|violates row-level security policy|permission denied/i.test(detail)) {
+      return (
+        `Cloud upload failed (${context}): ${detail}. ` +
+        "Check Supabase Storage bucket policy for `wardrobe-images` (INSERT/UPDATE/SELECT for current role)."
+      );
+    }
+    return `Cloud upload failed (${context}): ${detail}`;
+  }
+
+  function isSupabaseSchemaTableMissingError(detail, tableName) {
+    const d = String(detail ?? "").trim();
+    if (!d || !tableName) return false;
+    const esc = String(tableName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`Could not find the table 'public\\.${esc}' in the schema cache`, "i").test(d);
+  }
+
   function messageForFailedWardrobeUpsert(err) {
     const o = /** @type {any} */ (err);
     let detail = formatSupabaseUserMessage(err);
@@ -3862,6 +4393,13 @@
         `Supabase unreachable (${tail}). ` +
         `Net::ERR_FAILED / HTTP 522 usually means the edge timed out, the project is paused, or a brief outage — not a missing CORS rule in this app (failed responses often omit Access-Control-Allow-Origin, so DevTools shows a misleading CORS message). ` +
         `Open the Supabase dashboard: resume the project if needed, confirm URL and anon key, then retry. See https://status.supabase.com for incidents.`
+      );
+    }
+    if (/row-level security|violates row-level security policy|permission denied/i.test(detail)) {
+      return (
+        `Supabase save failed: ${detail}. ` +
+        "Your current DB policy likely allows wardrobe_items SELECT only. " +
+        "Allow INSERT/UPDATE for the role used by this app (anon/authenticated), or save through a server/Edge Function using service role."
       );
     }
     const d = detail.length > 140 ? `${detail.slice(0, 137)}…` : detail;
@@ -3889,72 +4427,52 @@
   }
 
   /**
-   * Remove a piece from this browser’s wardrobe view: cloud-backed rows are removed from `wardrobe_items`;
-   * catalogue rows you had only hidden are tracked in `wardrobe_app_state` (or localStorage) so the seed row can show again.
+   * Remove a wardrobe piece via Supabase only: unlink outfit refs, delete referenced Storage objects, DELETE
+   * the `wardrobe_items` row. If Supabase is not ready, refuses (no offline delete).
+   * The id is always saved to `archive_hidden_ids` so `syncMissingRowsToSupabase` never re-upserts seed/file rows with the same id
+   * (critical when the catalogue comes only from Supabase). With seed-merge catalogue, hidden ids still suppress resurgence after reload.
    */
   async function deleteWardrobePieceFromBrowser(id) {
     const sid = String(id);
     if (!sid) return;
+
+    if (!isSupabaseReady()) {
+      showToast(CLOUD_WRITE_REQUIRED_MESSAGE);
+      return;
+    }
+
     const isCustom = sid.startsWith("custom-");
 
     currentOutfitSlots = currentOutfitSlots.filter((s) => s.itemId !== sid);
 
-    if (isCustom) {
-      const prevCloud = cloudBackedCustomItems.slice();
-      cloudBackedCustomItems = cloudBackedCustomItems.filter((x) => String(x.id) !== sid);
+    const prevCloud = cloudBackedCustomItems.slice();
+    cloudBackedCustomItems = cloudBackedCustomItems.filter((x) => String(x.id) !== sid);
 
-      if (isSupabaseReady()) {
-        try {
-          const item = itemById.get(sid) || items.find((x) => String(x?.id ?? "") === String(sid));
-          try {
-            await unlinkCloudOutfitsReferencingWardrobeItem(sid);
-          } catch (e1) {
-            cloudBackedCustomItems = prevCloud;
-            toastCloudDeleteFailure("unlink", e1);
-            return;
-          }
-          try {
-            await deleteWardrobeItemImagesFromCloud(item);
-          } catch (eImg) {
-            console.warn("Image cleanup before delete (continuing):", eImg);
-          }
-          const { error } = await supabaseClient.from(WARDROBE_TABLE).delete().eq("id", sid);
-          if (error) throw error;
-        } catch (e) {
-          cloudBackedCustomItems = prevCloud;
-          try {
-            if (useCloudOutfits && isSupabaseReady()) {
-              const api = await import("./js/supabase-client.js");
-              const res = await api.fetchOutfits(supabaseClient);
-              if (res.ok) {
-                savedOutfits = (res.outfits || [])
-                  .map((o) => normalizeSavedOutfitRecord(o))
-                  .filter(Boolean);
-              }
-            }
-          } catch (e2) {
-            console.warn("fetchOutfits after delete failure", e2);
-          }
-          toastCloudDeleteFailure("row", e);
-          return;
-        }
+    try {
+      const item = itemById.get(sid) || items.find((x) => String(x?.id ?? "") === String(sid));
+
+      try {
+        await unlinkCloudOutfitsReferencingWardrobeItem(sid);
+      } catch (e1) {
+        cloudBackedCustomItems = prevCloud;
+        toastCloudDeleteFailure("unlink", e1);
+        return;
+      }
+      try {
+        await deleteWardrobeItemImagesFromCloud(item);
+      } catch (eImg) {
+        console.warn("Image cleanup before delete (continuing):", eImg);
+      }
+      const { error } = await supabaseClient.from(WARDROBE_TABLE).delete().eq("id", sid);
+      if (error) throw error;
+
+      wardrobeBase = wardrobeBase.filter((row) => String(row?.id ?? "") !== sid);
+
+      if (isCustom) {
         stripCustomIdsFromLocalStorage([sid]);
         await mirrorLocalCustomItemsToProjectFile();
-      } else {
-        const next = loadCustomItems().filter((x) => String(x.id) !== sid);
-        try {
-          await commitCustomItems(next);
-        } catch (e) {
-          cloudBackedCustomItems = prevCloud;
-          console.warn(e);
-          showToast("Could not update storage.");
-          return;
-        }
       }
-    } else {
-      const hidden = loadArchiveHiddenIds();
-      hidden.add(sid);
-      await saveArchiveHiddenIds(hidden);
+
       try {
         const all = loadArchiveOverrides();
         if (Object.prototype.hasOwnProperty.call(all, sid)) {
@@ -3964,6 +4482,27 @@
       } catch (e) {
         console.warn(e);
       }
+
+      const hidden = loadArchiveHiddenIds();
+      hidden.add(sid);
+      await saveArchiveHiddenIds(hidden);
+    } catch (e) {
+      cloudBackedCustomItems = prevCloud;
+      try {
+        if (useCloudOutfits && isSupabaseReady()) {
+          const api = await import("./js/supabase-client.js");
+          const res = await api.fetchOutfits(supabaseClient);
+          if (res.ok) {
+            savedOutfits = (res.outfits || [])
+              .map((o) => normalizeSavedOutfitRecord(o))
+              .filter(Boolean);
+          }
+        }
+      } catch (e2) {
+        console.warn("fetchOutfits after delete failure", e2);
+      }
+      toastCloudDeleteFailure("row", e);
+      return;
     }
 
     mergeWardrobeFromSources();
@@ -3974,13 +4513,7 @@
       renderSavedOutfits();
     }
 
-    showToast(
-      isCustom
-        ? "Piece removed."
-        : isSupabaseReady()
-          ? "Removed from view; change saved to your account (Supabase)."
-          : "Removed from this browser only."
-    );
+    showToast("Piece removed.");
 
     if (!document.getElementById("grid") && String(detailItemId) === sid) {
       globalThis.location.href = "index.html";
@@ -4026,6 +4559,11 @@
       showAddItemFormMsg("Pick a record type that fits the selected section.", true);
       return;
     }
+    if (!isSupabaseReady()) {
+      showAddItemFormMsg(CLOUD_WRITE_REQUIRED_MESSAGE, true);
+      showToast(CLOUD_WRITE_REQUIRED_MESSAGE);
+      return;
+    }
 
     if (file || galleryFiles.length) showAddItemFormMsg("Processing images…", false);
 
@@ -4042,7 +4580,7 @@
           : await fileToStorageDataUrl(file);
       } catch (err) {
         console.warn(err);
-        showAddItemFormMsg("Could not process this image. Try another image file.", true);
+        showAddItemFormMsg(messageForCloudUploadFailure("main cover", err), true);
         return;
       }
     }
@@ -4060,7 +4598,7 @@
         );
       } catch (err) {
         console.warn(err);
-        showAddItemFormMsg("One gallery image could not be processed and was skipped.", true);
+        showAddItemFormMsg(messageForCloudUploadFailure(`gallery image #${gi + 1}`, err), true);
       }
     }
 
@@ -4101,75 +4639,29 @@
       };
     }
 
-    if (isSupabaseReady()) {
-      try {
-        const savedCloudItem = await saveWardrobeItemToCloud(newItem);
-        stampWardrobeItemMediaNonce(savedCloudItem);
-        upsertWardrobeBaseRowInMemory(savedCloudItem);
-        cloudBackedCustomItems = [
-          savedCloudItem,
-          ...cloudBackedCustomItems.filter((x) => String(x.id) !== String(savedCloudItem.id)),
-        ];
-
-        mergeWardrobeFromSources();
-        initFilters();
-        renderGrid();
-        form.reset();
-        resetAddItemMeasurementBlock();
-        showAddItemFormMsg("Saved to Supabase.", false);
-        showToast("Saved to cloud.");
-        document.getElementById("add-item-dialog")?.close();
-        return;
-      } catch (err) {
-        console.warn(err);
-        showAddItemFormMsg(messageForFailedWardrobeUpsert(err), true);
-        return;
-      }
-    }
-
-    const list = loadCustomItems();
-    list.unshift(newItem);
-    let synced = false;
     try {
-      synced = await commitCustomItems(list);
-    } catch (e) {
-      const err = /** @type {any} */ (e);
-      const quota = err && (err.name === "QuotaExceededError" || err.code === 22);
-      if (!quota) {
-        showAddItemFormMsg("Save failed. Try again.", true);
-        return;
-      }
-      showAddItemFormMsg("Storage almost full — one-time resize to fit browser storage (~5MB)…", false);
-      try {
-        list[0] = await shrinkCustomItemRowForQuota(newItem);
-        synced = await commitCustomItems(list);
-      } catch (e2) {
-        console.warn(e2);
-        showAddItemFormMsg(STORAGE_QUOTA_USER_HINT, true);
-        return;
-      }
-    }
+      const savedCloudItem = await saveWardrobeItemToCloud(newItem);
+      stampWardrobeItemMediaNonce(savedCloudItem);
+      upsertWardrobeBaseRowInMemory(savedCloudItem);
+      cloudBackedCustomItems = [
+        savedCloudItem,
+        ...cloudBackedCustomItems.filter((x) => String(x.id) !== String(savedCloudItem.id)),
+      ];
 
-    mergeWardrobeFromSources();
-    initFilters();
-    renderGrid();
-    form.reset();
-    resetAddItemMeasurementBlock();
-    const catEl = document.getElementById("add-item-category");
-    const recordEl = document.getElementById("add-item-record-type");
-    if (catEl && recordEl) fillItemEditRecordTypeSelect(recordEl, catEl.value, "");
-    const prev = document.getElementById("add-item-preview");
-    if (prev) {
-      prev.hidden = true;
-      prev.removeAttribute("src");
+      mergeWardrobeFromSources();
+      initFilters();
+      renderGrid();
+      form.reset();
+      resetAddItemMeasurementBlock();
+      showAddItemFormMsg("Saved to Supabase.", false);
+      showToast("Saved to cloud.");
+      document.getElementById("add-item-dialog")?.close();
+      return;
+    } catch (err) {
+      console.warn(err);
+      showAddItemFormMsg(`Cloud row save failed: ${messageForFailedWardrobeUpsert(err)}`, true);
+      return;
     }
-    showAddItemFormMsg("Added to wardrobe.", false);
-    showToast(
-      synced
-        ? "Saved to wardrobe and data/custom-items.json."
-        : "Saved in this browser/origin only. Run npm run dev (same project) to also write data/custom-items.json."
-    );
-    document.getElementById("add-item-dialog")?.close();
   }
 
   /**
@@ -4253,30 +4745,16 @@
 
   /** Insert one new custom row using the same paths as “Add a piece” (Supabase vs localStorage + optional shrink). */
   async function persistNewCustomItemRow(row) {
-    if (isSupabaseReady()) {
-      const saved = await saveWardrobeItemToCloud(row);
-      stampWardrobeItemMediaNonce(saved);
-      upsertWardrobeBaseRowInMemory(saved);
-      cloudBackedCustomItems = [
-        saved,
-        ...cloudBackedCustomItems.filter((x) => String(x.id) !== String(saved.id)),
-      ];
-      mergeWardrobeFromSources();
-      return String(saved.id);
-    }
-    const list = loadCustomItems();
-    list.unshift(row);
-    try {
-      await commitCustomItems(list);
-    } catch (e) {
-      const err = /** @type {any} */ (e);
-      const quota = err && (err.name === "QuotaExceededError" || err.code === 22);
-      if (!quota) throw e;
-      list[0] = await shrinkCustomItemRowForQuota(row);
-      await commitCustomItems(list);
-    }
+    if (!isSupabaseReady()) throw new Error(CLOUD_WRITE_REQUIRED_MESSAGE);
+    const saved = await saveWardrobeItemToCloud(row);
+    stampWardrobeItemMediaNonce(saved);
+    upsertWardrobeBaseRowInMemory(saved);
+    cloudBackedCustomItems = [
+      saved,
+      ...cloudBackedCustomItems.filter((x) => String(x.id) !== String(saved.id)),
+    ];
     mergeWardrobeFromSources();
-    return String(row.id);
+    return String(saved.id);
   }
 
   function initAddItemForm() {
@@ -4436,6 +4914,7 @@
     media.addEventListener("click", (ev) => {
       if (ev.target.closest(".card__quick-outfit")) return;
       if (ev.target.closest(".card__swatch--pick")) return;
+      if (ev.target.closest(".card__swatch-block--media-overlay")) return;
       if (ev.target.closest(".card__gallery-thumb")) return;
       if (ev.target.closest(".card__season-chip")) return;
       openCardDetail(ev);
@@ -4469,12 +4948,13 @@
     body.appendChild(brand);
     body.appendChild(metaLine);
 
-    mountVariantSwatchStrip(body, item, {
+    mountVariantSwatchStrip(media, item, {
       outfitPick: true,
       heroImg: img,
       heroHost: media,
       showHeroGallery: false,
       gridCaption: variants?.length > 1 ? "compact" : undefined,
+      gridMediaOverlay: true,
     });
 
     const specs = document.createElement("ul");
@@ -4517,6 +4997,71 @@
       if (summary) article.title = summary;
     }
     return article;
+  }
+
+  /** Structural key for main grid: invalidates when wardrobe, filters, sort, or currency changes. */
+  let lastGridStructuralKey = "";
+
+  /** Outfit slots key: when only this changes, patch card UI in place. */
+  let lastGridOutfitKey = "";
+
+  function buildArchiveGridStructuralKey(sorted, searchNorm) {
+    const ids = sorted.map((x) => String(x.id)).join("\x1f");
+    return [
+      seasonNavFilter,
+      categoryNavFilter,
+      String(subcategoryFilter ?? "").trim(),
+      searchNorm,
+      basicColourFilter,
+      archiveSortMode,
+      archiveDisplayCurrency,
+      String(wardrobeRevision),
+      String(sorted.length),
+      ids,
+    ].join("\x1e");
+  }
+
+  function buildArchiveGridOutfitKey() {
+    return currentOutfitSlots.map((s) => `${s.itemId}\x1d${s.colourKey ?? ""}`).join("\x1c");
+  }
+
+  /** @returns {boolean} false if DOM order/id mismatch — caller should full-rebuild grid. */
+  function syncArchiveGridCardsOutfitUi(sorted) {
+    if (!els.grid) return false;
+    const rows = els.grid.querySelectorAll(":scope > .card[data-item-id]");
+    if (rows.length !== sorted.length) return false;
+    for (let i = 0; i < sorted.length; i++) {
+      const item = sorted[i];
+      const article = rows[i];
+      if (!(article instanceof HTMLElement)) return false;
+      if (article.dataset.itemId !== String(item.id)) return false;
+
+      const inOutfit = outfitIdSet().has(item.id);
+      const outfitHighlight = inOutfit && itemEligibleForOutfit(item);
+      article.classList.toggle("card--in-outfit", Boolean(outfitHighlight));
+
+      const quick = article.querySelector(".card__quick-outfit");
+      if (!quick) continue;
+
+      const variants = getItemColourVariants(item);
+      const allVariantKeys = variants?.map((v) => v.key) ?? [];
+      const takenKeys = new Set(
+        currentOutfitSlots.filter((s) => s.itemId === item.id && s.colourKey).map((s) => String(s.colourKey))
+      );
+      const everyVariantTaken =
+        Boolean(variants?.length) && allVariantKeys.length > 0 && allVariantKeys.every((k) => takenKeys.has(k));
+      const singleTaken = !variants?.length && outfitSlotKeySet().has(outfitSlotKey({ itemId: item.id }));
+
+      const blocked = everyVariantTaken || singleTaken;
+      quick.textContent = blocked ? "✓" : "+";
+      /** @type {HTMLButtonElement} */ (quick).disabled = Boolean(blocked);
+      if (variants?.length) {
+        quick.title = everyVariantTaken ? "Every colour is already in this outfit." : "Add a colour to this outfit";
+      } else {
+        quick.title = singleTaken ? "Already in this outfit." : "Add to outfit";
+      }
+    }
+    return true;
   }
 
   function isCustomWardrobeItem(item) {
@@ -4579,20 +5124,42 @@
     if (!els.grid) return;
     const filtered = applyFilters(items);
     const sorted = [...filtered].sort(compareGridItems);
-    updateFilterSpendTotal(filtered);
-    els.grid.innerHTML = "";
-    for (const item of sorted) {
-      els.grid.appendChild(createCard(item));
+    syncBasicColourFilterChipUi();
+    syncCategoryFilterChip();
+    syncColourFilterChip();
+    syncSubcategoryFilterChip();
+    const searchNorm = normalizeSearch(els.search?.value ?? "");
+    const structuralKey = buildArchiveGridStructuralKey(sorted, searchNorm);
+    const outfitKey = buildArchiveGridOutfitKey();
+
+    if (structuralKey === lastGridStructuralKey && outfitKey === lastGridOutfitKey) {
+      return;
     }
+
+    const canPatchOutfitOnly =
+      structuralKey === lastGridStructuralKey &&
+      outfitKey !== lastGridOutfitKey &&
+      els.grid.childElementCount === sorted.length;
+
+    if (canPatchOutfitOnly && syncArchiveGridCardsOutfitUi(sorted)) {
+      lastGridOutfitKey = outfitKey;
+    } else {
+      lastGridStructuralKey = structuralKey;
+      lastGridOutfitKey = outfitKey;
+      updateFilterSpendTotal(filtered);
+      const frag = document.createDocumentFragment();
+      for (const item of sorted) frag.appendChild(createCard(item));
+      els.grid.replaceChildren(frag);
+    }
+
     const n = sorted.length;
     const seasonalTotal = countItemsForCurrentSeasonTab();
-    const narrow = describeNarrowingFiltersForUi();
     if (els.count) {
       if (narrowingFiltersActive()) {
         els.count.textContent =
           n === seasonalTotal
-            ? `${n} piece${n === 1 ? "" : "s"} · ${narrow}`
-            : `${n} of ${seasonalTotal} piece${seasonalTotal === 1 ? "" : "s"} · ${narrow}`;
+            ? `${n} piece${n === 1 ? "" : "s"}`
+            : `${n} of ${seasonalTotal} piece${seasonalTotal === 1 ? "" : "s"}`;
       } else {
         const where =
           seasonNavFilter === "All"
@@ -4607,8 +5174,8 @@
       const onSeasonTab = seasonNavFilter !== "All";
       els.emptyMsg.textContent = narrowingFiltersActive()
         ? onSeasonTab
-          ? "Nothing matches that category, type, or search on this season tab."
-          : "Nothing matches that category, type, or search."
+          ? "Nothing matches that category, type, colour, or search on this season tab."
+          : "Nothing matches that category, type, colour, or search."
         : onSeasonTab
           ? "No pieces on this season tab match."
           : "No pieces match.";
@@ -4669,7 +5236,17 @@
     }
   }
 
+  function syncFilterSearchClearVisibility() {
+    const btn = els.searchClear;
+    if (btn) {
+      const q = String(els.search?.value ?? "").trim();
+      btn.hidden = !q;
+    }
+    syncSearchKeywordChip();
+  }
+
   function scheduleRenderGridFromSearchInput() {
+    syncFilterSearchClearVisibility();
     if (searchGridDebounceTimer != null) clearTimeout(searchGridDebounceTimer);
     searchGridDebounceTimer = setTimeout(() => {
       searchGridDebounceTimer = null;
@@ -4689,6 +5266,13 @@
     const dock = document.getElementById("outfit-dock");
     if (!dock) return;
     dock.classList.toggle("outfit-dock--builder-open", currentOutfitSlots.length > 0);
+    const shouldShow = outfitDockUserToggled || currentOutfitSlots.length > 0;
+    dock.hidden = !shouldShow;
+    const savedBtn = document.getElementById("site-header-saved-toggle");
+    if (savedBtn) {
+      savedBtn.setAttribute("aria-expanded", shouldShow ? "true" : "false");
+      savedBtn.setAttribute("aria-label", shouldShow ? "Close saved outfits" : "Open saved outfits");
+    }
   }
 
   function renderOutfitStrip() {
@@ -5123,7 +5707,7 @@
             : await fileToStorageDataUrl(file);
         } catch (err) {
           console.warn(err);
-          setMsg("Could not process a colour cover image.", true);
+          setMsg(messageForCloudUploadFailure(`variant cover (${key || "unknown key"})`, err), true);
           return null;
         }
       }
@@ -5170,7 +5754,7 @@
               : await fileToStorageDataUrl(previewFile2);
           } catch (err) {
             console.warn(err);
-            setMsg("Could not process a colour preview image.", true);
+            setMsg(messageForCloudUploadFailure(`variant preview (${key || "unknown key"})`, err), true);
             return null;
           }
         } else if (!previewImage && match) {
@@ -5212,6 +5796,11 @@
     const prev = itemById.get(id);
     if (!prev) return;
     const isCustom = String(id).startsWith("custom-");
+    if (!isSupabaseReady()) {
+      setMsg(CLOUD_WRITE_REQUIRED_MESSAGE, true);
+      showToast(CLOUD_WRITE_REQUIRED_MESSAGE);
+      return;
+    }
 
     const brand = form.querySelector("#item-edit-brand")?.value?.trim() || "";
     const name = form.querySelector("#item-edit-name")?.value?.trim() || "";
@@ -5288,7 +5877,10 @@
             : await fileToStorageDataUrl(coverFile);
         } catch (err) {
           console.warn(err);
-          setMsg("Could not upload the new cover image — keeping the previous cover. Other fields will still be saved.", true);
+          setMsg(
+            `${messageForCloudUploadFailure("main cover", err)} — keeping the previous cover and continuing other fields.`,
+            true
+          );
           keepFinalWarningMessage = true;
         }
       } else if (stripCover) {
@@ -5316,7 +5908,7 @@
         gallery.push(url);
       } catch (e) {
         console.warn(e);
-        setMsg("Some new gallery images were skipped.", true);
+        setMsg(messageForCloudUploadFailure(`gallery image #${gallery.length + 1}`, e), true);
       }
     }
     gallery = dedupeGalleryUrls(image, gallery, 12);
@@ -5327,7 +5919,7 @@
       ...prev,
       brand,
       name,
-      section: "",
+      section: String(prev.section ?? ""),
       category,
       season,
       fabric,
@@ -5337,7 +5929,7 @@
       purchaseDate,
       notes,
       image,
-      pillar: "",
+      pillar: String(prev.pillar ?? ""),
     };
     if (colourTrim) {
       updated.colour = colourTrim;
@@ -5403,70 +5995,39 @@
         return;
       }
 
-      if (isSupabaseReady()) {
+      try {
+        const saved = await saveWardrobeItemToCloud(updated);
+        const mediaBust = stampWardrobeItemMediaNonce(saved);
+        upsertWardrobeBaseRowInMemory(saved);
+        stripCustomIdsFromLocalStorage([id]);
+        await mirrorLocalCustomItemsToProjectFile();
+        customCloudSynced = true;
+        customProjectSynced = false;
+        await deleteSupabaseImagesNoLongerUsed(prev, saved, updated);
         try {
-          const saved = await saveWardrobeItemToCloud(updated);
-          const mediaBust = stampWardrobeItemMediaNonce(saved);
-          upsertWardrobeBaseRowInMemory(saved);
-          stripCustomIdsFromLocalStorage([id]);
-          await mirrorLocalCustomItemsToProjectFile();
-          customCloudSynced = true;
-          customProjectSynced = false;
-          await deleteSupabaseImagesNoLongerUsed(prev, saved, updated);
-          try {
-            await refreshCloudBackedCustomItems();
-            didCloudListRefresh = true;
-            const hit = cloudBackedCustomItems.find((x) => String(x.id) === String(id));
-            if (hit) /** @type {any} */ (hit).__displayNonce = mediaBust;
-          } catch (re) {
-            console.warn(re);
-            cloudBackedCustomItems = [
-              saved,
-              ...cloudBackedCustomItems.filter((x) => String(x.id) !== String(saved.id)),
-            ];
-            const hit2 = cloudBackedCustomItems.find((x) => String(x.id) === String(id));
-            if (hit2) /** @type {any} */ (hit2).__displayNonce = mediaBust;
-          }
-        } catch (e) {
-          console.warn(e);
-          setMsg(messageForFailedWardrobeUpsert(e), true);
-          return;
+          await refreshCloudBackedCustomItems();
+          didCloudListRefresh = true;
+          const hit = cloudBackedCustomItems.find((x) => String(x.id) === String(id));
+          if (hit) /** @type {any} */ (hit).__displayNonce = mediaBust;
+        } catch (re) {
+          console.warn(re);
+          cloudBackedCustomItems = [
+            saved,
+            ...cloudBackedCustomItems.filter((x) => String(x.id) !== String(saved.id)),
+          ];
+          const hit2 = cloudBackedCustomItems.find((x) => String(x.id) === String(id));
+          if (hit2) /** @type {any} */ (hit2).__displayNonce = mediaBust;
         }
-      } else {
-        const list = loadCustomItems();
-        const idx = list.findIndex((x) => x.id === id);
-        if (idx < 0) {
-          setMsg("This piece is no longer in your wardrobe.", true);
-          return;
-        }
-        list[idx] = updated;
-        let synced = false;
-        try {
-          synced = await commitCustomItems(list);
-        } catch (e) {
-          const err = /** @type {any} */ (e);
-          const quota = err && (err.name === "QuotaExceededError" || err.code === 22);
-          if (!quota) {
-            setMsg("Save failed. Try again.", true);
-            return;
-          }
-          setMsg("Storage almost full — one-time resize to fit browser storage (~5MB)…", false);
-          try {
-            list[idx] = await shrinkCustomItemRowForQuota(updated);
-            synced = await commitCustomItems(list);
-          } catch (e2) {
-            console.warn(e2);
-            setMsg(STORAGE_QUOTA_USER_HINT, true);
-            return;
-          }
-        }
-        customProjectSynced = synced;
+      } catch (e) {
+        console.warn(e);
+        setMsg(`Cloud row save failed: ${messageForFailedWardrobeUpsert(e)}`, true);
+        return;
       }
     } else {
       const patch = {
         brand,
         name,
-        section: "",
+        section: String(prev.section ?? ""),
         category,
         season,
         colour: colourTrim,
@@ -5478,7 +6039,7 @@
         purchaseDate,
         notes,
         image,
-        pillar: "",
+        pillar: String(prev.pillar ?? ""),
       };
       if (priceVal != null) {
         patch.price = priceVal;
@@ -5516,62 +6077,35 @@
           patch.metadata = null;
       }
 
-      if (isSupabaseReady()) {
+      try {
+        const mergedForCloud = normalizeItemDerivedFields(mergeArchivePatchIntoFullItem(prev, patch));
+        const saved = await saveWardrobeItemToCloud(mergedForCloud);
+        archiveCloudRowSaved = true;
+        upsertWardrobeBaseRowInMemory(saved);
         try {
-          const mergedForCloud = normalizeItemDerivedFields(mergeArchivePatchIntoFullItem(prev, patch));
-          const saved = await saveWardrobeItemToCloud(mergedForCloud);
-          archiveCloudRowSaved = true;
-          upsertWardrobeBaseRowInMemory(saved);
-          cloudBackedCustomItems = [
-            saved,
-            ...cloudBackedCustomItems.filter((x) => String(x?.id ?? "") !== String(saved.id)),
-          ];
-          try {
-            await deleteSupabaseImagesNoLongerUsed(prev, saved, mergedForCloud);
-          } catch (imgErr) {
-            console.warn("Image cleanup after catalogue save (continuing):", imgErr);
+          const allOv = loadArchiveOverrides();
+          if (Object.prototype.hasOwnProperty.call(allOv, id)) {
+            delete allOv[id];
+            await saveArchiveOverrides(allOv);
           }
-          await refreshCloudBackedCustomItems();
-          didCloudListRefresh = true;
-        } catch (e) {
-          console.warn("Could not save catalogue edit to wardrobe_items. Falling back to override.", e);
-          try {
-            const all = loadArchiveOverrides();
-            all[id] = patch;
-            await saveArchiveOverrides(all);
-            archiveSavedAsOverride = true;
-            setMsg(
-              `Cloud row save failed, but this edit was saved as an override. Reason: ${messageForFailedWardrobeUpsert(e)}`,
-              true
-            );
-            keepFinalWarningMessage = true;
-            showToast("Saved as override (wardrobe_items write blocked).");
-          } catch (e2) {
-            console.warn("Override fallback also failed.", e2);
-            setMsg(messageForFailedWardrobeUpsert(e), true);
-            keepFinalWarningMessage = true;
-            return;
-          }
+        } catch (clearOvErr) {
+          console.warn("Could not clear stale archive override after cloud save.", clearOvErr);
         }
-      } else {
+        cloudBackedCustomItems = [
+          saved,
+          ...cloudBackedCustomItems.filter((x) => String(x?.id ?? "") !== String(saved.id)),
+        ];
         try {
-          const all = loadArchiveOverrides();
-          all[id] = patch;
-          await saveArchiveOverrides(all);
-          archiveSavedAsOverride = true;
-        } catch (e) {
-          console.warn(e);
-          const err = /** @type {any} */ (e);
-          if (err && err.archiveOverrides) {
-            setMsg(
-              "Could not save: browser storage is full. Remove other edited pieces, clear site data, or keep using cloud URLs for new photos (Supabase).",
-              true
-            );
-          } else {
-            setMsg("Could not save (browser storage may be disabled or full).", true);
-          }
-          return;
+          await deleteSupabaseImagesNoLongerUsed(prev, saved, mergedForCloud);
+        } catch (imgErr) {
+          console.warn("Image cleanup after catalogue save (continuing):", imgErr);
         }
+        await refreshCloudBackedCustomItems();
+        didCloudListRefresh = true;
+      } catch (e) {
+        setMsg(`Cloud row save failed: ${messageForFailedWardrobeUpsert(e)}`, true);
+        keepFinalWarningMessage = true;
+        return;
       }
     }
 
@@ -5588,8 +6122,11 @@
     }
     const next = itemById.get(id);
     const mount = itemDetailMountRoot();
-    if (next && mount) renderItemDetailContent(mount, next, { edit: false });
-    replaceItemPageUrl(id, false);
+    const returnToArchiveAfterSave = Boolean(mount && itemDetailIsPageRoot(mount));
+    if (!returnToArchiveAfterSave) {
+      if (next && mount) renderItemDetailContent(mount, next, { edit: false });
+      replaceItemPageUrl(id, false);
+    }
     if (isSupabaseReady()) {
       if (!isCustom && !archiveCloudRowSaved && archiveSavedAsOverride) {
         showToast("Saved as override (cloud row write failed).");
@@ -5607,6 +6144,7 @@
         "Saved in this browser/origin only (domain/protocol/port). Add Supabase (js/tw-supabase-config.js) to sync your wardrobe, or keep backups via “Download backup JSON”."
       );
     }
+    if (returnToArchiveAfterSave) globalThis.location.assign(new URL("index.html", globalThis.location.href));
   }
 
   /** PDP-style trail: site → section → record type (matches archive tabs / drill). */
@@ -5715,19 +6253,7 @@
     }
 
     if (root.classList.contains("item-detail__root--page")) {
-      media.classList.add("item-detail__media--zoomable");
-      img.classList.add("item-detail__hero-img--zoomable");
-      img.tabIndex = 0;
-      img.title = img.title ? `${img.title} · Click or Enter to enlarge` : "Click or Enter to enlarge";
-      img.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        openItemImageZoomFromHero(img);
-      });
-      img.addEventListener("keydown", (ev) => {
-        if (ev.key !== "Enter" && ev.key !== " ") return;
-        ev.preventDefault();
-        openItemImageZoomFromHero(img);
-      });
+      wireInlineItemHeroZoom(media, img);
     }
 
     root.appendChild(media);
@@ -5741,7 +6267,7 @@
         hint.className = "item-detail__archive-only";
         hint.style.marginBottom = "0.75rem";
         hint.textContent =
-          "Edits are saved in this browser only — they do not change files on disk or your Supabase wardrobe rows.";
+          "Saving updates this piece’s row in Supabase (`wardrobe_items`) for this archive id.";
         wrap.appendChild(hint);
       }
 
@@ -5762,6 +6288,18 @@
         lab.appendChild(span);
         lab.appendChild(child);
         grid.appendChild(lab);
+      }
+
+      /** Narrow label+control for row strips (season / fabric / price…). */
+      function appendStripField(strip, labelText, child) {
+        const lab = document.createElement("label");
+        lab.className = "field item-edit-strip-field";
+        const span = document.createElement("span");
+        span.className = "field__label";
+        span.textContent = labelText;
+        lab.appendChild(span);
+        lab.appendChild(child);
+        strip.appendChild(lab);
       }
 
       const brandIn = document.createElement("input");
@@ -5829,24 +6367,6 @@
       });
       refreshSubtypeChips();
 
-      const seaSel = document.createElement("select");
-      seaSel.id = "item-edit-season";
-      const seasonRows = [
-        { value: "All-season", label: "All seasons" },
-        { value: "A/W", label: "A/W" },
-        { value: "S/S", label: "S/S" },
-      ];
-      const curSe = String(item.season ?? "").trim();
-      const curPick = curSe === "A/W" || curSe === "S/S" ? curSe : "All-season";
-      for (const row of seasonRows) {
-        const o = document.createElement("option");
-        o.value = row.value;
-        o.textContent = row.label;
-        if (row.value === curPick) o.selected = true;
-        seaSel.appendChild(o);
-      }
-      addField("Season (optional)", seaSel);
-
       const initialVariants = getItemColourVariants(item);
       const isCustomPiece = String(item.id ?? "").startsWith("custom-");
 
@@ -5855,7 +6375,7 @@
 
       if (!initialVariants) {
         const colourBlock = document.createElement("div");
-        colourBlock.className = "field field--span2 item-edit-single-colour-block";
+        colourBlock.className = "field--span2 item-edit-single-colour-block";
 
         const colourNameInput = document.createElement("input");
         colourNameInput.type = "text";
@@ -6013,26 +6533,48 @@
 
       grid.appendChild(variantsWrap);
 
+      const seaSel = document.createElement("select");
+      seaSel.id = "item-edit-season";
+      const seasonRows = [
+        { value: "All-season", label: "All seasons" },
+        { value: "A/W", label: "A/W" },
+        { value: "S/S", label: "S/S" },
+      ];
+      const curSe = String(item.season ?? "").trim();
+      const curPick = curSe === "A/W" || curSe === "S/S" ? curSe : "All-season";
+      for (const row of seasonRows) {
+        const o = document.createElement("option");
+        o.value = row.value;
+        o.textContent = row.label;
+        if (row.value === curPick) o.selected = true;
+        seaSel.appendChild(o);
+      }
+
       const fabIn = document.createElement("input");
       fabIn.type = "text";
       fabIn.id = "item-edit-fabric";
       fabIn.maxLength = 80;
       fabIn.value = String(item.fabric ?? "");
-      addField("Fabric (optional)", fabIn);
 
       const wtIn = document.createElement("input");
       wtIn.type = "text";
       wtIn.id = "item-edit-weight";
       wtIn.maxLength = 80;
       wtIn.value = String(item.weight ?? "");
-      addField("Weight / specs (optional)", wtIn);
 
       const sizeIn = document.createElement("input");
       sizeIn.type = "text";
       sizeIn.id = "item-edit-size";
       sizeIn.maxLength = 120;
       sizeIn.value = String(item.size ?? "");
-      addField("Size (optional)", sizeIn);
+
+      const specStrip = document.createElement("div");
+      specStrip.className = "item-edit-spec-strip";
+      appendStripField(specStrip, "Season (optional)", seaSel);
+      appendStripField(specStrip, "Fabric (optional)", fabIn);
+      appendStripField(specStrip, "Weight / specs (optional)", wtIn);
+      appendStripField(specStrip, "Size (optional)", sizeIn);
+      grid.appendChild(specStrip);
 
       const pd = String(item.purchaseDate ?? "").trim();
       const { date: purchaseDateValue, note: purchaseNoteValue } = splitPurchaseDateForForm(pd);
@@ -6051,7 +6593,6 @@
       purchaseNoteIn.value = purchaseNoteValue;
       purchaseWrap.appendChild(purchaseIn);
       purchaseWrap.appendChild(purchaseNoteIn);
-      addField("Purchase date (optional)", purchaseWrap);
 
       const priceWrap = document.createElement("div");
       priceWrap.className = "item-edit-price-row";
@@ -6079,7 +6620,27 @@
       }
       priceWrap.appendChild(priceIn);
       priceWrap.appendChild(priceCurSel);
-      addField("Price (optional)", priceWrap);
+
+      const acquisitionStrip = document.createElement("div");
+      acquisitionStrip.className = "item-edit-acquisition-strip";
+      const purchaseField = document.createElement("label");
+      purchaseField.className = "field";
+      const pudLab = document.createElement("span");
+      pudLab.className = "field__label";
+      pudLab.textContent = "Purchase date (optional)";
+      purchaseField.appendChild(pudLab);
+      purchaseField.appendChild(purchaseWrap);
+      acquisitionStrip.appendChild(purchaseField);
+
+      const priceField = document.createElement("label");
+      priceField.className = "field";
+      const priceLab = document.createElement("span");
+      priceLab.className = "field__label";
+      priceLab.textContent = "Price (optional)";
+      priceField.appendChild(priceLab);
+      priceField.appendChild(priceWrap);
+      acquisitionStrip.appendChild(priceField);
+      grid.appendChild(acquisitionStrip);
 
       if (!initialVariants) {
         const removeCoverIn = document.createElement("input");
@@ -6271,9 +6832,8 @@
       delBtn.className = "btn btn--small btn--danger";
       delBtn.id = "item-detail-delete";
       delBtn.textContent = "Delete piece…";
-      delBtn.title = isCustomPiece
-        ? "Remove this custom piece from your wardrobe (cannot be undone)."
-        : "Hide this archive row in this browser (does not change seed files or cloud).";
+      delBtn.title =
+        "Remove this piece from Supabase (outfit links cleared; cloud images removed where applicable; cannot be undone).";
       delWrap.appendChild(delBtn);
       act.appendChild(delWrap);
       form.appendChild(act);
@@ -6378,6 +6938,10 @@
     ed.className = "btn btn--small";
     ed.id = "item-detail-edit";
     ed.textContent = "Edit";
+    if (!isSupabaseReady()) {
+      ed.disabled = true;
+      ed.title = CLOUD_WRITE_REQUIRED_MESSAGE;
+    }
     actions.appendChild(ed);
     actions.id = "item-detail-actions";
     root.appendChild(actions);
@@ -6419,6 +6983,7 @@
           category: String(categoryNavFilter ?? ""),
           subcategory: String(subcategoryFilter ?? "").trim(),
           search: String(els.search?.value ?? "").trim(),
+          basicColour: String(basicColourFilter ?? "").trim(),
         })
       );
     } catch {
@@ -6457,6 +7022,10 @@
     const q = String(o?.search ?? "").trim();
     if (els.search && q) els.search.value = q.slice(0, 500);
 
+    const bc = String(o?.basicColour ?? "")
+      .trim()
+      .toLowerCase();
+    basicColourFilter = BASIC_COLOUR_FAMILY_KEYS.includes(bc) ? persistBasicColourFilter(bc) : persistBasicColourFilter("");
     try {
       persistSeasonNav();
     } catch {
@@ -6544,6 +7113,10 @@
         if (t?.closest("#item-detail-duplicate")) {
           const it = itemById.get(detailItemId);
           if (!it) return;
+          if (!isSupabaseReady()) {
+            showToast(CLOUD_WRITE_REQUIRED_MESSAGE);
+            return;
+          }
           const dupBtnEl = /** @type {HTMLButtonElement | null} */ (mount.querySelector("#item-detail-duplicate"));
           if (dupBtnEl) dupBtnEl.disabled = true;
           void (async () => {
@@ -6570,19 +7143,24 @@
         }
         if (t?.closest("#item-detail-edit")) {
           const it = itemById.get(detailItemId);
-          if (it) {
-            renderItemDetailContent(mount, it, { edit: true });
-            replaceItemPageUrl(it.id, true);
+          if (!it) return;
+          if (!isSupabaseReady()) {
+            showToast(CLOUD_WRITE_REQUIRED_MESSAGE);
+            return;
           }
+          renderItemDetailContent(mount, it, { edit: true });
+          replaceItemPageUrl(it.id, true);
           return;
         }
         if (t?.closest("#item-detail-delete")) {
           const it = itemById.get(detailItemId);
           if (!it) return;
-          const custom = String(it.id).startsWith("custom-");
-          const msg = custom
-            ? "Delete this piece from this browser? Its fields and images are removed and cannot be restored."
-            : "Remove this piece from your wardrobe in this browser? It disappears from the grid here; seed files and cloud data are not changed.";
+          if (!isSupabaseReady()) {
+            showToast(CLOUD_WRITE_REQUIRED_MESSAGE);
+            return;
+          }
+          const msg =
+            "Delete this piece from Supabase? Links in saved outfits are removed first (`outfit_items`). Then we delete Storage objects only when the image URL maps to your wardrobe-images bucket—external URLs stay. Finally we delete the `wardrobe_items` row; nothing here can restore it.";
           if (!confirm(msg)) return;
           void deleteWardrobePieceFromBrowser(it.id);
           return;
@@ -6616,8 +7194,33 @@
     }
   }
 
-  function runItemDetailPage(root, pageId) {
-    const item = itemById.get(pageId);
+  /**
+   * On item.html, one stale in-memory pass can happen right after add/edit navigation.
+   * Retry once by refreshing sources before declaring "not found".
+   * @param {string} pageId
+   * @returns {Promise<object | null>}
+   */
+  async function resolveItemForDetailPage(pageId) {
+    if (!pageId) return null;
+    let hit = itemById.get(pageId);
+    if (hit) return hit;
+
+    try {
+      if (isCloudModeActive()) {
+        await refreshCloudBackedCustomItems();
+      } else {
+        fileBackedCustomItems = await loadFileBackedCustomItems();
+        mergeWardrobeFromSources();
+      }
+    } catch (e) {
+      console.warn("Detail page refresh before lookup failed:", e);
+    }
+    hit = itemById.get(pageId);
+    return hit || null;
+  }
+
+  async function runItemDetailPage(root, pageId) {
+    const item = await resolveItemForDetailPage(pageId);
     const params = new URLSearchParams(globalThis.location.search);
     const wantEdit = params.get("edit") === "1";
 
@@ -6634,7 +7237,14 @@
     }
 
     document.title = `${item.brand} — ${displayNameWithoutLeadingColour(item)} · Timeless Wardrobe`;
-    renderItemDetailContent(root, item, { edit: wantEdit });
+    const wantEditRequested = wantEdit;
+    let allowEdit = wantEditRequested;
+    if (wantEditRequested && !isSupabaseReady()) {
+      showToast(CLOUD_WRITE_REQUIRED_MESSAGE);
+      allowEdit = false;
+      replaceItemPageUrl(item.id, false);
+    }
+    renderItemDetailContent(root, item, { edit: allowEdit });
   }
 
   function syncCategoryTabUI() {
@@ -6650,13 +7260,23 @@
 
   function syncSeasonTabUI() {
     const nav = document.getElementById("season-nav");
-    if (!nav) return;
-    nav.querySelectorAll(".season-strip__tab").forEach((tab) => {
-      const v = tab.dataset.seasonFilter ?? "";
-      const active = v === seasonNavFilter;
-      tab.classList.toggle("is-active", active);
-      tab.setAttribute("aria-selected", active ? "true" : "false");
-    });
+    if (nav) {
+      nav.querySelectorAll(".season-strip__tab").forEach((tab) => {
+        const v = tab.dataset.seasonFilter ?? "";
+        const active = v === seasonNavFilter;
+        tab.classList.toggle("is-active", active);
+        tab.setAttribute("aria-selected", active ? "true" : "false");
+      });
+    }
+    const mini = document.getElementById("season-nav-mini");
+    if (mini) {
+      mini.querySelectorAll(".site-header__season-mini-tab").forEach((tab) => {
+        const v = tab.dataset.seasonFilter ?? "";
+        const active = v === seasonNavFilter;
+        tab.classList.toggle("is-active", active);
+        tab.setAttribute("aria-pressed", active ? "true" : "false");
+      });
+    }
   }
 
   function isFiltersNarrowViewport() {
@@ -6717,34 +7337,195 @@
     renderCategoryDrill();
     syncFiltersMenuForViewport();
     wireArchiveBrowseToolControls();
+    syncFilterSearchClearVisibility();
+  }
+
+  function syncBasicColourFilterChipUi() {
+    const chipWrap = document.getElementById("archive-colour-chips");
+    if (!chipWrap) return;
+    const allowColour = categoryNavFilter !== SLOT_FRAGRANCE;
+    chipWrap.hidden = !allowColour;
+    if (!allowColour) return;
+    const available = availableBasicColourFamiliesForCurrentContext();
+    const counts = basicColourFamilyCountsForCurrentContext();
+    const keys = [""];
+    for (const k of BASIC_COLOUR_FAMILY_KEYS) {
+      if (available.has(k) || basicColourFilter === k) keys.push(k);
+    }
+    chipWrap.replaceChildren();
+    for (const key of keys) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "colour-filter-chip";
+      if (!key) b.classList.add("colour-filter-chip--all");
+      b.dataset.basicColour = key;
+      const on = basicColourFilter === key;
+      b.classList.toggle("is-active", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      b.setAttribute("aria-label", key ? `Filter colour: ${basicColourLabelEn(key)}` : "Show all colours");
+
+      if (key) {
+        const sw = document.createElement("span");
+        sw.className = "colour-filter-chip__swatch";
+        sw.style.setProperty("--chip-swatch-color", BASIC_COLOUR_SWATCH_HEX[key] || "#888");
+        b.appendChild(sw);
+      }
+
+      const txt = document.createElement("span");
+      txt.className = "colour-filter-chip__text";
+      txt.textContent = basicColourLabelEn(key);
+      b.appendChild(txt);
+      if (key) {
+        const cnt = document.createElement("span");
+        cnt.className = "colour-filter-chip__count";
+        cnt.textContent = `(${counts.get(key) ?? 0})`;
+        b.appendChild(cnt);
+      }
+
+      b.addEventListener("click", () => {
+        let next = "";
+        if (key === "") next = "";
+        else if (basicColourFilter === key) next = "";
+        else next = key;
+        basicColourFilter = persistBasicColourFilter(next);
+        renderGrid();
+      });
+      chipWrap.appendChild(b);
+    }
+  }
+
+  function openArchiveFilterDrawer() {
+    const root = document.getElementById("archive-filter-drawer");
+    const openBtn = document.getElementById("archive-filter-drawer-open");
+    if (!root || !openBtn) return;
+    if (!root.hasAttribute("hidden")) return;
+    archiveFilterDrawerFocusReturn = document.activeElement;
+    root.removeAttribute("hidden");
+    root.setAttribute("aria-hidden", "false");
+    requestAnimationFrame(() => {
+      root.classList.add("archive-filter-drawer--visible");
+      openBtn.setAttribute("aria-expanded", "true");
+      document.body.classList.add("archive-ui--filter-drawer");
+      document.getElementById("archive-filter-drawer-close")?.focus();
+    });
+  }
+
+  function closeArchiveFilterDrawer() {
+    const root = document.getElementById("archive-filter-drawer");
+    const openBtn = document.getElementById("archive-filter-drawer-open");
+    if (!root) return;
+    if (root.hasAttribute("hidden")) return;
+
+    const sheet = root.querySelector(".archive-filter-drawer__sheet");
+    const finalize = () => {
+      if (root.hasAttribute("hidden")) return;
+      root.setAttribute("hidden", "");
+      root.setAttribute("aria-hidden", "true");
+      root.classList.remove("archive-filter-drawer--visible");
+      openBtn?.setAttribute("aria-expanded", "false");
+      document.body.classList.remove("archive-ui--filter-drawer");
+      const el = archiveFilterDrawerFocusReturn;
+      archiveFilterDrawerFocusReturn = null;
+      if (el && typeof el.focus === "function") {
+        try {
+          el.focus();
+        } catch {
+          /* ignore */
+        }
+      }
+    };
+
+    if (!root.classList.contains("archive-filter-drawer--visible")) {
+      finalize();
+      return;
+    }
+
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      sheet?.removeEventListener("transitionend", onTrans);
+      clearTimeout(safety);
+      finalize();
+    };
+    const onTrans = (e) => {
+      if (e.target !== sheet || e.propertyName !== "transform") return;
+      finish();
+    };
+    sheet?.addEventListener("transitionend", onTrans);
+    const safety = setTimeout(finish, 420);
+    root.classList.remove("archive-filter-drawer--visible");
   }
 
   function wireArchiveBrowseToolControls() {
-    const sortSel = document.getElementById("archive-sort");
     const curSel = document.getElementById("archive-display-currency");
-    if (!sortSel || !curSel) return;
-    if (sortSel.dataset.twBrowseWired === "1") return;
-    sortSel.dataset.twBrowseWired = "1";
-    sortSel.value = archiveSortMode;
-    curSel.value = archiveDisplayCurrency;
-    sortSel.addEventListener("change", () => {
-      archiveSortMode = persistArchiveSortMode(sortSel.value);
-      renderGrid();
-    });
-    curSel.addEventListener("change", () => {
-      archiveDisplayCurrency = persistDisplayCurrency(curSel.value);
-      renderGrid();
-    });
+    if (curSel && curSel.dataset.twCurrencyWired !== "1") {
+      curSel.dataset.twCurrencyWired = "1";
+      curSel.value = archiveDisplayCurrency;
+      curSel.addEventListener("change", () => {
+        archiveDisplayCurrency = persistDisplayCurrency(curSel.value);
+        renderGrid();
+      });
+    }
+
+    const sortSel = document.getElementById("archive-sort");
+    if (sortSel && sortSel.dataset.twSortWired !== "1") {
+      sortSel.dataset.twSortWired = "1";
+      sortSel.value = archiveSortMode;
+      sortSel.addEventListener("change", () => {
+        archiveSortMode = persistArchiveSortMode(sortSel.value);
+        renderGrid();
+      });
+    }
+
+    const drawerOpen = document.getElementById("archive-filter-drawer-open");
+    const drawerRoot = document.getElementById("archive-filter-drawer");
+    if (drawerRoot && drawerOpen && drawerRoot.dataset.twDrawerUiWired !== "1") {
+      drawerRoot.dataset.twDrawerUiWired = "1";
+      drawerOpen.addEventListener("click", () => openArchiveFilterDrawer());
+      document.getElementById("archive-filter-drawer-backdrop")?.addEventListener("click", () => closeArchiveFilterDrawer());
+      document.getElementById("archive-filter-drawer-close")?.addEventListener("click", () => closeArchiveFilterDrawer());
+      document.getElementById("archive-filter-drawer-done")?.addEventListener("click", () => closeArchiveFilterDrawer());
+      if (document.body.dataset.twFilterDrawerEscapeWired !== "1") {
+        document.body.dataset.twFilterDrawerEscapeWired = "1";
+        document.addEventListener(
+          "keydown",
+          (e) => {
+            if (e.key !== "Escape") return;
+            const r = document.getElementById("archive-filter-drawer");
+            if (!r || r.hasAttribute("hidden")) return;
+            closeArchiveFilterDrawer();
+          },
+          true
+        );
+      }
+    }
+
+    const chipWrap = document.getElementById("archive-colour-chips");
+    if (chipWrap && chipWrap.dataset.twColourWired !== "1") {
+      chipWrap.dataset.twColourWired = "1";
+      syncBasicColourFilterChipUi();
+    }
   }
 
-  /** Desktop (wider than 720px): scroll direction toggles `archive-ui--nav-folded` (hides site header + compacts filters). Narrow viewports skip this — hiding the search row caused layout/scroll feedback loops (“jitter”) on phones. */
+  function forceCloseHeaderSearchOverlay() {
+    const headerSearchWrap = document.getElementById("site-header-search-wrap");
+    const headerSearchBtn = document.getElementById("site-header-search-btn");
+    if (!headerSearchWrap?.classList.contains("is-open")) return;
+    headerSearchWrap.classList.remove("is-open");
+    headerSearchWrap.setAttribute("aria-hidden", "true");
+    headerSearchBtn?.setAttribute("aria-expanded", "false");
+    headerSearchBtn?.setAttribute("aria-label", "Open search");
+  }
+
+  /** Desktop (wider than 720px): scroll direction toggles `archive-ui--nav-folded` (hides branding shell). Search stays in the expanded header with filters — no floating magnifier while folded. */
   const ENABLE_ARCHIVE_NAV_SCROLL_FOLD = true;
 
   let archiveNavScrollFoldLastY = 0;
   let archiveNavScrollFoldTicking = false;
 
   /** Sticky #filters-nav: compact “folded” chrome while scrolling down on the archive page. */
-  function initArchiveNavScrollFold() {
+  function initArchiveNavScrollFold(afterWindowScrollFold) {
     if (!ENABLE_ARCHIVE_NAV_SCROLL_FOLD) {
       document.body.classList.remove("archive-ui--nav-folded");
       return;
@@ -6755,30 +7536,37 @@
     const body = document.body;
 
     function onScrollNavFold() {
+      afterWindowScrollFold?.();
       if (archiveNavScrollFoldTicking) return;
       archiveNavScrollFoldTicking = true;
       requestAnimationFrame(() => {
-        archiveNavScrollFoldTicking = false;
-        if (isFiltersNarrowViewport()) {
-          body.classList.remove("archive-ui--nav-folded");
-          archiveNavScrollFoldLastY = globalThis.scrollY ?? globalThis.pageYOffset ?? 0;
-          return;
-        }
-        const y = globalThis.scrollY ?? globalThis.pageYOffset ?? 0;
-        const dy = y - archiveNavScrollFoldLastY;
-        if (nav.classList.contains("filters--menu-open")) {
-          body.classList.remove("archive-ui--nav-folded");
+        try {
+          archiveNavScrollFoldTicking = false;
+          if (isFiltersNarrowViewport()) {
+            body.classList.remove("archive-ui--nav-folded");
+            archiveNavScrollFoldLastY = globalThis.scrollY ?? globalThis.pageYOffset ?? 0;
+            return;
+          }
+          const y = globalThis.scrollY ?? globalThis.pageYOffset ?? 0;
+          const dy = y - archiveNavScrollFoldLastY;
+          if (nav.classList.contains("filters--menu-open")) {
+            body.classList.remove("archive-ui--nav-folded");
+            archiveNavScrollFoldLastY = y;
+            return;
+          }
+          const wasFolded = body.classList.contains("archive-ui--nav-folded");
+          if (y < 48) {
+            body.classList.remove("archive-ui--nav-folded");
+          } else if (dy > 6) {
+            body.classList.add("archive-ui--nav-folded");
+            if (!wasFolded) forceCloseHeaderSearchOverlay();
+          } else if (dy < -6) {
+            body.classList.remove("archive-ui--nav-folded");
+          }
           archiveNavScrollFoldLastY = y;
-          return;
+        } catch {
+          /* ignore */
         }
-        if (y < 48) {
-          body.classList.remove("archive-ui--nav-folded");
-        } else if (dy > 6) {
-          body.classList.add("archive-ui--nav-folded");
-        } else if (dy < -6) {
-          body.classList.remove("archive-ui--nav-folded");
-        }
-        archiveNavScrollFoldLastY = y;
       });
     }
 
@@ -6811,6 +7599,441 @@
   }
 
   function wireEvents() {
+    const jumpHeaderCategory = (jump) => {
+      categoryNavFilter = SLOT_OPTIONS.includes(jump) ? jump : "";
+      subcategoryFilter = "";
+      syncCategoryTabUI();
+      validateSubcategoryFilter();
+      renderCategoryDrill();
+      renderGrid();
+      scrollArchiveViewportTop();
+    };
+
+    let headerSubmenuHideTimer = 0;
+    const cancelHeaderSubmenuHide = () => {
+      if (!headerSubmenuHideTimer) return;
+      clearTimeout(headerSubmenuHideTimer);
+      headerSubmenuHideTimer = 0;
+    };
+    const scheduleHeaderSubmenuHide = (delayMs = 90) => {
+      cancelHeaderSubmenuHide();
+      headerSubmenuHideTimer = setTimeout(() => {
+        headerSubmenuHideTimer = 0;
+        hideHeaderSubmenu();
+      }, delayMs);
+    };
+
+    const hideHeaderSubmenu = () => {
+      cancelHeaderSubmenuHide();
+      const wrap = document.getElementById("site-header-submenu");
+      if (!wrap) return;
+      wrap.hidden = true;
+      document.body.classList.remove("archive-ui--header-submenu-open");
+      const title = document.getElementById("site-header-submenu-title");
+      const links = document.getElementById("site-header-submenu-links");
+      const preview = document.getElementById("site-header-submenu-preview");
+      if (title) title.textContent = "";
+      if (links) links.replaceChildren();
+      if (preview) preview.replaceChildren();
+    };
+
+    const renderHeaderSubmenuPreview = (slot, subcategory) => {
+      const preview = document.getElementById("site-header-submenu-preview");
+      if (!preview) return;
+      const pool = items.filter((it) => itemPassesSeasonNav(it, seasonNavFilter) && itemSlot(it) === slot);
+      const sub = String(subcategory ?? "").trim();
+      const matches = pool
+        .filter((it) => (!sub ? true : recordCategoryForDrill(it, slot) === sub))
+        .sort(compareGridItems)
+        .slice(0, 4);
+      preview.replaceChildren();
+      if (!matches.length) {
+        const empty = document.createElement("p");
+        empty.className = "site-header__submenu-preview-empty";
+        empty.textContent = "No items in this type yet.";
+        preview.appendChild(empty);
+        return;
+      }
+      for (const item of matches) {
+        const a = document.createElement("a");
+        a.className = "site-header__submenu-preview-card";
+        const detailUrl = new URL("item.html", globalThis.location.href);
+        detailUrl.searchParams.set("id", String(item.id));
+        a.href = detailUrl.toString();
+        const media = document.createElement("div");
+        media.className = "site-header__submenu-preview-media";
+        const im = document.createElement("img");
+        im.alt = imageAltForItem(item);
+        im.loading = "lazy";
+        wireCoverImageWithFallbacks(im, item, { host: media, missingClass: null });
+        media.appendChild(im);
+        const nm = document.createElement("p");
+        nm.className = "site-header__submenu-preview-name";
+        nm.textContent = `${item.brand} · ${displayNameWithoutLeadingColour(item)}`;
+        a.appendChild(media);
+        a.appendChild(nm);
+        preview.appendChild(a);
+      }
+    };
+
+    const showHeaderSubmenuForCategory = (jump) => {
+      cancelHeaderSubmenuHide();
+      const slot = String(jump ?? "").trim();
+      const wrap = document.getElementById("site-header-submenu");
+      const title = document.getElementById("site-header-submenu-title");
+      const links = document.getElementById("site-header-submenu-links");
+      if (!wrap || !title || !links) return;
+      if (!slot || !SLOT_OPTIONS.includes(slot)) {
+        hideHeaderSubmenu();
+        return;
+      }
+
+      const seasonalPool = poolItemsForDrillSubcategories({ respectCategory: false });
+      const keys = [...new Set(drillSubcategoryKeysFromPool(slot, seasonalPool).filter(Boolean))];
+      const dedupedEntries = [];
+      const seenLabels = new Set();
+      for (const raw of keys) {
+        const label = friendlyRecordCategory(raw) || raw;
+        if (seenLabels.has(label)) continue;
+        seenLabels.add(label);
+        dedupedEntries.push({ raw, label });
+      }
+      const hasPreviewOnly = slot === SLOT_FRAGRANCE || slot === SLOT_WATCHES;
+      if (dedupedEntries.length <= 1 && !hasPreviewOnly) {
+        hideHeaderSubmenu();
+        return;
+      }
+
+      wrap.classList.toggle("site-header__submenu--preview-only", hasPreviewOnly);
+      links.replaceChildren();
+      if (hasPreviewOnly) {
+        title.textContent = `${categoryDisplayLabel(slot)}`;
+        renderHeaderSubmenuPreview(slot, "");
+        wrap.hidden = false;
+        document.body.classList.add("archive-ui--header-submenu-open");
+        return;
+      }
+
+      dedupedEntries.forEach(({ raw, label }, idx) => {
+        const a = document.createElement("a");
+        a.href = "#category-nav";
+        a.className = "site-header__submenu-link";
+        a.textContent = label;
+        a.setAttribute("data-category-jump", slot);
+        a.setAttribute("data-subcategory-jump", raw);
+        if (idx === 0) a.classList.add("is-active");
+        a.addEventListener("pointerenter", () => {
+          links.querySelectorAll(".site-header__submenu-link.is-active").forEach((n) => n.classList.remove("is-active"));
+          a.classList.add("is-active");
+          renderHeaderSubmenuPreview(slot, raw);
+        });
+        a.addEventListener("focus", () => {
+          links.querySelectorAll(".site-header__submenu-link.is-active").forEach((n) => n.classList.remove("is-active"));
+          a.classList.add("is-active");
+          renderHeaderSubmenuPreview(slot, raw);
+        });
+        links.appendChild(a);
+      });
+      title.textContent = `${categoryDisplayLabel(slot)} · Types`;
+      renderHeaderSubmenuPreview(slot, dedupedEntries[0]?.raw || "");
+      wrap.hidden = false;
+      document.body.classList.add("archive-ui--header-submenu-open");
+    };
+
+    const headerCategoryNav = document.querySelector(".site-header__primary-nav");
+    const headerSubmenuWrap = document.getElementById("site-header-submenu");
+    if (headerCategoryNav) {
+      headerCategoryNav.addEventListener("click", (e) => {
+        const link = e.target.closest("[data-category-jump]");
+        if (!link) return;
+        e.preventDefault();
+        const jump = String(link.getAttribute("data-category-jump") ?? "").trim();
+        jumpHeaderCategory(jump);
+        hideHeaderSubmenu();
+      });
+      headerCategoryNav.addEventListener("pointerover", (e) => {
+        if (isFiltersNarrowViewport()) return;
+        const link = e.target.closest("[data-category-jump]");
+        if (!link) return;
+        const jump = String(link.getAttribute("data-category-jump") ?? "").trim();
+        showHeaderSubmenuForCategory(jump);
+      });
+      headerCategoryNav.addEventListener("pointerout", (e) => {
+        if (isFiltersNarrowViewport()) return;
+        const to = e.relatedTarget;
+        if (!(to instanceof Element)) {
+          scheduleHeaderSubmenuHide();
+          return;
+        }
+        if (headerCategoryNav.contains(to)) return;
+        if (headerSubmenuWrap?.contains(to)) return;
+        scheduleHeaderSubmenuHide();
+      });
+      headerCategoryNav.addEventListener("focusin", (e) => {
+        if (isFiltersNarrowViewport()) return;
+        const link = e.target.closest("[data-category-jump]");
+        if (!link) return;
+        const jump = String(link.getAttribute("data-category-jump") ?? "").trim();
+        showHeaderSubmenuForCategory(jump);
+      });
+    }
+
+    const headerHome = document.getElementById("site-header-home");
+    headerHome?.addEventListener("click", (e) => {
+      e.preventDefault();
+      resetAllArchiveFilters();
+      hideHeaderSubmenu();
+      collapseFiltersMenuPanel();
+      scrollArchiveViewportTop();
+    });
+
+    const headerWrap = document.querySelector(".site-header__inner");
+    headerWrap?.addEventListener("pointerleave", () => {
+      if (isFiltersNarrowViewport()) return;
+      scheduleHeaderSubmenuHide(60);
+    });
+
+    headerSubmenuWrap?.addEventListener("pointerenter", () => {
+      if (isFiltersNarrowViewport()) return;
+      cancelHeaderSubmenuHide();
+    });
+    headerSubmenuWrap?.addEventListener("pointerleave", () => {
+      if (isFiltersNarrowViewport()) return;
+      scheduleHeaderSubmenuHide(70);
+    });
+
+    const headerSubmenuLinks = document.getElementById("site-header-submenu-links");
+    headerSubmenuLinks?.addEventListener("click", (e) => {
+      const link = e.target.closest("[data-category-jump]");
+      if (!link) return;
+      e.preventDefault();
+      const jump = String(link.getAttribute("data-category-jump") ?? "").trim();
+      const sub = String(link.getAttribute("data-subcategory-jump") ?? "").trim();
+      categoryNavFilter = SLOT_OPTIONS.includes(jump) ? jump : "";
+      subcategoryFilter = sub;
+      syncCategoryTabUI();
+      validateSubcategoryFilter();
+      renderCategoryDrill();
+      renderGrid();
+      scrollArchiveViewportTop();
+      hideHeaderSubmenu();
+    });
+    headerSubmenuLinks?.addEventListener("focusout", () => {
+      if (isFiltersNarrowViewport()) return;
+      queueMicrotask(() => {
+        const active = document.activeElement;
+        const wrap = document.querySelector(".site-header__inner");
+        if (!(active instanceof Element) || !wrap?.contains(active)) {
+          hideHeaderSubmenu();
+        }
+      });
+    });
+
+    const headerMenuBtn = document.getElementById("site-header-menu-btn");
+    const headerMobilePanel = document.getElementById("site-header-mobile-panel");
+    const headerSearchBtn = document.getElementById("site-header-search-btn");
+    const headerSearchWrap = document.getElementById("site-header-search-wrap");
+    const headerSearchInput = /** @type {HTMLInputElement | null} */ (document.getElementById("filter-search"));
+    let fullscreenSearchArmScrollDismissMs = 0;
+    const closeHeaderSearch = ({ clear = false } = {}) => {
+      if (!headerSearchWrap) return;
+      const wasOpen = headerSearchWrap.classList.contains("is-open");
+      const ae = document.activeElement;
+      const refocusMagnifier =
+        wasOpen &&
+        !!headerSearchBtn &&
+        ae instanceof Element &&
+        (ae === headerSearchInput || headerSearchWrap.contains(ae));
+      fullscreenSearchArmScrollDismissMs = 0;
+      headerSearchWrap.classList.remove("is-open");
+      headerSearchWrap.setAttribute("aria-hidden", "true");
+      headerSearchBtn?.setAttribute("aria-expanded", "false");
+      headerSearchBtn?.setAttribute("aria-label", "Open search");
+      if (clear && headerSearchInput) {
+        cancelSearchGridDebounce();
+        headerSearchInput.value = "";
+        syncFilterSearchClearVisibility();
+        renderGrid();
+      }
+      if (refocusMagnifier) queueMicrotask(() => headerSearchBtn?.focus({ preventScroll: true }));
+    };
+    headerSearchBtn?.addEventListener("click", () => {
+      if (!headerSearchWrap) return;
+      const open = !headerSearchWrap.classList.contains("is-open");
+      headerSearchWrap.classList.toggle("is-open", open);
+      headerSearchWrap.setAttribute("aria-hidden", open ? "false" : "true");
+      headerSearchBtn.setAttribute("aria-expanded", open ? "true" : "false");
+      headerSearchBtn.setAttribute("aria-label", open ? "Close search" : "Open search");
+      if (open) {
+        fullscreenSearchArmScrollDismissMs = Date.now();
+        hideHeaderSubmenu();
+        headerMobilePanel?.classList.remove("is-open");
+        headerMenuBtn?.setAttribute("aria-expanded", "false");
+        headerMenuBtn?.setAttribute("aria-label", "Open categories menu");
+        queueMicrotask(() => headerSearchInput?.focus());
+      } else {
+        closeHeaderSearch();
+      }
+    });
+    headerMenuBtn?.addEventListener("click", () => {
+      if (!headerMobilePanel) return;
+      const open = !headerMobilePanel.classList.contains("is-open");
+      headerMobilePanel.classList.toggle("is-open", open);
+      headerMenuBtn.setAttribute("aria-expanded", open ? "true" : "false");
+      headerMenuBtn.setAttribute("aria-label", open ? "Close categories menu" : "Open categories menu");
+      if (!open) {
+        headerMobilePanel.querySelectorAll(".site-header__mobile-link.is-open").forEach((el) => el.classList.remove("is-open"));
+        headerMobilePanel
+          .querySelectorAll(".site-header__mobile-submenu.is-open")
+          .forEach((el) => el.classList.remove("is-open"));
+      }
+    });
+    headerMobilePanel?.addEventListener("click", (e) => {
+      const link = e.target.closest("[data-category-jump]");
+      if (!link) return;
+      e.preventDefault();
+      const jump = String(link.getAttribute("data-category-jump") ?? "").trim();
+      const topLevel = link.classList.contains("site-header__mobile-link");
+      if (topLevel && SLOT_OPTIONS.includes(jump)) {
+        const seasonalPool = poolItemsForDrillSubcategories({ respectCategory: false });
+        const keys = [...new Set(drillSubcategoryKeysFromPool(jump, seasonalPool).filter(Boolean))];
+        const old = link.nextElementSibling;
+        if (old?.classList?.contains("site-header__mobile-submenu")) {
+          const open = !old.classList.contains("is-open");
+          headerMobilePanel.querySelectorAll(".site-header__mobile-link.is-open").forEach((el) => el.classList.remove("is-open"));
+          headerMobilePanel
+            .querySelectorAll(".site-header__mobile-submenu.is-open")
+            .forEach((el) => el.classList.remove("is-open"));
+          if (open) {
+            old.classList.add("is-open");
+            link.classList.add("is-open");
+          }
+          return;
+        }
+        if (keys.length > 1) {
+          const sub = document.createElement("div");
+          sub.className = "site-header__mobile-submenu is-open";
+          for (const k of keys) {
+            const a = document.createElement("a");
+            a.href = "#category-nav";
+            a.className = "site-header__mobile-submenu-link";
+            a.setAttribute("data-category-jump", jump);
+            a.setAttribute("data-subcategory-jump", k);
+            a.textContent = friendlyRecordCategory(k) || k;
+            sub.appendChild(a);
+          }
+          headerMobilePanel.querySelectorAll(".site-header__mobile-link.is-open").forEach((el) => el.classList.remove("is-open"));
+          headerMobilePanel
+            .querySelectorAll(".site-header__mobile-submenu.is-open")
+            .forEach((el) => el.classList.remove("is-open"));
+          link.classList.add("is-open");
+          link.after(sub);
+          return;
+        }
+      }
+      const sub = String(link.getAttribute("data-subcategory-jump") ?? "").trim();
+      categoryNavFilter = SLOT_OPTIONS.includes(jump) ? jump : "";
+      subcategoryFilter = sub;
+      syncCategoryTabUI();
+      validateSubcategoryFilter();
+      renderCategoryDrill();
+      renderGrid();
+      scrollArchiveViewportTop();
+      headerMobilePanel.classList.remove("is-open");
+      headerMenuBtn?.setAttribute("aria-expanded", "false");
+      headerMenuBtn?.setAttribute("aria-label", "Open categories menu");
+      headerMobilePanel.querySelectorAll(".site-header__mobile-link.is-open").forEach((el) => el.classList.remove("is-open"));
+      headerMobilePanel
+        .querySelectorAll(".site-header__mobile-submenu.is-open")
+        .forEach((el) => el.classList.remove("is-open"));
+      collapseFiltersMenuPanel();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      if (headerMobilePanel?.classList.contains("is-open")) {
+        headerMobilePanel.classList.remove("is-open");
+        headerMenuBtn?.setAttribute("aria-expanded", "false");
+        headerMenuBtn?.setAttribute("aria-label", "Open categories menu");
+      }
+      if (headerSearchWrap?.classList.contains("is-open")) {
+        closeHeaderSearch();
+      }
+    });
+    /** Enter or scroll collapses fullscreen search overlay (results underneath look odd if it stays open). */
+    const dismissFullscreenSearchUnlessClosed = () => {
+      if (!headerSearchWrap?.classList.contains("is-open")) return;
+      const armed = fullscreenSearchArmScrollDismissMs;
+      if (armed && Date.now() - armed < 160) return;
+      closeHeaderSearch();
+    };
+
+    document.querySelector(".site-header__search-surface")?.addEventListener(
+      "scroll",
+      dismissFullscreenSearchUnlessClosed,
+      { passive: true }
+    );
+    headerSearchWrap?.addEventListener("wheel", dismissFullscreenSearchUnlessClosed, {
+      passive: true,
+      capture: true,
+    });
+    document.addEventListener("click", (e) => {
+      if (!headerMobilePanel?.classList.contains("is-open")) return;
+      const t = e.target;
+      if (!(t instanceof Element)) return;
+      if (headerMobilePanel.contains(t)) return;
+      if (headerMenuBtn?.contains(t)) return;
+      headerMobilePanel.classList.remove("is-open");
+      headerMenuBtn?.setAttribute("aria-expanded", "false");
+      headerMenuBtn?.setAttribute("aria-label", "Open categories menu");
+    });
+    document.addEventListener("click", (e) => {
+      if (!headerSearchWrap?.classList.contains("is-open")) return;
+      const t = e.target;
+      if (!(t instanceof Element)) return;
+      const surface = t.closest(".site-header__search-surface");
+      if (surface) return;
+      if (headerSearchBtn?.contains(t)) return;
+      closeHeaderSearch();
+    });
+    globalThis.matchMedia?.("(max-width: 900px)")?.addEventListener?.("change", (ev) => {
+      if (ev.matches) return;
+      headerMobilePanel?.classList.remove("is-open");
+      headerMenuBtn?.setAttribute("aria-expanded", "false");
+      headerMenuBtn?.setAttribute("aria-label", "Open categories menu");
+      hideHeaderSubmenu();
+      closeHeaderSearch();
+    });
+
+    if (isFiltersNarrowViewport()) {
+      headerMobilePanel?.classList.remove("is-open");
+      headerMenuBtn?.setAttribute("aria-expanded", "false");
+      headerMenuBtn?.setAttribute("aria-label", "Open categories menu");
+      closeHeaderSearch();
+    }
+
+    const seasonMini = document.getElementById("season-nav-mini");
+    seasonMini?.addEventListener("click", (e) => {
+      const tab = e.target.closest(".site-header__season-mini-tab");
+      if (!tab) return;
+      const v = String(tab.dataset.seasonFilter ?? "").trim();
+      if (v !== "S/S" && v !== "A/W") return;
+      seasonNavFilter = v;
+      persistSeasonNav();
+      subcategoryFilter = "";
+      syncSeasonTabUI();
+      validateSubcategoryFilter();
+      renderCategoryDrill();
+      renderGrid();
+    });
+
+    const savedToggleBtn = document.getElementById("site-header-saved-toggle");
+    savedToggleBtn?.addEventListener("click", () => {
+      const dock = document.getElementById("outfit-dock");
+      if (!dock) return;
+      outfitDockUserToggled = dock.hidden;
+      syncOutfitBuilderPanel();
+    });
+
     els.emptyReset?.addEventListener("click", () => {
       resetNarrowingFilters();
       showToast("Category, type, and search cleared.");
@@ -6822,7 +8045,8 @@
         const seasonTab = e.target.closest(".season-strip__tab");
         if (!seasonTab) return;
         const v = String(seasonTab.dataset.seasonFilter ?? "").trim();
-        seasonNavFilter = v === "A/W" ? "A/W" : v === "All" ? "All" : "S/S";
+        if (v !== "S/S" && v !== "A/W") return;
+        seasonNavFilter = v;
         persistSeasonNav();
         subcategoryFilter = "";
         syncSeasonTabUI();
@@ -6921,7 +8145,39 @@
     }
 
     els.search?.addEventListener("input", scheduleRenderGridFromSearchInput);
+    els.search?.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" || e.isComposing) return;
+      e.preventDefault();
+      flushSearchGridDebounceIfPending();
+      if (headerSearchWrap?.classList.contains("is-open")) closeHeaderSearch();
+    });
     els.search?.addEventListener("blur", flushSearchGridDebounceIfPending);
+
+    els.searchChip?.addEventListener("click", () => clearArchiveKeywordSearchThenRender());
+
+    els.colourChip?.addEventListener("click", () => {
+      if (!basicColourFilter) return;
+      basicColourFilter = persistBasicColourFilter("");
+      renderGrid();
+    });
+
+    els.categoryChip?.addEventListener("click", () => {
+      if (!categoryNavFilter) return;
+      categoryNavFilter = "";
+      subcategoryFilter = "";
+      syncCategoryTabUI();
+      renderCategoryDrill();
+      renderGrid();
+    });
+
+    els.subcategoryChip?.addEventListener("click", () => {
+      if (!String(subcategoryFilter ?? "").trim()) return;
+      subcategoryFilter = "";
+      renderCategoryDrill();
+      renderGrid();
+    });
+
+    els.searchClear?.addEventListener("click", () => clearArchiveKeywordSearchThenRender());
 
     const filtersNav = document.getElementById("filters-nav");
     const filtersMenuBtn = document.getElementById("filters-menu-btn");
@@ -6950,7 +8206,7 @@
       });
     }
 
-    initArchiveNavScrollFold();
+    initArchiveNavScrollFold(dismissFullscreenSearchUnlessClosed);
 
     globalThis.addEventListener("pageshow", (e) => {
       const pe = /** @type {PageTransitionEvent} */ (e);
@@ -6993,7 +8249,10 @@
     if (!Array.isArray(cloudRows) || !cloudRows.length) return;
     const byId = new Map();
     for (const raw of cloudRows) {
-      const n = normalizeCloudItemRow(raw);
+      const n =
+        raw && typeof raw === "object" && raw.__source === "supabase"
+          ? normalizeItemDerivedFields({ ...raw })
+          : normalizeCloudItemRow(raw);
       if (n) byId.set(String(n.id), { ...n });
     }
     wardrobeBase = wardrobeBase.map((row) => {
@@ -7052,9 +8311,27 @@
     return cloudBackedCustomItems;
   }
 
+  /**
+   * Defer sync work so the homepage can paint (`mergeWardrobeFromSources` → `renderGrid`) first.
+   * Falls back where `requestIdleCallback` is unavailable (Safari older builds).
+   * @param {() => void} fn
+   */
+  function scheduleHomepageDeferredWork(fn) {
+    const ric = globalThis.requestIdleCallback;
+    if (typeof ric === "function") {
+      ric.call(globalThis, fn, { timeout: 4800 });
+    } else {
+      globalThis.requestAnimationFrame(() => {
+        globalThis.setTimeout(fn, 400);
+      });
+    }
+  }
+
   async function bootstrap() {
-    const url = globalThis.__TW_SUPABASE_URL__;
-    const key = globalThis.__TW_SUPABASE_ANON_KEY__;
+    let deferredSeedSyncSnapshot = /** @type {object[] | null} */ (null);
+    const cfg = globalThis.APP_CONFIG || {};
+    const url = String(cfg.SUPABASE_URL || globalThis.__TW_SUPABASE_URL__ || "").trim();
+    const key = String(cfg.SUPABASE_ANON_KEY || globalThis.__TW_SUPABASE_ANON_KEY__ || "").trim();
 
     if (url && key) {
       try {
@@ -7063,11 +8340,15 @@
         if (supabaseClient) {
           storageMode = "cloud";
           let wardrobeFromSupabase = false;
+          /** @type {Promise<{ ok: boolean, outfits?: unknown, error?: string }> | null} */
+          let outfitsFetchPromise = null;
           const res = await api.fetchWardrobeItems(supabaseClient);
           if (res.ok && res.items.length) {
             wardrobeBase = res.items;
             wardrobeFromSupabase = true;
             wardrobeCatalogueSource = "cloud";
+            deferredSeedSyncSnapshot = wardrobeBase.slice();
+            outfitsFetchPromise = api.fetchOutfits(supabaseClient);
           } else {
             if (!res.ok) {
               console.warn("Supabase wardrobe_items:", res.error);
@@ -7077,11 +8358,27 @@
               );
             }
             wardrobeBase = seedItemsFromScript();
-            wardrobeCatalogueSource = "seed";
+            const cloudBackfillReportBlocking = await syncMissingRowsToSupabase([]);
+            if (cloudBackfillReportBlocking && (cloudBackfillReportBlocking.synced > 0 || cloudBackfillReportBlocking.failed > 0)) {
+              console.info(
+                `Supabase backfill completed — synced: ${cloudBackfillReportBlocking.synced}, failed: ${cloudBackfillReportBlocking.failed}.`
+              );
+            }
+            const cloudReloaded = await loadWardrobeItemsFromCloud();
+            if (cloudReloaded.length) {
+              wardrobeBase = cloudReloaded;
+              wardrobeFromSupabase = true;
+              wardrobeCatalogueSource = "cloud";
+              outfitsFetchPromise = api.fetchOutfits(supabaseClient);
+            } else {
+              wardrobeCatalogueSource = "seed";
+            }
           }
 
           if (wardrobeFromSupabase) {
-            const outfitsRes = await api.fetchOutfits(supabaseClient);
+            const outfitsRes = outfitsFetchPromise
+              ? await outfitsFetchPromise
+              : await api.fetchOutfits(supabaseClient);
             if (outfitsRes.ok) {
               savedOutfits = (outfitsRes.outfits || [])
                 .map((o) => normalizeSavedOutfitRecord(o))
@@ -7089,7 +8386,17 @@
               persistSavedOutfitsCache();
               useCloudOutfits = true;
             } else {
-              console.warn("Supabase outfits:", outfitsRes.error);
+              const outfitsErr = String(outfitsRes.error || "").trim();
+              if (
+                isSupabaseSchemaTableMissingError(outfitsErr, "outfits") ||
+                isSupabaseSchemaTableMissingError(outfitsErr, "outfit_items")
+              ) {
+                console.info(
+                  "Supabase outfits tables not found yet (outfits/outfit_items). Falling back to browser-saved outfits."
+                );
+              } else {
+                console.warn("Supabase outfits:", outfitsRes.error);
+              }
               savedOutfits = loadSavedOutfitsFromStorage();
               useCloudOutfits = false;
             }
@@ -7099,6 +8406,7 @@
           }
         }
       } catch (e) {
+        deferredSeedSyncSnapshot = null;
         console.warn("Supabase unavailable, using local seed + cache.", e);
         supabaseClient = null;
         storageMode = "local";
@@ -7118,9 +8426,15 @@
 
     if (isCloudModeActive()) {
       fileBackedCustomItems = [];
-      cloudBackedCustomItems = await loadWardrobeItemsFromCloud();
-      if (cloudBackedCustomItems.length) {
+      if (wardrobeCatalogueSource === "cloud" && wardrobeBase.length) {
+        cloudBackedCustomItems = wardrobeBase.map((r) => (r && typeof r === "object" ? { ...r } : /** @type {any} */ (r)));
         stripCustomIdsFromLocalStorage(cloudBackedCustomItems.map((r) => String(r?.id ?? "")));
+      } else {
+        cloudBackedCustomItems = await loadWardrobeItemsFromCloud();
+        if (cloudBackedCustomItems.length) {
+          stripCustomIdsFromLocalStorage(cloudBackedCustomItems.map((r) => String(r?.id ?? "")));
+          mergeWardrobeBaseWithFetchedCloudRows(cloudBackedCustomItems);
+        }
       }
     } else {
       fileBackedCustomItems = await loadFileBackedCustomItems();
@@ -7131,14 +8445,35 @@
       console.warn("No wardrobe items loaded.");
     }
 
+    const seedSyncDeferredSnapshot = deferredSeedSyncSnapshot;
+    deferredSeedSyncSnapshot = null;
+    if (seedSyncDeferredSnapshot != null && isSupabaseReady()) {
+      scheduleHomepageDeferredWork(() => {
+        void (async () => {
+          try {
+            const report = await syncMissingRowsToSupabase(seedSyncDeferredSnapshot);
+            if (report && ((report.synced ?? 0) > 0 || (report.failed ?? 0) > 0)) {
+              console.info(
+                `Supabase seed backfill (deferred): synced: ${report.synced}, failed: ${report.failed}.`
+              );
+            }
+            if ((report?.synced ?? 0) > 0 && isCloudModeActive()) {
+              await refreshCloudBackedCustomItems();
+            }
+          } catch (err) {
+            console.warn("Deferred seed→cloud sync failed:", err);
+          }
+        })();
+      });
+    }
+
     const itemRoot = document.getElementById("item-detail-root");
     const hasArchiveGrid = Boolean(document.getElementById("grid"));
     const pageId = new URLSearchParams(globalThis.location.search).get("id");
     if (itemRoot && pageId && !hasArchiveGrid) {
-      initItemImageZoomDialog();
       initItemDetailRootDelegates();
       installItemPageBackNavigation();
-      runItemDetailPage(itemRoot, pageId);
+      await runItemDetailPage(itemRoot, pageId);
       return;
     }
 
@@ -7150,6 +8485,7 @@
     renderGrid();
     renderOutfitStrip();
     renderSavedOutfits();
+    syncOutfitBuilderPanel();
     consumeAndRestoreArchiveListScroll();
     if (hasArchiveGrid) {
       installLocalDataRiskBanner();

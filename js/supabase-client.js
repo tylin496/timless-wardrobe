@@ -6,6 +6,45 @@ export function createBrowserClient(url, key) {
   return createClient(url, key);
 }
 
+/** Edge timeouts (e.g. HTTP 522) often omit CORS headers — browsers report “CORS” even though retry works. */
+function isProbablyTransientFetchFailure(detail) {
+  const d = String(detail ?? "").trim();
+  if (!d) return true;
+  return /failed to fetch|network\s*error|load failed|network request failed|fetch failed|timed out|timeout|522\b|523\b|524\b|cors|cors policy|access-control-allow-origin|typeerror/i.test(
+    d
+  );
+}
+
+function sleepMs(ms) {
+  return new Promise((r) => globalThis.setTimeout(r, ms));
+}
+
+/**
+ * @template T
+ * @param {string} label — for debug logging only
+ * @param {() => Promise<T>} run
+ * @returns {Promise<T>}
+ */
+async function withNetworkRetries(label, run) {
+  const maxAttempts = 4;
+  let lastErr = "";
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (attempt > 0) {
+      const backoff = 450 * 2 ** (attempt - 1);
+      await sleepMs(Math.min(backoff, 8500));
+    }
+    try {
+      return await run();
+    } catch (e) {
+      lastErr =
+        typeof e?.message === "string" ? e.message : typeof e?.toString === "function" ? e.toString() : String(e ?? "");
+      if (!isProbablyTransientFetchFailure(lastErr)) throw e;
+      console.warn(`${label} transient failure (attempt ${attempt + 1}/${maxAttempts}):`, lastErr);
+    }
+  }
+  throw new Error(lastErr || `${label}: failed after ${maxAttempts} attempts`);
+}
+
 /** @param {unknown} g */
 function normalizeGallery(g) {
   if (Array.isArray(g)) return g.map((x) => String(x)).filter(Boolean);
@@ -38,7 +77,14 @@ export function mapRowToItem(row) {
   const colourCodeVal =
     String(row.colour_code ?? row.color_code ?? "").trim() ||
     String(meta?.colourCode ?? meta?.colorCode ?? meta?.colour_code ?? meta?.color_code ?? "").trim();
-  return {
+  const topCv =
+    Array.isArray(row.colourVariants) && row.colourVariants.length
+      ? row.colourVariants
+      : Array.isArray(row.colorVariants) && row.colorVariants.length
+        ? row.colorVariants
+        : cvRaw;
+  /** @type {Record<string, unknown>} */
+  const out = {
     id: String(row.id ?? ""),
     pillar: String(row.pillar ?? ""),
     section: String(row.section ?? ""),
@@ -51,13 +97,19 @@ export function mapRowToItem(row) {
     fabric: String(row.fabric ?? ""),
     weight: String(row.weight ?? ""),
     size: String(row.size ?? ""),
-    measuredDimensions: String(row.measured_dimensions ?? ""),
-    purchaseDate: String(row.purchase_date ?? ""),
+    measuredDimensions: String(row.measured_dimensions ?? row.measuredDimensions ?? ""),
+    purchaseDate: String(row.purchase_date ?? row.purchaseDate ?? ""),
     image: String(row.image ?? ""),
     gallery: normalizeGallery(row.gallery),
     notes: String(row.notes ?? ""),
-    ...(cvRaw && cvRaw.length ? { colourVariants: cvRaw } : {}),
   };
+  if (meta) {
+    out.metadata = { ...meta };
+  }
+  if (topCv && topCv.length) {
+    out.colourVariants = topCv;
+  }
+  return out;
 }
 
 /**
@@ -65,16 +117,26 @@ export function mapRowToItem(row) {
  * @returns {Promise<{ ok: true, items: object[] } | { ok: false, error: string }>}
  */
 export async function fetchWardrobeItems(client) {
-  const { data, error } = await client
-    .from("wardrobe_items")
-    .select("*")
-    .order("section", { ascending: true })
-    .order("category", { ascending: true })
-    .order("brand", { ascending: true })
-    .order("name", { ascending: true });
-  if (error) return { ok: false, error: error.message };
-  const items = (data || []).map(mapRowToItem);
-  return { ok: true, items };
+  try {
+    return await withNetworkRetries("fetchWardrobeItems", async () => {
+      const { data, error } = await client
+        .from("wardrobe_items")
+        .select("*")
+        .order("section", { ascending: true })
+        .order("category", { ascending: true })
+        .order("brand", { ascending: true })
+        .order("name", { ascending: true });
+      if (error) {
+        if (isProbablyTransientFetchFailure(error.message)) throw new Error(error.message);
+        return { ok: false, error: error.message };
+      }
+      const items = (data || []).map(mapRowToItem);
+      return { ok: true, items };
+    });
+  } catch (e) {
+    const msg = typeof e?.message === "string" ? e.message : String(e ?? "");
+    return { ok: false, error: msg };
+  }
 }
 
 /**
@@ -82,37 +144,47 @@ export async function fetchWardrobeItems(client) {
  * @returns {Promise<{ ok: true, outfits: { id: string, name: string, slots: { itemId: string, colourKey?: string }[], createdAt: string }[] } | { ok: false, error: string }>}
  */
 export async function fetchOutfits(client) {
-  const { data, error } = await client
-    .from("outfits")
-    .select("id, name, created_at, outfit_items(item_id, sort_order, colour_key)")
-    .order("created_at", { ascending: false });
-  if (error) return { ok: false, error: error.message };
+  try {
+    return await withNetworkRetries("fetchOutfits", async () => {
+      const { data, error } = await client
+        .from("outfits")
+        .select("id, name, created_at, outfit_items(item_id, sort_order, colour_key)")
+        .order("created_at", { ascending: false });
+      if (error) {
+        if (isProbablyTransientFetchFailure(error.message)) throw new Error(error.message);
+        return { ok: false, error: error.message };
+      }
 
-  /** @type {{ id: string, name: string, slots: { itemId: string, colourKey?: string }[], createdAt: string }[]} */
-  const outfits = [];
-  for (const row of data || []) {
-    const links = Array.isArray(row.outfit_items) ? row.outfit_items : [];
-    links.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-    const slots = links.map((x) => {
-      const itemId = String(x.item_id ?? "").trim();
-      const ck =
-        x.colour_key != null
-          ? String(x.colour_key).trim()
-          : x.color_key != null
-            ? String(x.color_key).trim()
-            : "";
-      return ck ? { itemId, colourKey: ck } : { itemId };
+      /** @type {{ id: string, name: string, slots: { itemId: string, colourKey?: string }[], createdAt: string }[]} */
+      const outfits = [];
+      for (const row of data || []) {
+        const links = Array.isArray(row.outfit_items) ? row.outfit_items : [];
+        links.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+        const slots = links.map((x) => {
+          const itemId = String(x.item_id ?? "").trim();
+          const ck =
+            x.colour_key != null
+              ? String(x.colour_key).trim()
+              : x.color_key != null
+                ? String(x.color_key).trim()
+                : "";
+          return ck ? { itemId, colourKey: ck } : { itemId };
+        });
+        outfits.push({
+          id: String(row.id),
+          name: String(row.name ?? ""),
+          slots,
+          createdAt: row.created_at
+            ? new Date(row.created_at).toISOString()
+            : new Date().toISOString(),
+        });
+      }
+      return { ok: true, outfits };
     });
-    outfits.push({
-      id: String(row.id),
-      name: String(row.name ?? ""),
-      slots,
-      createdAt: row.created_at
-        ? new Date(row.created_at).toISOString()
-        : new Date().toISOString(),
-    });
+  } catch (e) {
+    const msg = typeof e?.message === "string" ? e.message : String(e ?? "");
+    return { ok: false, error: msg };
   }
-  return { ok: true, outfits };
 }
 
 /**
