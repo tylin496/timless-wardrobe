@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "node scripts/vercel-build.mjs",
     "dev": "node scripts/tw-dev-server.mjs",
     "export:wardrobe-json": "node scripts/export_wardrobe_json.mjs",
     "db:import-seed": "node scripts/import_seed_to_supabase.mjs",

@@ -1,7 +1,9 @@
 (function () {
   const STORAGE_KEY = "timeless-wardrobe-outfits-v1";
+  const STYLING_BOARD_DRAFT_KEY = "timeless-wardrobe-styling-board-draft-v1";
   const MAX_OUTFIT_ITEMS = 16;
   const OUTFIT_STORAGE_VERSION = 2;
+  const STYLING_BOARD_DRAFT_VERSION = 1;
 
   /** Split archive rows merged into one id — remap saved outfit lines. */
   const LEGACY_OUTFIT_ITEM_TO_SLOT = new Map([
@@ -5816,10 +5818,20 @@
     }
   }
 
+  /** Keep local notes when cloud rows predate the `outfits.notes` column. */
+  function mergeSavedOutfitNotesFromLocalCache(cloudOutfits) {
+    const local = loadSavedOutfitsFromStorage();
+    if (!local.length) return cloudOutfits;
+    const notesById = new Map(local.map((o) => [o.id, String(o.notes ?? "")]));
+    return cloudOutfits.map((o) => {
+      const cloudNotes = String(o.notes ?? "").trim();
+      if (cloudNotes) return o;
+      const cached = notesById.get(o.id);
+      return cached ? { ...o, notes: cached } : o;
+    });
+  }
+
   function persistSavedOutfitsCache() {
-    if (supabaseClient && useCloudOutfits) {
-      return;
-    }
     const payload = {
       version: OUTFIT_STORAGE_VERSION,
       outfits: savedOutfits.map((o) => ({
@@ -5830,7 +5842,95 @@
         slots: o.slots,
       })),
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+      /* quota / private mode */
+    }
+  }
+
+  function normalizeStylingBoardDraftSlot(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    const itemId = String(raw.itemId ?? "").trim();
+    if (!itemId) return null;
+    const ck = String(raw.colourKey ?? raw.colorKey ?? "").trim();
+    return ck ? { itemId, colourKey: ck } : { itemId };
+  }
+
+  function loadStylingBoardDraft() {
+    try {
+      const raw = localStorage.getItem(STYLING_BOARD_DRAFT_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (!data || !Array.isArray(data.slots)) return null;
+      const slots = [];
+      for (const s of data.slots) {
+        const n = normalizeStylingBoardDraftSlot(s);
+        if (n) slots.push(n);
+      }
+      return {
+        slots,
+        name: typeof data.name === "string" ? data.name : "",
+        notes: typeof data.notes === "string" ? data.notes : "",
+        editingSavedOutfitId:
+          typeof data.editingSavedOutfitId === "string" && data.editingSavedOutfitId.trim()
+            ? data.editingSavedOutfitId.trim()
+            : null,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  function persistStylingBoardDraft() {
+    const payload = {
+      version: STYLING_BOARD_DRAFT_VERSION,
+      slots: currentOutfitSlots.map((s) =>
+        s.colourKey ? { itemId: s.itemId, colourKey: s.colourKey } : { itemId: s.itemId }
+      ),
+      name: String(els.outfitName?.value ?? ""),
+      notes: String(els.outfitNotes?.value ?? ""),
+      editingSavedOutfitId: editingSavedOutfitId || null,
+      updatedAt: new Date().toISOString(),
+    };
+    try {
+      localStorage.setItem(STYLING_BOARD_DRAFT_KEY, JSON.stringify(payload));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function clearStylingBoardDraft() {
+    try {
+      localStorage.removeItem(STYLING_BOARD_DRAFT_KEY);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function restoreStylingBoardDraft() {
+    const draft = loadStylingBoardDraft();
+    if (!draft) return false;
+    currentOutfitSlots = draft.slots.filter((slot) => {
+      const it = itemById.get(slot.itemId);
+      return it && itemEligibleForOutfit(it);
+    });
+    if (els.outfitName) els.outfitName.value = draft.name;
+    if (els.outfitNotes) els.outfitNotes.value = draft.notes;
+    editingSavedOutfitId =
+      draft.editingSavedOutfitId && savedOutfits.some((o) => o.id === draft.editingSavedOutfitId)
+        ? draft.editingSavedOutfitId
+        : null;
+    syncOutfitSaveButtonLabel();
+    return true;
+  }
+
+  function initStylingBoardFromStorage() {
+    restoreStylingBoardDraft();
+    renderOutfitStrip();
+    renderSavedOutfits();
+    syncStylingBoardUi();
+    syncOutfitSaveButtonLabel();
   }
 
   function newOutfitRecordId() {
@@ -5931,6 +6031,7 @@
     if (els.outfitName) els.outfitName.value = "";
     if (els.outfitNotes) els.outfitNotes.value = "";
     editingSavedOutfitId = null;
+    clearStylingBoardDraft();
     syncOutfitSaveButtonLabel();
     onOutfitChange();
     showToast("Styling board cleared.");
@@ -7846,6 +7947,7 @@
 
   function onOutfitChange() {
     sanitizeCurrentOutfit();
+    persistStylingBoardDraft();
     renderGrid();
     renderOutfitStrip();
   }
@@ -11335,6 +11437,10 @@
       });
     }
 
+    const persistDraftFromFields = () => persistStylingBoardDraft();
+    els.outfitName?.addEventListener("input", persistDraftFromFields);
+    els.outfitNotes?.addEventListener("input", persistDraftFromFields);
+
     if (els.outfitClear) {
       els.outfitClear.addEventListener("click", () => {
         if (!currentOutfitSlots.length && !els.outfitName.value.trim()) {
@@ -11734,7 +11840,10 @@
               ? await outfitsFetchPromise
               : await api.fetchOutfits(supabaseClient);
             if (outfitsRes.ok) {
-              savedOutfits = (outfitsRes.outfits || [])
+              const fromCloud = (outfitsRes.outfits || [])
+                .map((o) => normalizeSavedOutfitRecord(o))
+                .filter(Boolean);
+              savedOutfits = mergeSavedOutfitNotesFromLocalCache(fromCloud)
                 .map((o) => normalizeSavedOutfitRecord(o))
                 .filter(Boolean);
               persistSavedOutfitsCache();
@@ -11794,7 +11903,14 @@
       fileBackedCustomItems = await loadFileBackedCustomItems();
       cloudBackedCustomItems = [];
     }
+    const hasStylingBoardUi = Boolean(
+      document.getElementById("outfit-strip") || document.getElementById("styling-board-drawer")
+    );
+
     mergeWardrobeFromSources();
+    if (hasStylingBoardUi) {
+      initStylingBoardFromStorage();
+    }
     if (!items.length) {
       console.warn("No wardrobe items loaded.");
     }
@@ -11828,6 +11944,7 @@
       initItemDetailRootDelegates();
       initFilters();
       wireEvents();
+      syncOutfitSaveButtonLabel();
       installItemPageBackNavigation();
       await runItemDetailPage(itemRoot, pageId);
       return;
@@ -11839,9 +11956,11 @@
     syncOutfitSaveButtonLabel();
     initAddItemForm();
     renderGrid();
-    renderOutfitStrip();
-    renderSavedOutfits();
-    syncOutfitBuilderPanel();
+    if (!hasStylingBoardUi) {
+      renderOutfitStrip();
+      renderSavedOutfits();
+      syncOutfitBuilderPanel();
+    }
     consumeAndRestoreArchiveListScroll();
     if (document.getElementById("local-data-risk-banner")) {
       installLocalDataRiskBanner();

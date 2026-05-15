@@ -13,9 +13,9 @@ fi
 git branch -M main 2>/dev/null || true
 
 if ! git remote get-url origin >/dev/null 2>&1; then
-  git remote add origin "https://github.com/tylin496/timless-wardrobe.git"
+  git remote add origin "https://github.com/tylin496/timeless-wardrobe.git"
 else
-  git remote set-url origin "https://github.com/tylin496/timless-wardrobe.git"
+  git remote set-url origin "https://github.com/tylin496/timeless-wardrobe.git"
 fi
 
 git add -A

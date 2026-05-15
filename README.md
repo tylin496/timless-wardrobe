@@ -6,6 +6,8 @@ Static archive UI for a personal wardrobe: filters, outfit builder, saved looks.
 
 Serve the folder (any static server), open `index.html`. By default data comes from `data/wardrobe.js` and saved outfits from `localStorage`.
 
+Production: [timeless-wardrobe.vercel.app](https://timeless-wardrobe.vercel.app/) (static build via `npm run build` → `dist/`).
+
 ## Supabase (optional)
 
 See **[docs/SUPABASE.md](docs/SUPABASE.md)** for schema SQL, env vars, seed import, and security notes. Copy `.env.example` to `.env` for the Node import script; fill `js/tw-supabase-config.js` with the **public** URL and anon key for the browser.

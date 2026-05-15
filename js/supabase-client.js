@@ -146,10 +146,18 @@ export async function fetchWardrobeItems(client) {
 export async function fetchOutfits(client) {
   try {
     return await withNetworkRetries("fetchOutfits", async () => {
-      const { data, error } = await client
-        .from("outfits")
-        .select("id, name, created_at, outfit_items(item_id, sort_order, colour_key)")
-        .order("created_at", { ascending: false });
+      const selectWithNotes =
+        "id, name, notes, created_at, outfit_items(item_id, sort_order, colour_key)";
+      const selectLegacy = "id, name, created_at, outfit_items(item_id, sort_order, colour_key)";
+      let data;
+      let error;
+      ({ data, error } = await client.from("outfits").select(selectWithNotes).order("created_at", { ascending: false }));
+      if (error && /notes|column/i.test(String(error.message ?? ""))) {
+        ({ data, error } = await client
+          .from("outfits")
+          .select(selectLegacy)
+          .order("created_at", { ascending: false }));
+      }
       if (error) {
         if (isProbablyTransientFetchFailure(error.message)) throw new Error(error.message);
         return { ok: false, error: error.message };
@@ -173,6 +181,7 @@ export async function fetchOutfits(client) {
         outfits.push({
           id: String(row.id),
           name: String(row.name ?? ""),
+          notes: String(row.notes ?? ""),
           slots,
           createdAt: row.created_at
             ? new Date(row.created_at).toISOString()
@@ -192,11 +201,21 @@ export async function fetchOutfits(client) {
  * @param {{ id: string, name: string, slots?: { itemId: string, colourKey?: string; colorKey?: string }[], itemIds?: string[], createdAt: string }} record
  */
 export async function insertOutfitWithItems(client, record) {
-  const { error: e1 } = await client.from("outfits").insert({
+  const notes = String(record.notes ?? "").trim();
+  const baseRow = {
     id: record.id,
     name: record.name,
     created_at: record.createdAt,
-  });
+  };
+  let e1;
+  if (notes) {
+    ({ error: e1 } = await client.from("outfits").insert({ ...baseRow, notes }));
+    if (e1 && /notes|column/i.test(String(e1.message ?? ""))) {
+      ({ error: e1 } = await client.from("outfits").insert(baseRow));
+    }
+  } else {
+    ({ error: e1 } = await client.from("outfits").insert(baseRow));
+  }
   if (e1) return { ok: false, error: e1.message };
 
   const slots =
@@ -241,7 +260,14 @@ export async function updateOutfitWithItems(client, record) {
   const { error: eDel } = await client.from("outfit_items").delete().eq("outfit_id", record.id);
   if (eDel) return { ok: false, error: eDel.message };
 
-  const { error: eUp } = await client.from("outfits").update({ name: record.name }).eq("id", record.id);
+  const notes = String(record.notes ?? "").trim();
+  const patch = { name: record.name };
+  if (notes) patch.notes = notes;
+  let eUp;
+  ({ error: eUp } = await client.from("outfits").update(patch).eq("id", record.id));
+  if (eUp && notes && /notes|column/i.test(String(eUp.message ?? ""))) {
+    ({ error: eUp } = await client.from("outfits").update({ name: record.name }).eq("id", record.id));
+  }
   if (eUp) return { ok: false, error: eUp.message };
 
   const slots = Array.isArray(record.slots) ? record.slots : [];
