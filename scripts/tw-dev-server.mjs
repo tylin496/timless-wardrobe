@@ -79,31 +79,42 @@ async function handlePutCustomItems(req, res) {
   }
 }
 
+async function serveFaviconPng(/** @type {http.IncomingMessage} */ req, /** @type {http.ServerResponse} */ res, absFile) {
+  if (!isPathInsideRoot(absFile)) {
+    res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("Not found");
+    return true;
+  }
+  try {
+    const st = await fs.stat(absFile);
+    if (!st.isFile()) return false;
+    res.writeHead(200, {
+      "Content-Type": "image/png",
+      "Cache-Control": "public, max-age=86400",
+      "Content-Length": String(st.size),
+    });
+    if (req.method === "HEAD") {
+      res.end();
+      return true;
+    }
+    createReadStream(absFile).pipe(res);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function handleStatic(/** @type {http.IncomingMessage} */ req, /** @type {http.ServerResponse} */ res) {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   let pathname = decodeURIComponent(url.pathname);
-  if (pathname === "/favicon.ico") {
-    const faviconPng = path.join(root, "favicon.png");
-    if (isPathInsideRoot(faviconPng)) {
-      try {
-        const st = await fs.stat(faviconPng);
-        if (st.isFile()) {
-          res.writeHead(200, {
-            "Content-Type": "image/png",
-            "Cache-Control": "public, max-age=86400",
-            "Content-Length": String(st.size),
-          });
-          if (req.method === "HEAD") {
-            res.end();
-            return;
-          }
-          createReadStream(faviconPng).pipe(res);
-          return;
-        }
-      } catch {
-        /* fall through to 404 */
-      }
-    }
+  const faviconRoutes = {
+    "/favicon.ico": "favicon-light-32.png",
+    "/favicon-light.png": "favicon-light-32.png",
+    "/favicon-dark.png": "favicon-dark-32.png",
+  };
+  if (pathname in faviconRoutes) {
+    const absFile = path.join(root, faviconRoutes[pathname]);
+    if (await serveFaviconPng(req, res, absFile)) return;
     res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
     res.end("Not found");
     return;

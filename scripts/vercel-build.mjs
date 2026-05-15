@@ -15,7 +15,6 @@ const rootFiles = [
   "item.html",
   "app.js",
   "styles.css",
-  "favicon.png",
   "logo.png",
   "cover.png",
 ];
@@ -33,6 +32,16 @@ for (const name of rootFiles) {
 for (const name of rootDirs) {
   const src = path.join(root, name);
   if (fs.existsSync(src)) fs.cpSync(src, path.join(dist, name), { recursive: true });
+}
+
+const faviconLight32 = path.join(root, "favicon-light-32.png");
+if (fs.existsSync(faviconLight32)) {
+  fs.copyFileSync(faviconLight32, path.join(dist, "favicon-light.png"));
+  fs.copyFileSync(faviconLight32, path.join(dist, "favicon.png"));
+}
+const faviconDark32 = path.join(root, "favicon-dark-32.png");
+if (fs.existsSync(faviconDark32)) {
+  fs.copyFileSync(faviconDark32, path.join(dist, "favicon-dark.png"));
 }
 
 console.log("Vercel static build → dist/");

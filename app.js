@@ -8185,6 +8185,16 @@
 
   let dragFromIndex = null;
 
+  function syncBrandSignatureBarHeight() {
+    const bar = document.querySelector(".site-utility-bar");
+    const h = bar ? Math.ceil(bar.getBoundingClientRect().height) : 40;
+    const px = `${Math.max(h, 36)}px`;
+    document.documentElement.style.setProperty("--brand-signature-bar-height", px);
+    if (globalThis.matchMedia?.("(max-width: 900px)")?.matches) {
+      document.documentElement.style.setProperty("--site-mobile-shell-top", px);
+    }
+  }
+
   function syncStylingBoardUi() {
     const n = currentOutfitSlots.length;
     const countEl = document.getElementById("styling-board-count");
@@ -8209,6 +8219,7 @@
   function openStylingBoardDrawer() {
     const root = document.getElementById("styling-board-drawer");
     if (!root) return;
+    syncBrandSignatureBarHeight();
     stylingBoardDrawerOpen = true;
     if (root.hasAttribute("hidden")) {
       if (stylingBoardDrawerOpenRaf) {
@@ -11347,7 +11358,14 @@
     /** Full-screen mobile nav shell (below utility bar); replaces legacy slide-in panel. */
     function mountMobileNavigationShell() {
       let shell = document.getElementById("site-mobile-shell");
-      if (shell) return shell;
+      if (shell) {
+        const hasRlLayout =
+          shell.querySelector(".site-mobile-nav__season-link") &&
+          shell.querySelector(".site-mobile-nav__title-wrap");
+        if (hasRlLayout) return shell;
+        shell.remove();
+        shell = null;
+      }
       document.getElementById("site-header-mobile-panel")?.remove();
 
       shell = document.createElement("div");
@@ -11414,7 +11432,7 @@
       rootLevel.className = "site-mobile-nav__level site-mobile-nav__level--root is-active";
 
       const rootList = document.createElement("ul");
-      rootList.className = "site-mobile-nav__list";
+      rootList.className = "site-mobile-nav__list site-mobile-nav__list--root";
       for (const slot of SLOT_OPTIONS) {
         const rowLi = document.createElement("li");
         rowLi.className = "site-mobile-nav__item";
@@ -11422,34 +11440,40 @@
         row.type = "button";
         row.className = "site-mobile-nav__row";
         row.dataset.mobileNavSlot = slot;
-        row.innerHTML = `<span class="site-mobile-nav__label">${slot}</span><span class="site-mobile-nav__chevron" aria-hidden="true"></span>`;
+        row.innerHTML = `<span class="site-mobile-nav__label">${slot.toUpperCase()}</span><span class="site-mobile-nav__chevron" aria-hidden="true"></span>`;
         rowLi.appendChild(row);
         rootList.appendChild(rowLi);
-
-        const browseLi = document.createElement("li");
-        browseLi.className = "site-mobile-nav__item site-mobile-nav__item--browse";
-        const browse = document.createElement("a");
-        browse.href = archiveMainHref();
-        browse.className = "site-mobile-nav__browse";
-        browse.setAttribute("data-category-jump", slot);
-        browse.textContent = `Browse all ${slot}`;
-        browseLi.appendChild(browse);
-        rootList.appendChild(browseLi);
       }
       rootLevel.appendChild(rootList);
+
+      const rootFooter = document.createElement("div");
+      rootFooter.className = "site-mobile-nav__footer";
+      rootFooter.innerHTML = `
+        <div class="site-mobile-nav__footer-divider" aria-hidden="true"></div>
+        <div class="site-mobile-nav__season-row" role="group" aria-label="Season">
+          <button type="button" class="site-mobile-nav__season-link" data-mobile-nav-season="S/S">SPRING / SUMMER</button>
+          <button type="button" class="site-mobile-nav__season-link" data-mobile-nav-season="A/W">AUTUMN / WINTER</button>
+          <a class="site-mobile-nav__season-link site-mobile-nav__browse-all" href="#" data-mobile-nav-browse-all="1">ALL PIECES</a>
+        </div>
+      `;
+      rootLevel.appendChild(rootFooter);
 
       const drillLevel = document.createElement("div");
       drillLevel.id = "site-mobile-nav-drill";
       drillLevel.className = "site-mobile-nav__level site-mobile-nav__level--drill";
-      drillLevel.hidden = true;
       drillLevel.innerHTML = `
-        <button type="button" class="site-mobile-nav__back" id="site-mobile-nav-back">
-          <span class="site-mobile-nav__back-chevron" aria-hidden="true"></span>
-          <span class="site-mobile-nav__back-label">Back</span>
-        </button>
-        <p class="site-mobile-nav__drill-title" id="site-mobile-nav-drill-title"></p>
-        <ul class="site-mobile-nav__list" id="site-mobile-nav-drill-list"></ul>
-        <a class="site-mobile-nav__browse site-mobile-nav__browse--drill" id="site-mobile-nav-drill-browse" href="#">Browse all</a>
+        <header class="site-mobile-nav__drill-head mobile-submenu-header">
+          <div class="site-mobile-nav__title-wrap mobile-submenu-title-wrap">
+            <button type="button" class="site-mobile-nav__back" id="site-mobile-nav-back" aria-label="Back">
+              <span class="site-mobile-nav__back-chevron" aria-hidden="true"></span>
+            </button>
+            <h2 class="site-mobile-nav__drill-title mobile-submenu-title" id="site-mobile-nav-drill-title"></h2>
+          </div>
+          <button type="button" class="site-mobile-nav__drill-close" id="site-mobile-nav-drill-close" aria-label="Close menu">
+            <span class="site-mobile-shell__close-icon" aria-hidden="true"></span>
+          </button>
+        </header>
+        <ul class="site-mobile-nav__list site-mobile-nav__list--drill" id="site-mobile-nav-drill-list"></ul>
       `;
 
       nav.append(rootLevel, drillLevel);
@@ -11697,42 +11721,35 @@
     }
 
     function syncMobileShellTop() {
-      if (!isHeaderCompactLayout()) return;
-      const bar = siteUtilityBarEl || document.querySelector(".site-utility-bar");
-      const h = bar ? Math.ceil(bar.getBoundingClientRect().height) : 38;
-      document.documentElement.style.setProperty("--site-mobile-shell-top", `${Math.max(h, 36)}px`);
+      syncBrandSignatureBarHeight();
     }
 
+    const MOBILE_NAV_MOTION_MS = 320;
+
     function resetMobileNavDrill() {
+      const nav = document.getElementById("site-mobile-nav");
       const root = document.getElementById("site-mobile-nav-root");
       const drill = document.getElementById("site-mobile-nav-drill");
-      if (!root || !drill) return;
-      root.hidden = false;
+      if (!nav || !root || !drill) return;
+      nav.classList.remove("site-mobile-nav--drill-open");
       root.classList.add("is-active");
-      drill.hidden = true;
       drill.classList.remove("is-active");
     }
 
     function openMobileNavDrill(slot) {
+      const nav = document.getElementById("site-mobile-nav");
       const root = document.getElementById("site-mobile-nav-root");
       const drill = document.getElementById("site-mobile-nav-drill");
       const title = document.getElementById("site-mobile-nav-drill-title");
       const list = document.getElementById("site-mobile-nav-drill-list");
-      const browse = /** @type {HTMLAnchorElement | null} */ (
-        document.getElementById("site-mobile-nav-drill-browse")
-      );
-      if (!root || !drill || !title || !list || !browse) return;
+      if (!nav || !root || !drill || !title || !list) return;
       const pool = poolItemsForDrillSubcategories({ respectCategory: false });
       const entries = megaMenuSubcategoryEntriesForSlot(slot, pool);
       if (!entries.length) {
         handleMobileCategoryNavigation(slot, "");
         return;
       }
-      title.textContent = slot;
-      browse.href = archiveMainHref();
-      browse.setAttribute("data-category-jump", slot);
-      browse.removeAttribute("data-subcategory-jump");
-      browse.textContent = `Browse all ${slot}`;
+      title.textContent = categoryDisplayLabel(slot) || slot;
       list.replaceChildren();
       for (const { raw, label } of entries) {
         const li = document.createElement("li");
@@ -11741,20 +11758,44 @@
         a.href = archiveMainHref();
         a.className = "site-mobile-nav__subrow";
         a.setAttribute("data-category-jump", slot);
-        a.setAttribute("data-subcategory-jump", raw);
+        if (raw) a.setAttribute("data-subcategory-jump", raw);
+        else a.removeAttribute("data-subcategory-jump");
         a.textContent = label;
         li.appendChild(a);
         list.appendChild(li);
       }
-      root.classList.remove("is-active");
-      root.hidden = true;
-      drill.hidden = false;
+      root.classList.add("is-active");
       drill.classList.add("is-active");
+      nav.classList.add("site-mobile-nav--drill-open");
     }
 
-    function handleMobileCategoryNavigation(jump, sub) {
+    function scrollArchiveIntro() {
+      const intro = document.querySelector(".items-toolbar");
+      if (intro instanceof HTMLElement) {
+        try {
+          const reduce = Boolean(globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
+          intro.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+        } catch {
+          intro.scrollIntoView();
+        }
+        return;
+      }
+      scrollArchiveViewportTop();
+    }
+
+    function handleMobileCategoryNavigation(jump, sub, { season } = {}) {
       clearArchiveKeywordColourNarrowing();
       if (archiveSubmittedSearchNorm) exitArchiveSearchPlpRestoreBrowse({ skipRestore: true });
+      const seasonRaw = String(season ?? "").trim();
+      if (seasonRaw === "S/S" || seasonRaw === "A/W" || seasonRaw === "All") {
+        seasonNavFilter = seasonRaw;
+        try {
+          persistSeasonNav();
+        } catch {
+          /* ignore */
+        }
+        syncSeasonTabUI();
+      }
       categoryNavFilter = resolveCategoryJump(jump);
       subcategoryFilter = sub;
       noteArchiveSearchUserChoseMainSlotFilter();
@@ -11770,7 +11811,7 @@
       validateSubcategoryFilter();
       renderCategoryDrill();
       renderGrid();
-      scrollArchiveViewportTop();
+      scrollArchiveIntro();
       closeMobileCategoryPanel();
       collapseFiltersMenuPanel();
     }
@@ -11812,7 +11853,7 @@
       }
 
       mobileShell.classList.add("is-closing");
-      mobileShellCloseAbort = twAfterMotion(mobileShell, 240, finish);
+      mobileShellCloseAbort = twAfterMotion(mobileShell, MOBILE_NAV_MOTION_MS, finish);
     }
 
     function openMobileCategoryPanel() {
@@ -11841,7 +11882,7 @@
       headerSearchBtn?.click();
     }
 
-    syncMobileShellTop();
+    syncBrandSignatureBarHeight();
 
     const renderHeaderSubmenuPreview = (slot, subcategory) => {
       const preview = document.getElementById("site-header-submenu-preview");
@@ -12236,7 +12277,25 @@
     document.getElementById("site-mobile-nav-back")?.addEventListener("click", () => {
       resetMobileNavDrill();
     });
+    document.getElementById("site-mobile-nav-drill-close")?.addEventListener("click", () => {
+      closeMobileCategoryPanel();
+    });
     document.getElementById("site-mobile-nav")?.addEventListener("click", (e) => {
+      const seasonBtn = /** @type {HTMLElement | null} */ (
+        e.target.closest("[data-mobile-nav-season]")
+      );
+      if (seasonBtn) {
+        e.preventDefault();
+        const season = String(seasonBtn.getAttribute("data-mobile-nav-season") ?? "").trim();
+        handleMobileCategoryNavigation("", "", { season });
+        return;
+      }
+      const browseAll = /** @type {HTMLElement | null} */ (e.target.closest("[data-mobile-nav-browse-all]"));
+      if (browseAll) {
+        e.preventDefault();
+        handleMobileCategoryNavigation("", "", { season: "All" });
+        return;
+      }
       const row = /** @type {HTMLElement | null} */ (e.target.closest(".site-mobile-nav__row"));
       if (row) {
         const slot = String(row.dataset.mobileNavSlot ?? "").trim();
@@ -12253,8 +12312,8 @@
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
       if (mobileShell?.classList.contains("is-open")) {
-        const drill = document.getElementById("site-mobile-nav-drill");
-        if (drill && !drill.hidden) {
+        const nav = document.getElementById("site-mobile-nav");
+        if (nav?.classList.contains("site-mobile-nav--drill-open")) {
           resetMobileNavDrill();
           return;
         }
@@ -12324,6 +12383,7 @@
         if (document.body.classList.contains("archive-ui--header-submenu-open")) {
           syncHeaderSubmenuBackdropInset();
         }
+        syncBrandSignatureBarHeight();
         if (mobileShell?.classList.contains("is-open")) syncMobileShellTop();
         if (headerSearchWrap?.classList.contains("is-open") && isHeaderCompactLayout()) syncMobileShellTop();
       },
