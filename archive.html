@@ -11,6 +11,7 @@
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#161514" />
     <title>Archive · Timeless Wardrobe</title>
     <link rel="icon" type="image/png" href="favicon.png" />
+    <script src="js/tw-page-theme-boot.js"></script>
     <link rel="stylesheet" href="styles.css" />
     <script src="js/tw-admin-boot.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -20,7 +21,7 @@
       rel="stylesheet"
     />
   </head>
-  <body>
+  <body class="theme-catalogue">
     <a class="skip-link" href="#main">Skip to archive</a>
     <a class="skip-link" href="#filter-search">Skip to search</a>
     <a class="skip-link tw-admin-only" href="#add-item-open">Skip to add item</a>
@@ -38,6 +39,7 @@
     <div class="site-header-shell">
     <header class="site-header site-header--solid">
       <div class="site-header__container site-header__inner">
+        <div class="site-header__flyout">
         <div class="site-header__bar site-header__brand-nav" aria-label="Primary header">
           <h1 class="site-title">
             <a href="/" id="site-header-home" class="site-title__primary">
@@ -49,7 +51,7 @@
           </h1>
           <nav
             id="site-header-primary-nav"
-            class="site-header__primary-nav"
+            class="site-header__primary-nav main-nav"
             aria-label="Main categories"
           >
             <a href="#main" class="site-header__nav-link" data-category-jump="Clothing">Clothing</a>
@@ -124,12 +126,13 @@
             </button>
           </div>
         </div>
-        <div id="site-header-submenu" class="site-header__submenu" hidden>
+        <div id="site-header-submenu" class="site-header__submenu mega-menu" hidden>
           <div id="site-header-submenu-title" class="site-header__submenu-title"></div>
           <div class="site-header__submenu-body">
             <div id="site-header-submenu-links" class="site-header__submenu-links"></div>
             <div id="site-header-submenu-preview" class="site-header__submenu-preview"></div>
           </div>
+        </div>
         </div>
         <div id="site-header-search-wrap" class="site-header__search-wrap" aria-hidden="true">
           <div class="site-header__search-dim" aria-hidden="true"></div>
@@ -138,7 +141,6 @@
           <div class="site-header__search-surface">
             <div class="site-header__search-head">
               <label class="site-header__search-field" for="filter-search">
-                <span class="site-header__search-label">Search</span>
                 <div class="site-header__search-pill-wrap">
                   <span class="site-header__search-pill-icon" aria-hidden="true"></span>
                   <span class="filters__search-field">
@@ -166,14 +168,6 @@
                   </span>
                 </div>
               </label>
-              <button
-                type="button"
-                id="site-header-search-submit"
-                class="site-header__search-submit"
-                aria-label="Run search"
-              >
-                Search
-              </button>
               <button
                 type="button"
                 id="site-header-search-close"
@@ -300,7 +294,7 @@
           <div class="items-toolbar__intro-lead">
             <div class="items-toolbar__intro">
               <p class="items-toolbar__breadcrumb" id="items-toolbar-breadcrumb"></p>
-              <h2 class="items-toolbar__page-title" id="items-toolbar-page-title">Classic Menswear</h2>
+              <h2 class="items-toolbar__page-title" id="items-toolbar-page-title">All Types</h2>
               <nav
                 id="season-nav"
                 class="items-toolbar__season-nav filters__season season-strip"
@@ -315,7 +309,7 @@
               </nav>
               <div id="items-toolbar-brand-story" class="items-toolbar__brand-story" hidden>
                 <div id="items-toolbar-brand-story-panels" class="items-toolbar__brand-story-panels">
-                  <div class="items-toolbar__brand-story-panel" data-brand-story-panel="Clothing">
+                  <div class="items-toolbar__brand-story-panel" data-brand-story-panel="">
                     <p class="items-toolbar__brand-story-text">
                       Timeless Wardrobe begins with a philosophy. Its curated approach to classic menswear is not about
                       men&apos;s fashion; it&apos;s about style and collecting things that last. From relaxed
@@ -337,6 +331,13 @@
                         aria-label="Clothing, tailoring, all seasons"
                         >tailoring</a
                       >, every piece reflects timelessness, craftsmanship, and quiet confidence.
+                    </p>
+                  </div>
+                  <div class="items-toolbar__brand-story-panel" data-brand-story-panel="Clothing" hidden>
+                    <p class="items-toolbar__brand-story-text">
+                      From relaxed shirting and knitwear to refined tailoring, Clothing is the foundation of a wardrobe
+                      built for longevity — pieces chosen for proportion, fabric, and quiet confidence rather than
+                      trend.
                     </p>
                   </div>
                   <div class="items-toolbar__brand-story-panel" data-brand-story-panel="Accessories" hidden>
@@ -411,20 +412,22 @@
               aria-label="Active filters"
               hidden
             ></div>
-            <div class="items-toolbar__archive-summary" aria-live="polite">
+          </div>
+        </div>
+        <div class="items-toolbar__actions">
+          <div class="items-toolbar__archive-summary" aria-live="polite">
               <p class="items-toolbar__spend-line" id="filter-spend-total"></p>
               <p class="items-toolbar__count-line" id="filter-count"></p>
             </div>
-          </div>
-          <button
-            type="button"
-            class="items-toolbar__filter-sort-btn"
-            id="archive-filter-drawer-open"
-            aria-haspopup="dialog"
-            aria-controls="archive-filter-drawer"
-            aria-expanded="false"
-          >
-            <span class="items-toolbar__filter-sort-icon" aria-hidden="true">
+            <button
+              type="button"
+              class="items-toolbar__filter-sort-btn"
+                id="archive-filter-drawer-open"
+              aria-haspopup="dialog"
+              aria-controls="archive-filter-drawer"
+              aria-expanded="false"
+            >
+              <span class="items-toolbar__filter-sort-icon" aria-hidden="true">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                 <line x1="4" y1="21" x2="4" y2="14" />
                 <line x1="4" y1="10" x2="4" y2="3" />
@@ -437,8 +440,8 @@
                 <line x1="17" y1="16" x2="23" y2="16" />
               </svg>
             </span>
-            <span>Filter &amp; Sort</span>
-          </button>
+              <span>Filter &amp; Sort</span>
+            </button>
         </div>
         <div
           class="items-toolbar__chips filters__count-row"

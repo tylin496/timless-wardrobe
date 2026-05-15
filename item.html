@@ -8,6 +8,7 @@
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#141312" />
     <title>Timeless Wardrobe</title>
     <link rel="icon" type="image/png" href="favicon.png" />
+    <script src="js/tw-page-theme-boot.js"></script>
     <link rel="stylesheet" href="styles.css" />
     <script src="js/tw-admin-boot.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -17,7 +18,7 @@
       rel="stylesheet"
     />
   </head>
-  <body class="item-page">
+  <body class="item-page theme-catalogue">
     <a class="skip-link" href="#item-page-main">Skip to main content</a>
     <a class="skip-link" href="#filter-search">Skip to search</a>
     <a class="skip-link" href="#item-detail-heading">Skip to title</a>
@@ -35,6 +36,7 @@
     <div class="site-header-shell">
     <header class="site-header site-header--solid">
       <div class="site-header__container site-header__inner">
+        <div class="site-header__flyout">
         <div class="site-header__bar site-header__brand-nav" aria-label="Primary header">
             <h1 class="site-title">
               <a href="/" id="site-header-home" class="site-title__primary">
@@ -46,13 +48,13 @@
             </h1>
             <nav
               id="site-header-primary-nav"
-              class="site-header__primary-nav"
+              class="site-header__primary-nav main-nav"
               aria-label="Main categories"
             >
-              <a href="/#main" class="site-header__nav-link" data-category-jump="Clothing">Clothing</a>
-              <a href="/#main" class="site-header__nav-link" data-category-jump="Accessories">Accessories</a>
-              <a href="/#main" class="site-header__nav-link" data-category-jump="Watches">Watches</a>
-              <a href="/#main" class="site-header__nav-link" data-category-jump="Fragrance">Fragrance</a>
+              <a href="/archive.html#main" class="site-header__nav-link" data-category-jump="Clothing">Clothing</a>
+              <a href="/archive.html#main" class="site-header__nav-link" data-category-jump="Accessories">Accessories</a>
+              <a href="/archive.html#main" class="site-header__nav-link" data-category-jump="Watches">Watches</a>
+              <a href="/archive.html#main" class="site-header__nav-link" data-category-jump="Fragrance">Fragrance</a>
             </nav>
             <div class="site-header__nav-submenu-dismiss" aria-hidden="true"></div>
             <div class="site-header__tools">
@@ -121,13 +123,14 @@
               </button>
             </div>
           </div>
-          <div id="site-header-submenu" class="site-header__submenu" hidden>
+          <div id="site-header-submenu" class="site-header__submenu mega-menu" hidden>
             <div id="site-header-submenu-title" class="site-header__submenu-title"></div>
             <div class="site-header__submenu-body">
               <div id="site-header-submenu-links" class="site-header__submenu-links"></div>
               <div id="site-header-submenu-preview" class="site-header__submenu-preview"></div>
             </div>
           </div>
+        </div>
           <div id="site-header-search-wrap" class="site-header__search-wrap" aria-hidden="true">
           <div class="site-header__search-dim" aria-hidden="true"></div>
           <div class="site-header__search-megamenu">
@@ -135,7 +138,6 @@
           <div class="site-header__search-surface">
             <div class="site-header__search-head">
               <label class="site-header__search-field" for="filter-search">
-                <span class="site-header__search-label">Search</span>
                 <div class="site-header__search-pill-wrap">
                   <span class="site-header__search-pill-icon" aria-hidden="true"></span>
                   <span class="filters__search-field">

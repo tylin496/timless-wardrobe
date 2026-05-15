@@ -76,6 +76,7 @@
       <div class="site-header-shell site-header-shell--home-overlay">
     <header class="site-header site-header--overlay">
       <div class="site-header__container site-header__inner">
+        <div class="site-header__flyout">
         <div class="site-header__bar site-header__brand-nav" aria-label="Primary header">
           <div class="site-title">
             <a href="/" id="site-header-home" class="site-title__primary">
@@ -87,7 +88,7 @@
           </div>
           <nav
             id="site-header-primary-nav"
-            class="site-header__primary-nav"
+            class="site-header__primary-nav main-nav"
             aria-label="Main categories"
           >
             <a href="/archive.html#main" class="site-header__nav-link" data-category-jump="Clothing">Clothing</a>
@@ -162,12 +163,13 @@
             </button>
           </div>
         </div>
-        <div id="site-header-submenu" class="site-header__submenu" hidden>
+        <div id="site-header-submenu" class="site-header__submenu mega-menu" hidden>
           <div id="site-header-submenu-title" class="site-header__submenu-title"></div>
           <div class="site-header__submenu-body">
             <div id="site-header-submenu-links" class="site-header__submenu-links"></div>
             <div id="site-header-submenu-preview" class="site-header__submenu-preview"></div>
           </div>
+        </div>
         </div>
         <div id="site-header-search-wrap" class="site-header__search-wrap" aria-hidden="true">
           <div class="site-header__search-dim" aria-hidden="true"></div>
@@ -176,7 +178,6 @@
           <div class="site-header__search-surface">
             <div class="site-header__search-head">
               <label class="site-header__search-field" for="filter-search">
-                <span class="site-header__search-label">Search</span>
                 <div class="site-header__search-pill-wrap">
                   <span class="site-header__search-pill-icon" aria-hidden="true"></span>
                   <span class="filters__search-field">
@@ -204,14 +205,6 @@
                   </span>
                 </div>
               </label>
-              <button
-                type="button"
-                id="site-header-search-submit"
-                class="site-header__search-submit"
-                aria-label="Run search"
-              >
-                Search
-              </button>
               <button
                 type="button"
                 id="site-header-search-close"

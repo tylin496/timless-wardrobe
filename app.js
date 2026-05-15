@@ -545,9 +545,9 @@
     });
   }
 
-  /** Archive lives at site root (`/` serves `index.html`); use when leaving `item.html` or deep links. */
+  /** Homepage hero landing (`index.html`); logo and “Timeless Wardrobe” breadcrumb root. */
+  const SITE_HOME_URL = "/";
   const ARCHIVE_PAGE_PATH = "/archive.html";
-  const ARCHIVE_HOME_URL = "/";
   const ARCHIVE_HOME_MAIN_URL = `${ARCHIVE_PAGE_PATH}#main`;
   const ARCHIVE_SCROLL_TTL_MS = 20 * 60 * 1000;
 
@@ -3051,13 +3051,6 @@
         media.classList.add("site-header__search-category-card__media--missing");
       }
 
-      const shade = document.createElement("div");
-      shade.className = "site-header__search-category-card__shade";
-      shade.setAttribute("aria-hidden", "true");
-
-      const overlay = document.createElement("div");
-      overlay.className = "site-header__search-category-card__overlay";
-
       const titleEl = document.createElement("span");
       titleEl.className = "site-header__search-category-card__title";
       titleEl.textContent = title;
@@ -3066,12 +3059,9 @@
       cta.className = "site-header__search-category-card__cta";
       cta.textContent = "Browse Now";
 
-      overlay.appendChild(titleEl);
-      overlay.appendChild(cta);
-      media.appendChild(shade);
-      media.appendChild(overlay);
-
       a.appendChild(media);
+      a.appendChild(titleEl);
+      a.appendChild(cta);
       gridHost.appendChild(a);
     }
     syncCategoryTabUI();
@@ -3528,6 +3518,9 @@
     if (sec === "outerwear") return isOuterwearSeasonalItem(item);
     if (sec === "tops") return isTopsSeasonalItem(item);
     if (sec === "shoes" || sec === "footwear") return isFootwearSeasonalItem(item);
+    if (sec === "layering") return isLayeringSeasonalItem(item);
+    if (sec === "bags") return isBagsSeasonalItem(item);
+    if (sec === "eyewear") return isEyewearSeasonalItem(item);
     const raw = String(item?.category ?? "").trim().toLowerCase();
     const label = friendlyRecordCategory(recordCategoryForDrill(item, itemSlot(item))).toLowerCase();
     return raw === sec || label === sec;
@@ -3561,162 +3554,230 @@
     return itemMatchesSeasonalKeywords(item, ["Sandal", "Sandals", "Loafer", "Shoe", "Espadrille"]);
   }
 
-  /** Watches, fragrance, jewellery, and non-footwear accessories are never seasonal-entry heroes. */
-  function isExcludedFromSeasonalEntry(item, seasonToken) {
-    const slot = itemSlot(item);
-    if (slot === SLOT_WATCHES || slot === SLOT_FRAGRANCE) return true;
-
-    const rec = recordCategoryForDrill(item, slot);
-    const label = friendlyRecordCategory(rec);
-    const blob = itemSeasonalEntryBlob(item);
-
-    if (
-      label === "Jewellery" ||
-      rec === "Jewellery" ||
-      label === "Fragrance" ||
-      rec === "Fragrance" ||
-      rec === "Day" ||
-      rec === "Evening" ||
-      blob.includes("watch") ||
-      blob.includes("cartier") ||
-      blob.includes("rolex") ||
-      blob.includes("fragrance") ||
-      blob.includes("perfume") ||
-      blob.includes("cologne")
-    ) {
-      return true;
-    }
-
-    if (slot === SLOT_ACCESSORIES) {
-      if (seasonToken === "S/S" && isFootwearSeasonalItem(item)) return false;
-      return true;
-    }
-
-    const s = itemSeasonToken(item);
-    if (!s || s === "All" || s === "All-season") return true;
-    return false;
+  function isLayeringSeasonalItem(item) {
+    const raw = String(item?.category ?? "").trim();
+    if (raw === "Mid Layer" || raw === "Inner Layer" || raw === "Layering") return true;
+    return friendlyRecordCategory(recordCategoryForDrill(item, itemSlot(item))) === "Layering";
   }
 
-  function itemMatchesStrictSeasonForSeasonalEntry(item, seasonToken) {
+  function isBagsSeasonalItem(item) {
+    const label = friendlyRecordCategory(recordCategoryForDrill(item, itemSlot(item)));
+    return label === "Bags" || String(item?.category ?? "").trim() === "Bags";
+  }
+
+  function isEyewearSeasonalItem(item) {
+    const label = friendlyRecordCategory(recordCategoryForDrill(item, itemSlot(item)));
+    return (
+      label === "Eyewear" ||
+      ["Sunglasses", "Glasses", "Eyeglasses"].includes(String(item?.category ?? "").trim())
+    );
+  }
+
+  function isJewellerySeasonalItem(item) {
+    const label = friendlyRecordCategory(recordCategoryForDrill(item, itemSlot(item)));
+    return label === "Jewellery" || String(item?.category ?? "").trim() === "Jewellery";
+  }
+
+  /** Strict season tag only — no All-season or cross-season pieces on seasonal cards. */
+  function itemMatchesStrictSeasonForSeasonalCard(item, seasonToken) {
     return itemSeasonToken(item) === seasonToken;
   }
 
+  /** @param {"A/W" | "S/S"} seasonToken */
+  function seasonalCardCategoryAllowed(item, seasonToken) {
+    const slot = itemSlot(item);
+    if (slot === SLOT_FRAGRANCE || isJewellerySeasonalItem(item)) return false;
+
+    if (seasonToken === "A/W") {
+      if (slot === SLOT_WATCHES) return true;
+      if (isOuterwearSeasonalItem(item)) return true;
+      if (isTailoringSeasonalItem(item)) return true;
+      if (isLayeringSeasonalItem(item)) return true;
+      if (isFootwearSeasonalItem(item)) return true;
+      if (isBagsSeasonalItem(item)) return true;
+      return false;
+    }
+
+    if (seasonToken === "S/S") {
+      if (slot === SLOT_WATCHES) return true;
+      if (isTopsSeasonalItem(item)) return true;
+      if (isFootwearSeasonalItem(item)) return true;
+      if (isBagsSeasonalItem(item)) return true;
+      if (isEyewearSeasonalItem(item)) return true;
+      if (slot === SLOT_ACCESSORIES) {
+        const raw = String(item?.category ?? "").trim();
+        if (["Hats", "Belts", "Scarves"].includes(raw)) return true;
+      }
+      return false;
+    }
+
+    return false;
+  }
+
   /**
-   * Score candidates for a stable, editorial pick (higher = better). No random shuffle.
    * @param {object} item
-   * @param {{ preferredSections?: string[], preferredKeywords?: string[] }} config
+   * @param {{ preferredKeywords?: string[] }} config
    */
-  function seasonalEntryVisualScore(item, config = {}) {
-    let s = 0;
-    if (buildCoverCandidates(item).length > 0) s += 24;
-    for (const sec of config.preferredSections || []) {
-      if (itemMatchesSeasonalSection(item, sec)) s += 10;
-    }
+  function seasonalCardPreferredScore(item, config = {}) {
+    let s = 8;
     for (const kw of config.preferredKeywords || []) {
-      if (itemMatchesSeasonalKeywords(item, [kw])) s += 5;
+      if (itemMatchesSeasonalKeywords(item, [kw])) s += 14;
     }
-    if (isTailoringSeasonalItem(item)) s += 4;
-    if (isOuterwearSeasonalItem(item)) s += 3;
-    if (isTopsSeasonalItem(item)) s += 3;
-    if (isFootwearSeasonalItem(item)) s += 2;
+    if (buildCoverCandidates(item).length > 0) s += 6;
     return s;
   }
 
-  function pickBestSeasonalEntryFromPool(pool, config) {
-    const withCover = pool.filter((it) => buildCoverCandidates(it).length > 0);
-    const base = withCover.length ? withCover : pool;
-    if (!base.length) return null;
-    const ranked = [...base].sort((a, b) => {
-      const ds = seasonalEntryVisualScore(b, config) - seasonalEntryVisualScore(a, config);
-      if (ds !== 0) return ds;
-      return String(a?.id ?? "").localeCompare(String(b?.id ?? ""));
-    });
-    return ranked[0] ?? null;
-  }
-
-  /**
-   * Curated hero for homepage seasonal tiles — category tiers, not random archive picks.
-   * @param {{
-   *   season: "A/W" | "S/S",
-   *   preferredSections: string[],
-   *   preferredKeywords: string[],
-   *   tiers: { label: string, match: (item: object) => boolean }[],
-   * }} config
-   * @returns {object | null}
-   */
-  function pickSeasonalEntryItem(config) {
-    const seasonToken = config.season;
-    const catalog = getAllWardrobeItems();
-    if (!catalog.length) return null;
-
-    const scoreConfig = {
-      preferredSections: config.preferredSections,
-      preferredKeywords: config.preferredKeywords,
-    };
-
-    const strictSeasonPool = catalog.filter(
-      (it) => itemMatchesStrictSeasonForSeasonalEntry(it, seasonToken) && !isExcludedFromSeasonalEntry(it, seasonToken)
-    );
-
-    for (const tier of config.tiers) {
-      const matched = strictSeasonPool.filter(tier.match);
-      const pick = pickBestSeasonalEntryFromPool(matched, scoreConfig);
-      if (pick) return pick;
+  /** @param {object[]} pool @param {number} count @param {(item: object) => number} scoreFn */
+  function weightedSampleWithoutReplacement(pool, count, scoreFn) {
+    const bag = pool.map((it) => ({ it, w: Math.max(1, scoreFn(it)) }));
+    const out = [];
+    for (let n = 0; n < count && bag.length; n++) {
+      const total = bag.reduce((sum, row) => sum + row.w, 0);
+      let r = Math.random() * total;
+      let idx = 0;
+      for (; idx < bag.length; idx++) {
+        r -= bag[idx].w;
+        if (r <= 0) break;
+      }
+      const pick = bag.splice(Math.max(0, Math.min(idx, bag.length - 1)), 1)[0];
+      if (pick) out.push(pick.it);
     }
-
-    return pickBestSeasonalEntryFromPool(strictSeasonPool, scoreConfig);
+    return out;
   }
 
-  function pickAwSeasonalEntryItem() {
-    return pickSeasonalEntryItem({
-      season: "A/W",
-      preferredSections: ["Tailoring", "Outerwear"],
-      preferredKeywords: ["Tweed", "Blazer", "Jacket", "Coat"],
-      tiers: [
-        {
-          label: "A/W Tailoring",
-          match: (it) => isTailoringSeasonalItem(it) && itemMatchesStrictSeasonForSeasonalEntry(it, "A/W"),
-        },
-        {
-          label: "A/W Outerwear",
-          match: (it) => isOuterwearSeasonalItem(it) && itemMatchesStrictSeasonForSeasonalEntry(it, "A/W"),
-        },
-        {
-          label: "Any Tailoring",
-          match: (it) => {
-            if (!isTailoringSeasonalItem(it)) return false;
-            if (itemSlot(it) !== SLOT_CLOTHING) return false;
-            const s = itemSeasonToken(it);
-            return s === "A/W" || s === "All-season";
-          },
-        },
-      ],
-    });
+  const SEASONAL_CARD_AW_CONFIG = {
+    preferredKeywords: ["Barbour", "Tweed", "Balmacaan", "Harrington", "Brogue", "Boot", "BB58"],
+  };
+
+  const SEASONAL_CARD_SS_CONFIG = {
+    preferredKeywords: ["Linen", "Knit", "Polo", "Tote", "GAT", "Sunglass", "Cartier", "Tank"],
+  };
+
+  /** @type {{ aw: string, ss: string }} */
+  let lastSeasonalCardCompositionSig = { aw: "", ss: "" };
+  let seasonalCardRefreshTimer = 0;
+
+  /** @param {"A/W" | "S/S"} seasonToken @param {{ preferredKeywords?: string[] }} config */
+  function buildSeasonalCardPool(seasonToken, config) {
+    return getAllWardrobeItems().filter(
+      (it) =>
+        itemMatchesStrictSeasonForSeasonalCard(it, seasonToken) &&
+        seasonalCardCategoryAllowed(it, seasonToken) &&
+        buildCoverCandidates(it).length > 0
+    );
   }
 
-  function pickSsSeasonalEntryItem() {
-    return pickSeasonalEntryItem({
-      season: "S/S",
-      preferredSections: ["Tops", "Shoes", "Outerwear"],
-      preferredKeywords: ["Linen", "Polo", "Camp Collar", "Resort", "Safari", "Sandals"],
-      tiers: [
-        {
-          label: "S/S Tops",
-          match: (it) => isTopsSeasonalItem(it) && itemMatchesStrictSeasonForSeasonalEntry(it, "S/S"),
-        },
-        {
-          label: "S/S Shoes / Sandals",
-          match: (it) => isFootwearSeasonalItem(it) && itemMatchesStrictSeasonForSeasonalEntry(it, "S/S"),
-        },
-        {
-          label: "S/S Outerwear linen/safari",
-          match: (it) =>
-            isOuterwearSeasonalItem(it) &&
-            itemMatchesStrictSeasonForSeasonalEntry(it, "S/S") &&
-            itemMatchesSeasonalKeywords(it, ["Linen", "Safari", "Resort"]),
-        },
-      ],
+  function seasonalCardCompositionSig(items) {
+    return items
+      .map((it) => String(it?.id ?? ""))
+      .filter(Boolean)
+      .sort()
+      .join("|");
+  }
+
+  /** @param {"aw" | "ss"} sigKey @param {"A/W" | "S/S"} seasonToken @param {{ preferredKeywords?: string[] }} config */
+  function pickRandomSeasonalCardComposition(sigKey, seasonToken, config) {
+    const pool = buildSeasonalCardPool(seasonToken, config);
+    if (!pool.length) return [];
+
+    const maxCount = Math.min(4, pool.length);
+    const minCount = Math.min(2, maxCount);
+    const count = minCount + Math.floor(Math.random() * (maxCount - minCount + 1));
+
+    let picked = [];
+    let attempts = 0;
+    const prevSig = lastSeasonalCardCompositionSig[sigKey];
+    do {
+      picked = weightedSampleWithoutReplacement(pool, count, (it) => seasonalCardPreferredScore(it, config));
+      attempts += 1;
+    } while (seasonalCardCompositionSig(picked) === prevSig && attempts < 12 && pool.length > count);
+
+    lastSeasonalCardCompositionSig[sigKey] = seasonalCardCompositionSig(picked);
+    return picked;
+  }
+
+  /** Editorial still-life slots (% of card); order shuffled at mount. */
+  const SEASONAL_STILL_LAYOUTS = {
+    2: [
+      { x: 6, y: 4, w: 54, z: 1, rot: -3, scale: 1.04 },
+      { x: 38, y: 10, w: 52, z: 2, rot: 2.5, scale: 0.98 },
+    ],
+    3: [
+      { x: 4, y: 2, w: 46, z: 1, rot: -4, scale: 1.02 },
+      { x: 32, y: 8, w: 44, z: 2, rot: 3, scale: 1 },
+      { x: 52, y: 0, w: 40, z: 3, rot: -1.5, scale: 0.96 },
+    ],
+    4: [
+      { x: 2, y: 0, w: 40, z: 1, rot: -5, scale: 1.03 },
+      { x: 26, y: 6, w: 38, z: 2, rot: 2, scale: 0.97 },
+      { x: 48, y: 2, w: 36, z: 3, rot: -2, scale: 1.01 },
+      { x: 62, y: 12, w: 34, z: 4, rot: 4, scale: 0.94 },
+    ],
+  };
+
+  /** @param {HTMLElement | null} host @param {object[]} items */
+  function mountSeasonalCardStillLife(host, items) {
+    if (!host) return;
+    host.replaceChildren();
+    if (!items.length) {
+      host.classList.add("ed-lp__season-media--missing");
+      return;
+    }
+    host.classList.remove("ed-lp__season-media--missing");
+
+    const still = document.createElement("div");
+    still.className = "ed-lp__season-still";
+    const n = Math.min(4, Math.max(2, items.length));
+    const layouts = SEASONAL_STILL_LAYOUTS[n] || SEASONAL_STILL_LAYOUTS[4];
+    const pieces = items.slice(0, n);
+    shuffleArrayInPlace(pieces);
+
+    pieces.forEach((item, i) => {
+      const layout = layouts[i % layouts.length];
+      const piece = document.createElement("div");
+      piece.className = "ed-lp__season-piece";
+      const jitter = () => (Math.random() - 0.5) * 5;
+      piece.style.setProperty("--piece-x", `${layout.x + jitter() * 0.4}%`);
+      piece.style.setProperty("--piece-y", `${layout.y + jitter() * 0.35}%`);
+      piece.style.setProperty("--piece-w", `${layout.w * (0.96 + Math.random() * 0.08)}%`);
+      piece.style.setProperty("--piece-z", String(layout.z));
+      piece.style.setProperty("--piece-rot", `${layout.rot + jitter()}deg`);
+      piece.style.setProperty("--piece-scale", String(layout.scale * (0.94 + Math.random() * 0.1)));
+
+      const img = document.createElement("img");
+      img.className = "ed-lp__season-piece-img";
+      img.alt = "";
+      img.loading = i === 0 ? "eager" : "lazy";
+      img.decoding = "async";
+      piece.appendChild(img);
+      still.appendChild(piece);
+      wireCoverImageWithFallbacks(img, item, { host: piece, missingClass: null });
     });
+
+    host.appendChild(still);
+  }
+
+  function refreshHomeSeasonalCards() {
+    const awMedia = document.getElementById("ed-lp-season-aw-media");
+    const ssMedia = document.getElementById("ed-lp-season-ss-media");
+    if (!awMedia && !ssMedia) return;
+    mountSeasonalCardStillLife(
+      awMedia,
+      pickRandomSeasonalCardComposition("aw", "A/W", SEASONAL_CARD_AW_CONFIG)
+    );
+    mountSeasonalCardStillLife(
+      ssMedia,
+      pickRandomSeasonalCardComposition("ss", "S/S", SEASONAL_CARD_SS_CONFIG)
+    );
+  }
+
+  function startSeasonalCardAutoRefresh() {
+    if (seasonalCardRefreshTimer) return;
+    seasonalCardRefreshTimer = globalThis.setInterval(() => {
+      if (!document.body.classList.contains("home-page")) return;
+      if (document.hidden) return;
+      refreshHomeSeasonalCards();
+    }, 90_000);
   }
 
   function buildItemDetailHrefFromId(id) {
@@ -3765,8 +3826,18 @@
   }
 
   /** Homepage: solid brand masthead; transparent nav over primary hero until scroll / overlays. */
+  function teardownHomeHeroHeader() {
+    const teardown = initHomeHeroHeader._teardown;
+    if (typeof teardown === "function") teardown();
+    initHomeHeroHeader._teardown = null;
+    initHomeHeroHeader._wired = false;
+  }
+
   function initHomeHeroHeader() {
-    if (!document.body.classList.contains("home-page")) return;
+    if (!document.body.classList.contains("home-page")) {
+      teardownHomeHeroHeader();
+      return;
+    }
     const hero = document.querySelector(".site-home-stage .ed-lp__hero") || document.querySelector(".ed-lp__hero");
     const siteHeader = document.querySelector(".site-header");
     const shell = document.querySelector(".site-header-shell--home-overlay") || document.querySelector(".site-header-shell");
@@ -3798,8 +3869,10 @@
     initHomeHeroHeader._wired = true;
 
     update();
+    /** @type {ResizeObserver | null} */
+    let ro = null;
     if (typeof ResizeObserver !== "undefined") {
-      const ro = new ResizeObserver(update);
+      ro = new ResizeObserver(update);
       ro.observe(shell);
       ro.observe(siteHeader);
       ro.observe(hero);
@@ -3808,6 +3881,13 @@
     window.addEventListener("resize", update, { passive: true });
     const mo = new MutationObserver(update);
     mo.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    initHomeHeroHeader._teardown = () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      ro?.disconnect();
+      mo.disconnect();
+      document.body.style.removeProperty("--home-header-nav-height");
+    };
   }
 
   function renderEditorialLandingPage() {
@@ -3894,29 +3974,8 @@
       recentHost.appendChild(buildEditorialHomeProductCard(it));
     }
 
-    const awHeroItem = pickAwSeasonalEntryItem();
-    const ssHeroItem = pickSsSeasonalEntryItem();
-
-    function fillSeasonTile(host, it) {
-      if (!host) return;
-      host.replaceChildren();
-      if (!it) return;
-      const img = document.createElement("img");
-      img.className = "ed-lp__season-img";
-      img.alt = "";
-      img.loading = "lazy";
-      host.appendChild(img);
-      wireCoverImageWithFallbacks(img, it, {
-        host,
-        missingClass: "ed-lp__season-media--missing",
-        coverRenderWidth: 900,
-        coverRenderHeight: 560,
-        coverRenderZoom: 1.06,
-        coverRenderQuality: 84,
-      });
-    }
-    fillSeasonTile(awMedia, awHeroItem);
-    fillSeasonTile(ssMedia, ssHeroItem);
+    refreshHomeSeasonalCards();
+    startSeasonalCardAutoRefresh();
     syncCategoryTabUI();
   }
 
@@ -3959,7 +4018,7 @@
       }
       clearArchiveKeywordColourNarrowing();
       if (archiveSubmittedSearchNorm) exitArchiveSearchPlpRestoreBrowse({ skipRestore: true });
-      categoryNavFilter = SLOT_OPTIONS.includes(jump) ? jump : SLOT_CLOTHING;
+      categoryNavFilter = resolveCategoryJump(jump);
       subcategoryFilter = sub;
       noteArchiveSearchUserChoseMainSlotFilter();
       syncCategoryTabUI();
@@ -4717,30 +4776,26 @@
     syncSearchKeywordChip();
   }
 
+  /** Enter in open search overlay: refresh in-panel results; keep overlay open (RL-style). */
+  function runHeaderSearchOverlayQuery() {
+    cancelHeaderSearchOverlayUiDebounce();
+    const raw = String(els.search?.value ?? "").trim();
+    const norm = normalizeSearch(raw);
+    headerSearchOpenArchiveSearchNorm = norm;
+    headerSearchOverlayOpeningQueryRaw = raw;
+    syncSearchKeywordChip();
+    syncHeaderSearchOverlayResultsPane();
+  }
+
   function submitArchiveSearchFromInput() {
     cancelSearchGridDebounce();
     cancelHeaderSearchOverlayUiDebounce();
     const raw = String(els.search?.value ?? "").trim();
     const norm = normalizeSearch(raw);
-    const overlayWasOpen = isHeaderSearchWrapOpen();
 
-    if (overlayWasOpen) {
-      const headerSearchWrap = document.getElementById("site-header-search-wrap");
-      const headerSearchBtn = document.getElementById("site-header-search-btn");
-      if (headerSearchWrap) {
-        headerSearchWrap.classList.remove("is-open");
-        headerSearchWrap.setAttribute("aria-hidden", "true");
-        headerSearchBtn?.setAttribute("aria-expanded", "false");
-        headerSearchBtn?.setAttribute("aria-label", "Open search");
-      }
-      document.body.classList.remove("archive-ui--header-search-open");
-      document.documentElement.style.removeProperty("--tw-search-dim-top");
-      headerSearchOverlayArchiveSearchFrozen = false;
-      headerSearchOpenArchiveSearchNorm = "";
-      headerSearchOverlayOpeningQueryRaw = null;
-      cancelHeaderSearchOverlayUiDebounce();
-      resetHeaderSearchOverlayResultsDom();
-      ensureBodyScrollUnlockedWhenNoOverlay();
+    if (isHeaderSearchWrapOpen()) {
+      runHeaderSearchOverlayQuery();
+      return;
     }
 
     if (!document.getElementById("grid")) {
@@ -4783,7 +4838,7 @@
       subcategoryFilter = "";
       basicColourFilter = persistBasicColourFilter("");
       archiveSearchBrowseAllSlots = true;
-      categoryNavFilter = SLOT_CLOTHING;
+      categoryNavFilter = "";
       syncCategoryTabUI();
       validateSubcategoryFilter();
     } else {
@@ -4937,13 +4992,35 @@
     const gridEl = document.getElementById("site-header-search-results-grid");
     const emptyEl = document.getElementById("site-header-search-results-empty");
     if (!browse || !pane || !gridEl || !emptyEl) return;
-    browse.hidden = false;
-    pane.hidden = true;
+
+    const norm = normalizeSearch(String(els.search?.value ?? "").trim());
+
+    if (!norm) {
+      browse.hidden = false;
+      pane.hidden = true;
+      gridEl.replaceChildren();
+      emptyEl.hidden = true;
+      queueMicrotask(() => syncSearchOverlayBackdropTop());
+      return;
+    }
+
+    const hits = items.filter((it) => itemMatchesSearch(it, norm)).sort(compareGridItems).slice(0, 12);
+
+    browse.hidden = true;
+    pane.hidden = false;
     gridEl.replaceChildren();
+
+    if (!hits.length) {
+      emptyEl.hidden = false;
+      queueMicrotask(() => syncSearchOverlayBackdropTop());
+      return;
+    }
+
     emptyEl.hidden = true;
-    queueMicrotask(() => {
-      syncSearchOverlayBackdropTop();
-    });
+    for (const item of hits) {
+      gridEl.appendChild(createHeaderSearchOverlayResultLink(item));
+    }
+    queueMicrotask(() => syncSearchOverlayBackdropTop());
   }
 
   function flushHeaderSearchOverlayUiDebounceIfPending() {
@@ -4973,9 +5050,8 @@
   function narrowingFiltersActive() {
     const allowColour = allowArchiveBasicColourFilter();
     const cat = String(categoryNavFilter ?? "").trim();
-    const slotNarrowing = Boolean(cat && cat !== SLOT_CLOTHING);
     return Boolean(
-      slotNarrowing ||
+      cat ||
         String(subcategoryFilter ?? "").trim() ||
         effectiveArchiveKeywordSearchNorm() ||
         String(archiveSearchWithinRecordCategory ?? "").trim() ||
@@ -4983,16 +5059,25 @@
     );
   }
 
-  /** Brand-story strip: hide for search or broad colour — not for record-type drill (grid filters only). */
+  /** Brand-story strip: show on All Pieces landing and category slots; hide for search / colour narrowing. */
   function archiveBrandStoryHiddenByAuxFilters() {
     const allowColour = allowArchiveBasicColourFilter();
-    return Boolean(effectiveArchiveKeywordSearchNorm() || (allowColour && basicColourFilter));
+    const cat = String(categoryNavFilter ?? "").trim();
+    if (effectiveArchiveKeywordSearchNorm()) return true;
+    if (allowColour && basicColourFilter) return true;
+    if (!cat) {
+      const sub = String(subcategoryFilter ?? "").trim();
+      const within = String(archiveSearchWithinRecordCategory ?? "").trim();
+      const allSeasonsNav = String(seasonNavFilter ?? "").trim() === "All";
+      return Boolean(sub || within || !allSeasonsNav);
+    }
+    return false;
   }
 
   function describeNarrowingFiltersForUiSansSearch() {
     const bits = [];
     const cat = String(categoryNavFilter ?? "").trim();
-    if (cat && cat !== SLOT_CLOTHING) bits.push(categoryDisplayLabel(cat));
+    if (cat) bits.push(categoryDisplayLabel(cat));
     const sub = String(subcategoryFilter ?? "").trim();
     if (sub) bits.push(friendlyRecordCategory(sub) || sub);
     if (allowArchiveBasicColourFilter() && basicColourFilter) bits.push(basicColourLabelEn(basicColourFilter));
@@ -5029,8 +5114,7 @@
     const textEl = els.categoryChipText;
     if (!btn || !textEl) return;
     const cat = String(categoryNavFilter ?? "").trim();
-    /* Clothing tab already implies the slot — chip would only repeat “Clothing”. */
-    if (cat && cat !== SLOT_CLOTHING) {
+    if (cat) {
       const label = categoryDisplayLabel(cat) || cat;
       textEl.textContent = label;
       btn.hidden = false;
@@ -5300,7 +5384,7 @@
     collapseFiltersMenuPanel();
   }
 
-  /** Logo / home: full archive — season All, all slots, no narrowing filters; sort / currency unchanged. */
+  /** Archive “reset view”: season All, all slots, no narrowing filters; sort / currency unchanged. */
   function resetAllArchiveFilters() {
     seasonNavFilter = "All";
     persistSeasonNav();
@@ -5521,7 +5605,13 @@
       seenLabels.add(label);
       entries.push({ raw, label });
     }
-    return entries;
+    return [{ raw: "", label: SUBCATEGORY_ALL_LABEL }, ...entries];
+  }
+
+  function subcategoryFilterMatchesEntry(raw, subF) {
+    const key = String(raw ?? "").trim();
+    const active = String(subF ?? "").trim();
+    return key ? active === key : !active;
   }
 
   /** Legacy Chinese `category` / drill keys saved before English migration. */
@@ -5656,16 +5746,66 @@
     }
   }
 
+  function ensureArchiveSlotTypeStrip() {
+    const drill = document.getElementById("category-drill");
+    if (!drill) return null;
+    let strip = document.getElementById("archive-slot-type-strip");
+    if (!strip) {
+      strip = document.createElement("div");
+      strip.id = "archive-slot-type-strip";
+      strip.className = "category-drill__grid category-drill__grid--slots";
+      strip.setAttribute("role", "tablist");
+      strip.setAttribute("aria-label", "Collection type");
+      const subGrid = document.getElementById("category-drill-grid");
+      if (subGrid) drill.insertBefore(strip, subGrid);
+      else drill.appendChild(strip);
+    }
+    return strip;
+  }
+
+  function renderArchiveSlotTypeStrip() {
+    const drill = document.getElementById("category-drill");
+    const strip = ensureArchiveSlotTypeStrip();
+    if (!drill || !strip) return;
+
+    const cat = String(categoryNavFilter ?? "").trim();
+    strip.replaceChildren();
+
+    function appendSlot(value, label) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "category-drill__choice category-drill__choice--slot";
+      if (!value) b.classList.add("category-drill__choice--all");
+      b.setAttribute("data-slot-filter", value);
+      b.setAttribute("role", "tab");
+      const active = value ? cat === value : !cat;
+      b.classList.toggle("is-active", active);
+      b.setAttribute("aria-selected", active ? "true" : "false");
+      b.textContent = label;
+      strip.appendChild(b);
+    }
+
+    appendSlot("", ARCHIVE_ALL_TYPES_LABEL);
+    for (const slot of SLOT_OPTIONS) {
+      appendSlot(slot, categoryDisplayLabel(slot));
+    }
+
+    drill.hidden = false;
+    drill.removeAttribute("aria-hidden");
+  }
+
   function renderCategoryDrill() {
     const drill = document.getElementById("category-drill");
     const grid = document.getElementById("category-drill-grid");
     if (!drill || !grid) return;
+    grid.classList.add("category-drill__grid", "category-drill__grid--subtypes");
 
     validateSubcategoryFilter();
 
     if (isArchiveSearchResultsMode()) {
       blurActiveElementIfInsideCategoryDrill();
       drill.hidden = true;
+      grid.hidden = true;
       grid.innerHTML = "";
       return;
     }
@@ -5673,54 +5813,62 @@
     if (!ARCHIVE_RECORD_TYPE_SUBNAV_ENABLED) {
       blurActiveElementIfInsideCategoryDrill();
       drill.hidden = true;
+      grid.hidden = true;
       grid.innerHTML = "";
       return;
     }
 
-    function hideDrillStrip() {
+    const slot = String(categoryNavFilter ?? "").trim();
+
+    /** All Types landing: no duplicate slot/type pills — use header + mega menu. */
+    if (!slot) {
       blurActiveElementIfInsideCategoryDrill();
       drill.hidden = true;
+      drill.setAttribute("aria-hidden", "true");
       grid.innerHTML = "";
-    }
-
-    if (!categoryNavFilter) {
-      hideDrillStrip();
+      grid.hidden = true;
+      document.getElementById("archive-slot-type-strip")?.remove();
       return;
     }
+
+    document.getElementById("archive-slot-type-strip")?.remove();
+    drill.hidden = false;
+    drill.removeAttribute("aria-hidden");
 
     const seasonalPool = poolItemsForDrillSubcategories();
     if (!seasonalPool.length) {
       subcategoryFilter = "";
-      hideDrillStrip();
+      grid.innerHTML = "";
+      grid.hidden = true;
+      drill.hidden = true;
+      drill.setAttribute("aria-hidden", "true");
       return;
     }
 
-    const typeKeys = [...new Set(drillSubcategoryKeysFromPool(categoryNavFilter, seasonalPool).filter(Boolean))];
-    const typeEntries = [];
-    const seenTypeLabels = new Set();
-    for (const raw of typeKeys) {
-      const label = friendlyRecordCategory(raw) || raw;
-      if (seenTypeLabels.has(label)) continue;
-      seenTypeLabels.add(label);
-      typeEntries.push({ raw, label });
-    }
+    const typeEntries = megaMenuSubcategoryEntriesForSlot(slot, seasonalPool);
+    const specificTypes = typeEntries.filter((e) => String(e.raw ?? "").trim());
 
-    /** No sub-type strip when there is nothing to choose or only one record type (main tabs are enough). */
-    if (typeEntries.length <= 1) {
+    /** No sub-type strip when there is nothing beyond “All” (slot-only browse is enough). */
+    if (!specificTypes.length) {
       subcategoryFilter = "";
-      hideDrillStrip();
+      grid.innerHTML = "";
+      grid.hidden = true;
+      drill.hidden = true;
+      drill.setAttribute("aria-hidden", "true");
       return;
     }
 
     grid.innerHTML = "";
+    grid.hidden = false;
+
+    const subF = String(subcategoryFilter ?? "").trim();
 
     function appendChoice(rawValue, label) {
       const b = document.createElement("button");
       b.type = "button";
       b.className = "category-drill__choice";
-      const active = subcategoryFilter === rawValue;
-      if (active) b.classList.add("is-active");
-      b.dataset.subcategory = rawValue;
+      if (subcategoryFilterMatchesEntry(rawValue, subF)) b.classList.add("is-active");
+      b.dataset.subcategory = String(rawValue ?? "");
       b.textContent = label;
       grid.appendChild(b);
     }
@@ -5731,12 +5879,8 @@
 
     if (grid.childElementCount <= 0) {
       subcategoryFilter = "";
-      hideDrillStrip();
-      return;
+      grid.hidden = true;
     }
-
-    drill.hidden = false;
-    drill.removeAttribute("aria-hidden");
   }
 
   /** Season, slot, drill, and basic colour only — no live keyword typing (keywords are commit-only). */
@@ -7048,7 +7192,7 @@
     showToast("Piece removed.");
 
     if (!document.getElementById("grid") && String(detailItemId) === sid) {
-      globalThis.location.href = ARCHIVE_HOME_URL;
+      globalThis.location.href = SITE_HOME_URL;
     }
   }
 
@@ -7408,6 +7552,23 @@
     resetAddItemMeasurementBlock();
   }
 
+  function isArchiveCardCoarsePointer() {
+    return globalThis.matchMedia?.("(max-width: 900px), (hover: none), (pointer: coarse)")?.matches ?? false;
+  }
+
+  function stylingBoardCtaLabel(blocked) {
+    return blocked ? "ON BOARD" : "+ STYLING BOARD";
+  }
+
+  function dismissArchiveCardStylingReveal(except) {
+    if (!els.grid) return;
+    els.grid.querySelectorAll(".card--styling-reveal").forEach((node) => {
+      if (!(node instanceof HTMLElement)) return;
+      if (except && node === except) return;
+      node.classList.remove("card--styling-reveal");
+    });
+  }
+
   function createCard(item, cardOpts = {}) {
     const variants = getItemColourVariants(item);
     const inOutfit = outfitIdSet().has(item.id);
@@ -7471,31 +7632,25 @@
       media.appendChild(chip);
     }
 
+    /** @type {HTMLButtonElement | null} */
+    let boardAddBtn = null;
     if (itemEligibleForOutfit(item)) {
-      const quick = document.createElement("button");
-      quick.type = "button";
-      quick.className = "card__board-add";
-      quick.dataset.outfitAdd = item.id;
+      boardAddBtn = document.createElement("button");
+      boardAddBtn.type = "button";
+      boardAddBtn.className = "card__board-add";
+      boardAddBtn.dataset.outfitAdd = item.id;
       const blocked = everyVariantTaken || singleTaken;
       if (variants?.length) {
-        quick.title = everyVariantTaken
+        boardAddBtn.title = everyVariantTaken
           ? "Every colour is already on your styling board."
           : "Add a colour to Styling Board";
       } else {
-        quick.title = blocked ? "Already on styling board." : "Add to Styling Board";
+        boardAddBtn.title = blocked ? "Already on styling board." : "Add to Styling Board";
       }
-      quick.setAttribute("aria-label", quick.title);
-      const icon = document.createElement("span");
-      icon.className = "card__board-add__icon";
-      icon.setAttribute("aria-hidden", "true");
-      icon.textContent = blocked ? "✓" : "+";
-      const label = document.createElement("span");
-      label.className = "card__board-add__label";
-      label.textContent = "Add to Styling Board";
-      quick.appendChild(icon);
-      quick.appendChild(label);
-      quick.disabled = Boolean(blocked);
-      media.appendChild(quick);
+      boardAddBtn.setAttribute("aria-label", boardAddBtn.title);
+      boardAddBtn.textContent = stylingBoardCtaLabel(blocked);
+      boardAddBtn.disabled = Boolean(blocked);
+      media.appendChild(boardAddBtn);
     }
 
     const openHint = "Open piece";
@@ -7509,6 +7664,14 @@
       if (ev.target.closest(".card__colour-tray")) return;
       if (ev.target.closest(".card__gallery-thumb")) return;
       if (ev.target.closest(".card__season-chip")) return;
+      if (isArchiveCardCoarsePointer() && boardAddBtn && !boardAddBtn.disabled) {
+        if (!article.classList.contains("card--styling-reveal")) {
+          dismissArchiveCardStylingReveal(article);
+          article.classList.add("card--styling-reveal");
+          return;
+        }
+      }
+      dismissArchiveCardStylingReveal();
       openCardDetail(ev);
     });
 
@@ -7650,9 +7813,7 @@
       const singleTaken = !variants?.length && outfitSlotKeySet().has(outfitSlotKey({ itemId: item.id }));
 
       const blocked = everyVariantTaken || singleTaken;
-      const icon = quick.querySelector(".card__board-add__icon");
-      if (icon) icon.textContent = blocked ? "✓" : "+";
-      else quick.textContent = blocked ? "✓" : "+";
+      quick.textContent = stylingBoardCtaLabel(blocked);
       /** @type {HTMLButtonElement} */ (quick).disabled = Boolean(blocked);
       if (variants?.length) {
         quick.title = everyVariantTaken
@@ -7733,16 +7894,44 @@
     return String(a?.id ?? "").localeCompare(String(b?.id ?? ""), undefined, { sensitivity: "base" });
   }
 
-  /** Default serif heading for the archive PLP (not a specific category / drill line). */
-  const ARCHIVE_SECTION_HEADING = "Classic Menswear";
+  /** Default archive PLP heading when no browse slot is selected. */
+  const ARCHIVE_ALL_TYPES_LABEL = "All Types";
+  /** Season-aware archive eyebrow (uppercase; slash only when paired with a category title). */
+  function archiveSeasonEyebrowText({ withSlash = false } = {}) {
+    const seasonRaw = String(seasonNavFilter ?? "").trim();
+    let label;
+    if (seasonRaw === "S/S") label = "SPRING / SUMMER";
+    else if (seasonRaw === "A/W") label = "AUTUMN / WINTER";
+    else label = "ALL SEASONS";
+    return withSlash ? `${label} /` : label;
+  }
+  /** Per-slot subcategory drill / mega menu: view entire parent category (empty `subcategoryFilter`). */
+  const SUBCATEGORY_ALL_LABEL = "All";
+
+  function resolveCategoryJump(jump) {
+    const j = String(jump ?? "").trim();
+    return SLOT_OPTIONS.includes(j) ? j : "";
+  }
+
+  function applyCategoryNavFilter(nextSlot, { scrollTop = false } = {}) {
+    const slot = String(nextSlot ?? "").trim();
+    categoryNavFilter = SLOT_OPTIONS.includes(slot) ? slot : "";
+    subcategoryFilter = "";
+    noteArchiveSearchUserChoseMainSlotFilter();
+    syncCategoryTabUI();
+    validateSubcategoryFilter();
+    renderCategoryDrill();
+    syncFiltersMenuForViewport();
+    renderGrid();
+    if (scrollTop) scrollArchiveViewportTop();
+  }
 
   function syncBrandStoryActivePanel() {
     const story = document.getElementById("items-toolbar-brand-story");
     const storyBtn = document.getElementById("items-toolbar-brand-story-toggle");
     if (!story || story.hidden) return;
     const cat = String(categoryNavFilter ?? "").trim();
-    const slotKey =
-      !cat || cat === SLOT_CLOTHING ? SLOT_CLOTHING : SLOT_OPTIONS.includes(cat) ? cat : SLOT_CLOTHING;
+    const slotKey = !cat ? "" : SLOT_OPTIONS.includes(cat) ? cat : SLOT_CLOTHING;
     if (lastBrandStoryPanelKey !== slotKey) {
       lastBrandStoryPanelKey = slotKey;
       story.classList.remove("items-toolbar__brand-story--expanded");
@@ -7778,15 +7967,9 @@
     if (sub || colourOn || within) return "CURATED SELECTION /";
 
     const cat = String(categoryNavFilter ?? "").trim();
-    const allSeasonsNav = String(seasonNavFilter ?? "").trim() === "All";
-    const seasonRaw = String(seasonNavFilter ?? "").trim();
 
-    if (!cat && allSeasonsNav) return "PERMANENT COLLECTION /";
-    if (cat === SLOT_CLOTHING && allSeasonsNav) return "PERMANENT COLLECTION /";
-    if (allSeasonsNav) return "ALL SEASONS /";
-    if (seasonRaw === "S/S") return "S/S /";
-    if (seasonRaw === "A/W") return "A/W /";
-    return "ALL SEASONS /";
+    if (cat) return archiveSeasonEyebrowText({ withSlash: true });
+    return archiveSeasonEyebrowText({ withSlash: false });
   }
 
   /** Breadcrumb + serif page title — retail PLP–style archive header (left stack). */
@@ -7795,7 +7978,6 @@
     const pt = document.getElementById("items-toolbar-page-title");
     if (!bc || !pt) return;
     const qNorm = effectiveArchiveKeywordSearchNorm();
-    const seasonL = seasonUiLabel(seasonNavFilter);
     const cat = String(categoryNavFilter ?? "").trim();
     const sub = String(subcategoryFilter ?? "").trim();
     const allSeasonsNav = String(seasonNavFilter ?? "").trim() === "All";
@@ -7803,12 +7985,21 @@
     const showArchiveBrandStory = !archiveBrandStoryHiddenByAuxFilters();
     const story = document.getElementById("items-toolbar-brand-story");
     const storyBtn = document.getElementById("items-toolbar-brand-story-toggle");
+    const allPiecesLanding =
+      classicHome && !archiveSubmittedSearchNorm && !qNorm && !isHeaderSearchWrapOpen();
+    const defaultArchiveLanding =
+      !cat && !sub && !narrowingFiltersActive() && !archiveSubmittedSearchNorm && !qNorm && !isHeaderSearchWrapOpen();
+
+    document.body.classList.toggle("archive-ui--all-pieces-landing", allPiecesLanding);
+    document.body.classList.toggle("archive-ui--default-archive-landing", defaultArchiveLanding);
 
     bc.textContent = archiveToolbarBreadcrumbText();
 
     if (archiveSubmittedSearchNorm && !isHeaderSearchWrapOpen()) {
-      pt.textContent = ARCHIVE_SECTION_HEADING;
+      pt.hidden = false;
+      pt.textContent = ARCHIVE_ALL_TYPES_LABEL;
     } else if (qNorm) {
+      pt.hidden = false;
       const rawQ =
         headerSearchOverlayArchiveSearchFrozen && headerSearchOverlayOpeningQueryRaw != null
           ? headerSearchOverlayOpeningQueryRaw
@@ -7816,20 +8007,14 @@
       pt.textContent =
         rawQ.length > 0 ? `Results for “${rawQ}”` : `Results for “${qNorm}”`;
     } else if (cat) {
-      /* Clothing PLP keeps the homepage serif line; other slots use their own title with the matching brand-story panel. */
-      pt.textContent = cat === SLOT_CLOTHING ? ARCHIVE_SECTION_HEADING : categoryDisplayLabel(cat);
+      pt.hidden = false;
+      pt.textContent = categoryDisplayLabel(cat);
     } else if (sub) {
+      pt.hidden = false;
       pt.textContent = friendlyRecordCategory(sub) || sub;
     } else {
-      if (classicHome) {
-        pt.textContent = ARCHIVE_SECTION_HEADING;
-      } else {
-        pt.textContent = !narrowingFiltersActive()
-          ? ARCHIVE_SECTION_HEADING
-          : seasonL === "All seasons"
-            ? ARCHIVE_SECTION_HEADING
-            : `${seasonL} · ${ARCHIVE_SECTION_HEADING}`;
-      }
+      pt.textContent = "";
+      pt.hidden = true;
     }
 
     if (story && storyBtn) {
@@ -7849,6 +8034,7 @@
 
   function renderGrid() {
     if (!els.grid) return;
+    dismissArchiveCardStylingReveal();
     const sorted = getArchiveSortedDataset();
     const filtered = sorted;
     els.grid.classList.toggle("grid--dense", sorted.length > GRID_DENSE_ANIMATION_THRESHOLD);
@@ -8155,7 +8341,7 @@
         host: thumb,
         missingClass: null,
         onExhausted: () => {
-          thumb.style.background = "#e8e4dc";
+          thumb.style.background = "transparent";
         },
       });
       thumb.appendChild(simg);
@@ -8217,8 +8403,8 @@
       const card = document.createElement("div");
       card.className = "saved-card";
 
-      const main = document.createElement("div");
-      main.className = "saved-card__main";
+      const body = document.createElement("div");
+      body.className = "saved-card__body";
       const title = document.createElement("p");
       title.className = "saved-card__name";
       title.textContent = outfit.name;
@@ -8231,48 +8417,52 @@
       meta.textContent = `${n} piece${n === 1 ? "" : "s"}${dateStr ? ` · ${dateStr}` : ""}${
         notes ? ` · ${notes.length > 48 ? `${notes.slice(0, 45)}…` : notes}` : ""
       }`;
-      main.appendChild(title);
-      main.appendChild(meta);
+      body.appendChild(title);
+      body.appendChild(meta);
 
-      const thumbs = document.createElement("div");
-      thumbs.className = "saved-card__thumbs";
-      for (const pieceSlot of slots.slice(0, 4)) {
+      const flatlay = document.createElement("div");
+      flatlay.className = "saved-card__flatlay";
+      flatlay.setAttribute("aria-hidden", "true");
+      for (const pieceSlot of slots.slice(0, 5)) {
         const piece = itemById.get(pieceSlot.itemId);
         if (!piece) continue;
         const proj = itemProjectionForOutfitSlot(piece, pieceSlot);
+        const pieceWrap = document.createElement("span");
+        pieceWrap.className = "saved-card__piece";
         const im = document.createElement("img");
         im.alt = "";
         im.loading = "lazy";
-        thumbs.appendChild(im);
+        pieceWrap.appendChild(im);
         wireCoverImageWithFallbacks(im, proj, { missingClass: null });
+        flatlay.appendChild(pieceWrap);
       }
 
       const act = document.createElement("div");
       act.className = "saved-card__actions";
       const viewBtn = document.createElement("button");
       viewBtn.type = "button";
-      viewBtn.className = "btn btn--small btn--ghost";
+      viewBtn.className = "saved-card__ctrl";
       viewBtn.textContent = "View";
       viewBtn.title = "Load this outfit onto the styling board.";
       viewBtn.dataset.outfitLoad = outfit.id;
       const editBtn = document.createElement("button");
       editBtn.type = "button";
-      editBtn.className = "btn btn--small btn--ghost";
+      editBtn.className = "saved-card__ctrl";
       editBtn.textContent = "Edit";
       editBtn.title = "Load onto the board and update on save.";
       editBtn.dataset.outfitEdit = outfit.id;
       const delBtn = document.createElement("button");
       delBtn.type = "button";
-      delBtn.className = "btn btn--small btn--danger";
+      delBtn.className = "saved-card__ctrl saved-card__ctrl--danger";
       delBtn.textContent = "Delete";
       delBtn.dataset.outfitDelete = outfit.id;
       act.appendChild(viewBtn);
       act.appendChild(editBtn);
       act.appendChild(delBtn);
 
-      card.appendChild(main);
-      card.appendChild(thumbs);
-      card.appendChild(act);
+      body.appendChild(act);
+      card.appendChild(flatlay);
+      card.appendChild(body);
       li.appendChild(card);
       els.savedList.appendChild(li);
     }
@@ -9039,7 +9229,7 @@
 
     const home = document.createElement("a");
     home.className = "item-detail__breadcrumb-link";
-    home.href = ARCHIVE_HOME_URL;
+    home.href = SITE_HOME_URL;
     home.textContent = "Timeless Wardrobe";
     nav.appendChild(home);
 
@@ -10024,6 +10214,37 @@
     }
   }
 
+  function isSiteHomePage() {
+    return resolvePageTheme() === "home";
+  }
+
+  /** Logo / brand home: editorial hero landing — never the archive PLP. */
+  function scrollSiteHomeTop() {
+    try {
+      const reduce = Boolean(globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
+      globalThis.scrollTo({ top: 0, left: 0, behavior: reduce ? "auto" : "smooth" });
+    } catch {
+      globalThis.scrollTo(0, 0);
+    }
+  }
+
+  function navigateToSiteHome() {
+    if (isSiteHomePage()) {
+      scrollSiteHomeTop();
+      return;
+    }
+    try {
+      sessionStorage.removeItem(ARCHIVE_BROWSE_RESTORE_KEY);
+    } catch {
+      /* ignore */
+    }
+    try {
+      globalThis.location.assign(SITE_HOME_URL);
+    } catch {
+      globalThis.location.href = SITE_HOME_URL;
+    }
+  }
+
   function persistArchiveBrowseStateForReturn() {
     if (!document.getElementById("grid")) return;
     writeArchiveBrowseRestoreSnapshot();
@@ -10338,21 +10559,21 @@
       .forEach((el) => {
         const jump = String(el.getAttribute("data-category-jump") ?? "").trim();
         const sub = String(el.getAttribute("data-subcategory-jump") ?? "").trim();
-        const active = jump === filter && (!sub || sub === subF);
+        const active = jump === filter && subcategoryFilterMatchesEntry(sub, subF);
         el.classList.toggle("is-active", active);
       });
 
     document.querySelectorAll(".site-header__submenu-link[data-category-jump]").forEach((el) => {
       const jump = String(el.getAttribute("data-category-jump") ?? "").trim();
       const sub = String(el.getAttribute("data-subcategory-jump") ?? "").trim();
-      const activeRow = jump === filter && (!sub || sub === subF);
+      const activeRow = jump === filter && subcategoryFilterMatchesEntry(sub, subF);
       el.classList.toggle("is-active", activeRow);
     });
 
     document.querySelectorAll(".ed-lp__cat-card[data-category-jump]").forEach((el) => {
       const jump = String(el.getAttribute("data-category-jump") ?? "").trim();
       const sub = String(el.getAttribute("data-subcategory-jump") ?? "").trim();
-      const activeRow = jump === filter && (!sub || sub === subF);
+      const activeRow = jump === filter && subcategoryFilterMatchesEntry(sub, subF);
       el.classList.toggle("is-active", activeRow);
     });
   }
@@ -10768,6 +10989,191 @@
     }
   }
 
+  const TW_MOTION_MS = 280;
+  const TW_SEARCH_MOTION_MS = 220;
+
+  function twPrefersReducedMotion() {
+    try {
+      return globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+    } catch {
+      return false;
+    }
+  }
+
+  /** @type {(() => void) | null} */
+  let headerSubmenuHideAnimated = null;
+
+  /**
+   * @param {HTMLElement} el
+   * @param {number} ms
+   * @param {() => void} cb
+   * @param {string[]} [props]
+   * @returns {() => void}
+   */
+  function twAfterMotion(el, ms, cb, props = ["opacity", "transform"]) {
+    if (!el || twPrefersReducedMotion()) {
+      queueMicrotask(cb);
+      return () => {};
+    }
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      el.removeEventListener("transitionend", onTrans);
+      clearTimeout(timer);
+      cb();
+    };
+    const onTrans = (e) => {
+      if (e.target !== el) return;
+      if (props.length && !props.includes(e.propertyName)) return;
+      done();
+    };
+    el.addEventListener("transitionend", onTrans);
+    const timer = setTimeout(done, ms + 60);
+    return () => {
+      if (settled) return;
+      settled = true;
+      el.removeEventListener("transitionend", onTrans);
+      clearTimeout(timer);
+    };
+  }
+
+  function dismissHeaderSubmenuDom() {
+    if (headerSubmenuHideAnimated) {
+      headerSubmenuHideAnimated();
+      return;
+    }
+    const wrap = document.getElementById("site-header-submenu");
+    if (wrap) {
+      wrap.hidden = true;
+      wrap.dataset.submenuState = "closed";
+      wrap.classList.remove("site-header__submenu--opening", "site-header__submenu--switching");
+    }
+    document.body.classList.remove("archive-ui--header-submenu-open", "archive-ui--header-submenu-closing");
+  }
+
+  const PAGE_THEME_LEAK_CLASSES = [
+    "home",
+    "hero-active",
+    "hero-overlay",
+    "header-overlay",
+    "dark-page",
+    "theme-dark",
+    "is-hero",
+    "has-hero",
+    "nav-on-hero",
+    "theme-home",
+  ];
+
+  const PAGE_THEME_SCOPE_CLASSES = ["home-page", "theme-catalogue", "theme-item", "theme-home"];
+
+  function resolvePageTheme() {
+    if (document.body.classList.contains("home-page") || document.querySelector(".site-home-stage")) {
+      return "home";
+    }
+    const path = String(globalThis.location?.pathname ?? "");
+    if (path === "/" || path === "" || /\/index\.html$/i.test(path)) return "home";
+    return "catalogue";
+  }
+
+  /** Route-level theme: catalogue is always light; homepage may use hero overlay. */
+  function applyPageTheme() {
+    const theme = resolvePageTheme();
+    const root = document.documentElement;
+    const body = document.body;
+
+    for (const cls of PAGE_THEME_LEAK_CLASSES) body.classList.remove(cls);
+    for (const cls of PAGE_THEME_SCOPE_CLASSES) {
+      body.classList.remove(cls);
+      root.classList.remove(cls);
+    }
+    root.style.removeProperty("color-scheme");
+
+    if (theme === "home") {
+      body.classList.add("home-page");
+      root.classList.add("theme-home");
+      return;
+    }
+
+    body.classList.add("theme-catalogue");
+    root.classList.add("theme-catalogue");
+    root.style.colorScheme = "light";
+    if (body.classList.contains("item-page") || document.getElementById("item-page-main")) {
+      body.classList.add("theme-item");
+    }
+
+    resetCatalogueHeaderState();
+  }
+
+  function normalizeCatalogueHeaderMasthead() {
+    if (resolvePageTheme() === "home") return;
+    const siteHeader = document.querySelector(".site-header");
+    const shell = document.querySelector(".site-header-shell");
+    siteHeader?.classList.remove("site-header--overlay");
+    siteHeader?.classList.add("site-header--solid");
+    shell?.classList.remove("site-header-shell--home-overlay");
+  }
+
+  /** Catalogue pages: solid masthead; strip hero overlay UI state. */
+  function resetCatalogueHeaderState() {
+    if (resolvePageTheme() === "home") return;
+
+    teardownHomeHeroHeader();
+
+    const siteHeader = document.querySelector(".site-header");
+    const shell = document.querySelector(".site-header-shell");
+    siteHeader?.classList.remove("site-header--overlay");
+    siteHeader?.classList.add("site-header--solid");
+    shell?.classList.remove("site-header-shell--home-overlay");
+
+    document.body.classList.remove(
+      "archive-ui--mobile-nav-open",
+      "archive-ui--header-search-open",
+      "archive-ui--header-submenu-open",
+      "archive-ui--styling-board",
+      "archive-ui--filter-drawer",
+      "archive-ui--nav-folded"
+    );
+    document.body.style.removeProperty("--home-header-nav-height");
+    document.body.style.removeProperty("--home-header-stack-height");
+    document.documentElement.style.removeProperty("--tw-search-dim-top");
+
+    forceCloseHeaderSearchOverlay();
+    dismissHeaderSubmenuDom();
+    closeStylingBoardDrawer();
+
+    const mobileShell = document.getElementById("site-mobile-shell");
+    if (mobileShell) {
+      mobileShell.classList.remove("is-open");
+      mobileShell.hidden = true;
+      mobileShell.setAttribute("aria-hidden", "true");
+    }
+    document.getElementById("site-header-menu-btn")?.setAttribute("aria-expanded", "false");
+    document.getElementById("site-header-menu-btn")?.setAttribute("aria-label", "Open categories menu");
+
+    const filterDrawer = document.getElementById("archive-filter-drawer");
+    if (filterDrawer) {
+      filterDrawer.hidden = true;
+      filterDrawer.setAttribute("aria-hidden", "true");
+    }
+  }
+
+  function installPageThemeLifecycle() {
+    if (installPageThemeLifecycle._wired) return;
+    installPageThemeLifecycle._wired = true;
+    globalThis.addEventListener("pageshow", () => {
+      applyPageTheme();
+      if (resolvePageTheme() === "home") initHomeHeroHeader();
+    });
+    globalThis.addEventListener("popstate", () => {
+      applyPageTheme();
+      if (resolvePageTheme() === "home") initHomeHeroHeader();
+    });
+    globalThis.addEventListener("pagehide", () => {
+      if (resolvePageTheme() === "home") teardownHomeHeroHeader();
+    });
+  }
+
   function forceCloseHeaderSearchOverlay() {
     const headerSearchWrap = document.getElementById("site-header-search-wrap");
     const headerSearchBtn = document.getElementById("site-header-search-btn");
@@ -10810,7 +11216,7 @@
   let archiveNavScrollFoldTicking = false;
 
   /** Scroll fold: hide desktop header chrome while scrolling down on the archive page (`#filters-nav` removed — optional menu state kept for compatibility). */
-  function initArchiveNavScrollFold(afterWindowScrollFold) {
+  function initArchiveNavScrollFold() {
     if (!ENABLE_ARCHIVE_NAV_SCROLL_FOLD) {
       document.body.classList.remove("archive-ui--nav-folded");
       return;
@@ -10820,13 +11226,17 @@
     const body = document.body;
 
     function onScrollNavFold() {
-      afterWindowScrollFold?.();
       if (archiveNavScrollFoldTicking) return;
       archiveNavScrollFoldTicking = true;
       requestAnimationFrame(() => {
         try {
           archiveNavScrollFoldTicking = false;
           if (isFiltersNarrowViewport()) {
+            body.classList.remove("archive-ui--nav-folded");
+            archiveNavScrollFoldLastY = globalThis.scrollY ?? globalThis.pageYOffset ?? 0;
+            return;
+          }
+          if (body.classList.contains("archive-ui--header-search-open")) {
             body.classList.remove("archive-ui--nav-folded");
             archiveNavScrollFoldLastY = globalThis.scrollY ?? globalThis.pageYOffset ?? 0;
             return;
@@ -10847,10 +11257,7 @@
           if (y < 48) {
             if (folded) body.classList.remove("archive-ui--nav-folded");
           } else if (dy > 6) {
-            if (!folded) {
-              body.classList.add("archive-ui--nav-folded");
-              forceCloseHeaderSearchOverlay();
-            }
+            if (!folded) body.classList.add("archive-ui--nav-folded");
           } else if (dy < -6) {
             if (folded) body.classList.remove("archive-ui--nav-folded");
           }
@@ -10986,6 +11393,11 @@
       shellCloseBtn.setAttribute("aria-label", "Close menu");
       shellCloseBtn.innerHTML = '<span class="site-mobile-shell__close-icon" aria-hidden="true"></span>';
 
+      logo.addEventListener("click", (e) => {
+        e.preventDefault();
+        navigateToSiteHome();
+      });
+
       tools.append(shellSearchBtn, shellStylingBtn, shellCloseBtn);
       bar.append(logo, tools);
 
@@ -11050,37 +11462,91 @@
     const jumpHeaderCategory = (jump) => {
       clearArchiveKeywordColourNarrowing();
       if (archiveSubmittedSearchNorm) exitArchiveSearchPlpRestoreBrowse({ skipRestore: true });
-      noteArchiveSearchUserChoseMainSlotFilter();
-      categoryNavFilter = SLOT_OPTIONS.includes(jump) ? jump : SLOT_CLOTHING;
-      subcategoryFilter = "";
-      syncCategoryTabUI();
       if (!document.getElementById("grid")) {
+        categoryNavFilter = resolveCategoryJump(jump);
+        subcategoryFilter = "";
         validateSubcategoryFilter();
         writeArchiveBrowseRestoreSnapshot();
         navigateToArchiveMain();
         return;
       }
-      validateSubcategoryFilter();
-      renderCategoryDrill();
-      syncFiltersMenuForViewport();
-      renderGrid();
-      scrollArchiveViewportTop();
+      applyCategoryNavFilter(resolveCategoryJump(jump), { scrollTop: true });
+      collapseFiltersMenuPanel();
     };
 
     let headerSubmenuHideTimer = 0;
     let headerSubmenuSwitchAnimTimer = 0;
-    let headerSubmenuOpenAnimTimer = 0;
+    /** @type {(() => void) | null} */
+    let headerSubmenuCloseAbort = null;
     const cancelHeaderSubmenuHide = () => {
       if (!headerSubmenuHideTimer) return;
       clearTimeout(headerSubmenuHideTimer);
       headerSubmenuHideTimer = 0;
     };
-    const scheduleHeaderSubmenuHide = (delayMs = 90) => {
+    const HEADER_SUBMENU_HOVER_HIDE_MS = 120;
+
+    /** Mega menu stays open only while pointer is over main nav or the mega panel. */
+    const isInHeaderSubmenuHoverZone = (el) => {
+      if (!(el instanceof Element)) return false;
+      return !!el.closest(".main-nav, .mega-menu");
+    };
+
+    const scheduleHeaderSubmenuHide = (delayMs = HEADER_SUBMENU_HOVER_HIDE_MS) => {
       cancelHeaderSubmenuHide();
       headerSubmenuHideTimer = setTimeout(() => {
         headerSubmenuHideTimer = 0;
         hideHeaderSubmenu();
       }, delayMs);
+    };
+
+    const onHeaderSubmenuHoverZonePointerLeave = (e) => {
+      if (isFiltersNarrowViewport()) return;
+      const sub = document.getElementById("site-header-submenu");
+      if (!sub || sub.hidden) return;
+      const to = e.relatedTarget;
+      if (isInHeaderSubmenuHoverZone(to)) return;
+      scheduleHeaderSubmenuHide();
+    };
+
+    const clearHeaderSubmenuContent = () => {
+      const title = document.getElementById("site-header-submenu-title");
+      const links = document.getElementById("site-header-submenu-links");
+      const preview = document.getElementById("site-header-submenu-preview");
+      if (title) title.textContent = "";
+      if (links) links.replaceChildren();
+      if (preview) preview.replaceChildren();
+    };
+
+    const setHeaderSubmenuState = (wrap, state) => {
+      wrap.dataset.submenuState = state;
+    };
+
+    const clearHeaderSubmenuBackdropInset = () => {
+      document.documentElement.style.removeProperty("--site-header-chrome-bottom");
+    };
+
+    const syncHeaderSubmenuBackdropInset = () => {
+      if (isHeaderCompactLayout()) return;
+      const util = siteUtilityBarEl || document.querySelector(".site-utility-bar");
+      const brandNav = document.querySelector(".site-header__brand-nav");
+      let bottom = 0;
+      if (util) bottom = Math.max(bottom, Math.ceil(util.getBoundingClientRect().bottom));
+      if (brandNav) bottom = Math.max(bottom, Math.ceil(brandNav.getBoundingClientRect().bottom));
+      if (bottom > 0) {
+        document.documentElement.style.setProperty("--site-header-chrome-bottom", `${bottom}px`);
+      }
+    };
+
+    const finalizeHeaderSubmenuHide = (wrap) => {
+      wrap.hidden = true;
+      wrap.setAttribute("aria-hidden", "true");
+      setHeaderSubmenuState(wrap, "closed");
+      wrap.classList.remove("site-header__submenu--opening", "site-header__submenu--switching");
+      document.body.classList.remove("archive-ui--header-submenu-open", "archive-ui--header-submenu-closing");
+      headerNavOpenSlot = "";
+      syncCategoryTabUI();
+      clearHeaderSubmenuContent();
+      clearHeaderSubmenuBackdropInset();
     };
 
     const hideHeaderSubmenu = () => {
@@ -11089,25 +11555,36 @@
         clearTimeout(headerSubmenuSwitchAnimTimer);
         headerSubmenuSwitchAnimTimer = 0;
       }
-      if (headerSubmenuOpenAnimTimer) {
-        clearTimeout(headerSubmenuOpenAnimTimer);
-        headerSubmenuOpenAnimTimer = 0;
-      }
       const wrap = document.getElementById("site-header-submenu");
       if (!wrap) return;
-      wrap.hidden = true;
-      wrap.classList.remove("site-header__submenu--opening");
-      wrap.classList.remove("site-header__submenu--switching");
+
+      const state = wrap.dataset.submenuState || (wrap.hidden ? "closed" : "open");
+      if ((state === "closed" || wrap.hidden) && state !== "closing") return;
+      if (state === "closing") return;
+
+      if (headerSubmenuCloseAbort) {
+        headerSubmenuCloseAbort();
+        headerSubmenuCloseAbort = null;
+      }
+
+      if (twPrefersReducedMotion() || isFiltersNarrowViewport()) {
+        finalizeHeaderSubmenuHide(wrap);
+        return;
+      }
+
+      setHeaderSubmenuState(wrap, "closing");
+      document.body.classList.add("archive-ui--header-submenu-closing");
       document.body.classList.remove("archive-ui--header-submenu-open");
-      headerNavOpenSlot = "";
-      syncCategoryTabUI();
-      const title = document.getElementById("site-header-submenu-title");
-      const links = document.getElementById("site-header-submenu-links");
-      const preview = document.getElementById("site-header-submenu-preview");
-      if (title) title.textContent = "";
-      if (links) links.replaceChildren();
-      if (preview) preview.replaceChildren();
+      wrap.setAttribute("aria-hidden", "true");
+
+      headerSubmenuCloseAbort = twAfterMotion(wrap, TW_MOTION_MS, () => {
+        headerSubmenuCloseAbort = null;
+        document.body.classList.remove("archive-ui--header-submenu-closing");
+        finalizeHeaderSubmenuHide(wrap);
+      });
     };
+
+    headerSubmenuHideAnimated = hideHeaderSubmenu;
 
     const headerMenuBtn = document.getElementById("site-header-menu-btn");
     const mobileShell = mountMobileNavigationShell();
@@ -11117,25 +11594,27 @@
     const headerSearchBtn = document.getElementById("site-header-search-btn");
     const headerSearchWrap = document.getElementById("site-header-search-wrap");
     const headerSearchInput = /** @type {HTMLInputElement | null} */ (document.getElementById("filter-search"));
-    let fullscreenSearchArmScrollDismissMs = 0;
+    /** @type {(() => void) | null} */
+    let headerSearchCloseAbort = null;
     const closeHeaderSearch = ({ clear = false, submitted = false } = {}) => {
       if (!headerSearchWrap) return;
       const wasOpen = headerSearchWrap.classList.contains("is-open");
+      if (!wasOpen) return;
+
       const ae = document.activeElement;
       const refocusMagnifier =
-        wasOpen &&
         !!headerSearchBtn &&
         ae instanceof Element &&
         (ae === headerSearchInput || headerSearchWrap.contains(ae));
       const snap = headerSearchOverlayOpeningQueryRaw;
-      fullscreenSearchArmScrollDismissMs = 0;
-      headerSearchWrap.classList.remove("is-open");
-      headerSearchWrap.setAttribute("aria-hidden", "true");
-      headerSearchBtn?.setAttribute("aria-expanded", "false");
-      headerSearchBtn?.setAttribute("aria-label", "Open search");
-      document.body.classList.remove("archive-ui--header-search-open");
-      document.documentElement.style.removeProperty("--tw-search-dim-top");
-      if (wasOpen) {
+
+      const finishClose = () => {
+        headerSearchCloseAbort = null;
+        headerSearchWrap.setAttribute("aria-hidden", "true");
+        headerSearchBtn?.setAttribute("aria-expanded", "false");
+        headerSearchBtn?.setAttribute("aria-label", "Open search");
+        document.body.classList.remove("archive-ui--header-search-open");
+        document.documentElement.style.removeProperty("--tw-search-dim-top");
         if (!clear && !submitted && snap != null && headerSearchInput) {
           headerSearchInput.value = snap;
         }
@@ -11144,19 +11623,34 @@
         headerSearchOverlayOpeningQueryRaw = null;
         cancelHeaderSearchOverlayUiDebounce();
         resetHeaderSearchOverlayResultsDom();
+        if (clear && headerSearchInput) {
+          cancelSearchGridDebounce();
+          headerSearchInput.value = "";
+          syncFilterSearchClearVisibility();
+        } else {
+          syncFilterSearchClearVisibility();
+        }
+        syncSearchKeywordChip();
+        syncFilterSearchFieldDomPlacement();
+        if (document.getElementById("grid")) renderGrid();
+        if (refocusMagnifier) queueMicrotask(() => headerSearchBtn?.focus({ preventScroll: true }));
+        ensureBodyScrollUnlockedWhenNoOverlay();
+        normalizeCatalogueHeaderMasthead();
+      };
+
+      if (headerSearchCloseAbort) {
+        headerSearchCloseAbort();
+        headerSearchCloseAbort = null;
       }
-      if (clear && headerSearchInput) {
-        cancelSearchGridDebounce();
-        headerSearchInput.value = "";
-        syncFilterSearchClearVisibility();
-      } else if (wasOpen) {
-        syncFilterSearchClearVisibility();
+
+      headerSearchWrap.classList.remove("is-open");
+
+      if (isHeaderCompactLayout() && !twPrefersReducedMotion()) {
+        headerSearchCloseAbort = twAfterMotion(headerSearchWrap, TW_SEARCH_MOTION_MS, finishClose);
+        return;
       }
-      syncSearchKeywordChip();
-      syncFilterSearchFieldDomPlacement();
-      if (wasOpen && document.getElementById("grid")) renderGrid();
-      if (refocusMagnifier) queueMicrotask(() => headerSearchBtn?.focus({ preventScroll: true }));
-      ensureBodyScrollUnlockedWhenNoOverlay();
+
+      finishClose();
     };
 
     /** Trending chip: full-catalog keyword search, close overlay, ignore browse filters. */
@@ -11172,7 +11666,7 @@
       } catch {
         /* ignore */
       }
-      categoryNavFilter = SLOT_CLOTHING;
+      categoryNavFilter = "";
       subcategoryFilter = "";
       basicColourFilter = persistBasicColourFilter("");
       archiveSearchWithinRecordCategory = "";
@@ -11190,6 +11684,7 @@
         navigateToArchiveMain();
         return;
       }
+      closeHeaderSearch({ submitted: true });
       submitArchiveSearchFromInput();
     }
 
@@ -11260,7 +11755,7 @@
     function handleMobileCategoryNavigation(jump, sub) {
       clearArchiveKeywordColourNarrowing();
       if (archiveSubmittedSearchNorm) exitArchiveSearchPlpRestoreBrowse({ skipRestore: true });
-      categoryNavFilter = SLOT_OPTIONS.includes(jump) ? jump : SLOT_CLOTHING;
+      categoryNavFilter = resolveCategoryJump(jump);
       subcategoryFilter = sub;
       noteArchiveSearchUserChoseMainSlotFilter();
       syncCategoryTabUI();
@@ -11280,20 +11775,53 @@
       collapseFiltersMenuPanel();
     }
 
+    /** @type {(() => void) | null} */
+    let mobileShellCloseAbort = null;
+
     function closeMobileCategoryPanel() {
       if (!mobileShell) return;
+      if (mobileShell.hidden && !mobileShell.classList.contains("is-open")) return;
+      if (mobileShell.classList.contains("is-closing")) return;
+
+      const finish = () => {
+        mobileShellCloseAbort = null;
+        mobileShell.classList.remove("is-open", "is-closing");
+        mobileShell.hidden = true;
+        mobileShell.setAttribute("aria-hidden", "true");
+        resetMobileNavDrill();
+        headerMenuBtn?.setAttribute("aria-expanded", "false");
+        headerMenuBtn?.setAttribute("aria-label", "Open categories menu");
+        document.body.classList.remove("archive-ui--mobile-nav-open");
+        ensureBodyScrollUnlockedWhenNoOverlay();
+        normalizeCatalogueHeaderMasthead();
+      };
+
+      if (mobileShellCloseAbort) {
+        mobileShellCloseAbort();
+        mobileShellCloseAbort = null;
+      }
+
       mobileShell.classList.remove("is-open");
-      mobileShell.hidden = true;
-      mobileShell.setAttribute("aria-hidden", "true");
-      resetMobileNavDrill();
+      document.body.classList.remove("archive-ui--mobile-nav-open");
       headerMenuBtn?.setAttribute("aria-expanded", "false");
       headerMenuBtn?.setAttribute("aria-label", "Open categories menu");
-      document.body.classList.remove("archive-ui--mobile-nav-open");
-      ensureBodyScrollUnlockedWhenNoOverlay();
+
+      if (twPrefersReducedMotion()) {
+        finish();
+        return;
+      }
+
+      mobileShell.classList.add("is-closing");
+      mobileShellCloseAbort = twAfterMotion(mobileShell, 240, finish);
     }
 
     function openMobileCategoryPanel() {
       if (!mobileShell) return;
+      if (mobileShellCloseAbort) {
+        mobileShellCloseAbort();
+        mobileShellCloseAbort = null;
+        mobileShell.classList.remove("is-closing");
+      }
       syncMobileShellTop();
       resetMobileNavDrill();
       mobileShell.hidden = false;
@@ -11382,14 +11910,16 @@
         hideHeaderSubmenu();
         return;
       }
-      const openingNow = wrap.hidden;
-      if (openingNow) {
-        if (headerSubmenuOpenAnimTimer) {
-          clearTimeout(headerSubmenuOpenAnimTimer);
-          headerSubmenuOpenAnimTimer = 0;
-        }
-        wrap.classList.remove("site-header__submenu--opening");
+      if (headerSubmenuCloseAbort) {
+        headerSubmenuCloseAbort();
+        headerSubmenuCloseAbort = null;
+        document.body.classList.remove("archive-ui--header-submenu-closing");
       }
+
+      const openingNow =
+        wrap.hidden ||
+        wrap.dataset.submenuState === "closed" ||
+        wrap.dataset.submenuState === "closing";
       const switchingSlot = !wrap.hidden && headerNavOpenSlot && headerNavOpenSlot !== slot;
       if (switchingSlot) {
         if (headerSubmenuSwitchAnimTimer) {
@@ -11416,14 +11946,18 @@
       links.replaceChildren();
       title.textContent = "";
 
-      dedupedEntries.forEach(({ raw, label }, idx) => {
+      const subF = String(subcategoryFilter ?? "").trim();
+
+      dedupedEntries.forEach(({ raw, label }) => {
         const a = document.createElement("a");
         a.href = archiveMainHref();
         a.className = "site-header__submenu-link";
         a.textContent = label;
         a.setAttribute("data-category-jump", slot);
         a.setAttribute("data-subcategory-jump", raw);
-        if (idx === 0) a.classList.add("is-active");
+        if (subcategoryFilterMatchesEntry(raw, headerNavOpenSlot === slot ? subF : "")) {
+          a.classList.add("is-active");
+        }
         a.addEventListener("pointerenter", () => {
           links.querySelectorAll(".site-header__submenu-link.is-active").forEach((n) => n.classList.remove("is-active"));
           a.classList.add("is-active");
@@ -11436,19 +11970,32 @@
         });
         links.appendChild(a);
       });
-      renderHeaderSubmenuPreview(slot, dedupedEntries[0]?.raw || "");
+      const initialPreview =
+        dedupedEntries.find((e) => subcategoryFilterMatchesEntry(e.raw, headerNavOpenSlot === slot ? subF : "")) ??
+        dedupedEntries[0];
+      renderHeaderSubmenuPreview(slot, initialPreview?.raw ?? "");
       wrap.hidden = false;
+      wrap.setAttribute("aria-hidden", "false");
       if (openingNow) {
+        setHeaderSubmenuState(wrap, "opening");
         void wrap.offsetWidth;
-        wrap.classList.add("site-header__submenu--opening");
-        headerSubmenuOpenAnimTimer = setTimeout(() => {
-          headerSubmenuOpenAnimTimer = 0;
-          wrap.classList.remove("site-header__submenu--opening");
-        }, 620);
+        requestAnimationFrame(() => {
+          if (wrap.hidden) return;
+          setHeaderSubmenuState(wrap, "open");
+        });
+      } else {
+        setHeaderSubmenuState(wrap, "open");
       }
       document.body.classList.add("archive-ui--header-submenu-open");
+      document.body.classList.remove("archive-ui--header-submenu-closing");
       headerNavOpenSlot = slot;
       syncCategoryTabUI();
+      syncHeaderSubmenuBackdropInset();
+      requestAnimationFrame(() => {
+        if (document.body.classList.contains("archive-ui--header-submenu-open")) {
+          syncHeaderSubmenuBackdropInset();
+        }
+      });
     };
 
     const headerCategoryNav = document.querySelector(".site-header__primary-nav");
@@ -11480,37 +12027,30 @@
       });
     }
 
-    document.querySelector(".site-header__nav-submenu-dismiss")?.addEventListener("pointerenter", () => {
-      if (isFiltersNarrowViewport()) return;
-      hideHeaderSubmenu();
-    });
+    const bindHeaderSubmenuCloseOnPointerEnter = (el) => {
+      el?.addEventListener("pointerenter", () => {
+        if (isFiltersNarrowViewport()) return;
+        hideHeaderSubmenu();
+      });
+    };
+
+    bindHeaderSubmenuCloseOnPointerEnter(document.querySelector(".site-header__nav-submenu-dismiss"));
+    bindHeaderSubmenuCloseOnPointerEnter(document.querySelector(".site-header__tools"));
+    bindHeaderSubmenuCloseOnPointerEnter(siteUtilityBarEl);
+    bindHeaderSubmenuCloseOnPointerEnter(document.getElementById("site-header-home"));
 
     const headerHome = document.getElementById("site-header-home");
     headerHome?.addEventListener("click", (e) => {
       e.preventDefault();
-      resetAllArchiveFilters();
       hideHeaderSubmenu();
       closeMobileCategoryPanel();
       collapseFiltersMenuPanel();
-      if (!document.getElementById("grid")) {
-        try {
-          sessionStorage.removeItem(ARCHIVE_BROWSE_RESTORE_KEY);
-        } catch {
-          /* ignore */
-        }
-        try {
-          globalThis.location.assign(ARCHIVE_HOME_URL);
-        } catch {
-          globalThis.location.href = ARCHIVE_HOME_URL;
-        }
-        return;
-      }
-      scrollArchiveViewportTop();
+      navigateToSiteHome();
     });
 
     const headerSubmenuRoot = document.getElementById("site-header-submenu");
 
-    siteHeaderEl?.addEventListener("pointerenter", () => {
+    headerCategoryNav?.addEventListener("pointerenter", () => {
       if (isFiltersNarrowViewport()) return;
       cancelHeaderSubmenuHide();
     });
@@ -11520,33 +12060,10 @@
       cancelHeaderSubmenuHide();
     });
 
-    headerSubmenuRoot?.addEventListener("pointerleave", (e) => {
-      if (isFiltersNarrowViewport()) return;
-      const to = e.relatedTarget;
-      if (!(to instanceof Element)) {
-        scheduleHeaderSubmenuHide(260);
-        return;
-      }
-      if (siteHeaderEl?.contains(to)) return;
-      scheduleHeaderSubmenuHide(100);
-    });
+    headerSubmenuRoot?.addEventListener("pointerleave", onHeaderSubmenuHoverZonePointerLeave);
+    headerCategoryNav?.addEventListener("pointerleave", onHeaderSubmenuHoverZonePointerLeave);
 
-    headerCategoryNav?.addEventListener("pointerleave", (e) => {
-      if (isFiltersNarrowViewport()) return;
-      const sub = document.getElementById("site-header-submenu");
-      if (!sub || sub.hidden) return;
-      const to = e.relatedTarget;
-      if (!(to instanceof Element)) {
-        scheduleHeaderSubmenuHide(260);
-        return;
-      }
-      if (sub.contains(to)) return;
-      if (headerCategoryNav.contains(to)) return;
-      if (siteHeaderEl?.contains(to)) return;
-      scheduleHeaderSubmenuHide(100);
-    });
-
-    /** Tap / click outside the header closes the mega panel (hover alone uses pointerleave above). */
+    /** Tap / click outside main-nav + mega-menu closes the panel. */
     document.addEventListener(
       "pointerdown",
       (e) => {
@@ -11555,7 +12072,7 @@
         if (!sub || sub.hidden) return;
         const t = e.target;
         if (!(t instanceof Element)) return;
-        if (siteHeaderEl?.contains(t)) return;
+        if (isInHeaderSubmenuHoverZone(t)) return;
         hideHeaderSubmenu();
       },
       true
@@ -11570,7 +12087,7 @@
       const sub = String(link.getAttribute("data-subcategory-jump") ?? "").trim();
       clearArchiveKeywordColourNarrowing();
       if (archiveSubmittedSearchNorm) exitArchiveSearchPlpRestoreBrowse({ skipRestore: true });
-      categoryNavFilter = SLOT_OPTIONS.includes(jump) ? jump : SLOT_CLOTHING;
+      categoryNavFilter = resolveCategoryJump(jump);
       subcategoryFilter = sub;
       noteArchiveSearchUserChoseMainSlotFilter();
       syncCategoryTabUI();
@@ -11606,15 +12123,19 @@
       headerSearchBtn.setAttribute("aria-expanded", open ? "true" : "false");
       headerSearchBtn.setAttribute("aria-label", open ? "Close search" : "Open search");
       if (open) {
+        if (headerSearchCloseAbort) {
+          headerSearchCloseAbort();
+          headerSearchCloseAbort = null;
+        }
         cancelSearchGridDebounce();
         headerSearchOverlayArchiveSearchFrozen = true;
         headerSearchOpenArchiveSearchNorm =
           archiveSubmittedSearchNorm || normalizeSearch(els.search?.value ?? "");
         headerSearchOverlayOpeningQueryRaw = String(els.search?.value ?? "").trim();
         syncSearchKeywordChip();
-        fullscreenSearchArmScrollDismissMs = Date.now();
         hideHeaderSubmenu();
         closeMobileCategoryPanel();
+        document.body.classList.remove("archive-ui--nav-folded");
         syncHeaderSearchFeaturedSubcategoryCards();
         document.body.classList.add("archive-ui--header-search-open");
         if (isHeaderCompactLayout()) syncMobileShellTop();
@@ -11633,9 +12154,6 @@
     });
     document.getElementById("site-header-search-close")?.addEventListener("click", () => {
       closeHeaderSearch();
-    });
-    document.getElementById("site-header-search-submit")?.addEventListener("click", () => {
-      submitArchiveSearchFromInput();
     });
     document.getElementById("archive-search-results-clear")?.addEventListener("click", () => {
       clearArchiveKeywordSearchThenRender({ focusInput: false });
@@ -11667,7 +12185,7 @@
       if (sub) {
         if (archiveSubmittedSearchNorm) exitArchiveSearchPlpRestoreBrowse({ skipRestore: true });
         clearArchiveKeywordColourNarrowing();
-        categoryNavFilter = SLOT_OPTIONS.includes(jump) ? jump : SLOT_CLOTHING;
+        categoryNavFilter = resolveCategoryJump(jump);
         subcategoryFilter = sub;
         noteArchiveSearchUserChoseMainSlotFilter();
         syncCategoryTabUI();
@@ -11750,22 +12268,6 @@
         hideHeaderSubmenu();
       }
     });
-    /** Enter or scroll collapses fullscreen search overlay (results underneath look odd if it stays open). */
-    const dismissFullscreenSearchUnlessClosed = () => {
-      if (!headerSearchWrap?.classList.contains("is-open")) return;
-      const armed = fullscreenSearchArmScrollDismissMs;
-      if (armed && Date.now() - armed < 160) return;
-      closeHeaderSearch();
-    };
-
-    headerSearchWrap?.addEventListener(
-      "wheel",
-      () => {
-        if (isHeaderSearchDropdownLayout()) return;
-        dismissFullscreenSearchUnlessClosed();
-      },
-      { passive: true, capture: true }
-    );
     document.addEventListener("click", (e) => {
       if (!headerSearchWrap?.classList.contains("is-open")) return;
       const t = e.target;
@@ -11819,6 +12321,9 @@
     globalThis.addEventListener(
       "resize",
       () => {
+        if (document.body.classList.contains("archive-ui--header-submenu-open")) {
+          syncHeaderSubmenuBackdropInset();
+        }
         if (mobileShell?.classList.contains("is-open")) syncMobileShellTop();
         if (headerSearchWrap?.classList.contains("is-open") && isHeaderCompactLayout()) syncMobileShellTop();
       },
@@ -11879,10 +12384,17 @@
     const categoryDrill = document.getElementById("category-drill");
     if (categoryDrill) {
       categoryDrill.addEventListener("click", (e) => {
-        const choice = e.target.closest(".category-drill__choice");
+        const slotBtn = e.target.closest("button[data-slot-filter]");
+        if (slotBtn && categoryDrill.contains(slotBtn)) {
+          const raw = slotBtn.getAttribute("data-slot-filter") ?? "";
+          applyCategoryNavFilter(raw && SLOT_OPTIONS.includes(raw) ? raw : "", { scrollTop: true });
+          collapseFiltersMenuPanel();
+          return;
+        }
+        const choice = e.target.closest(".category-drill__choice[data-subcategory]");
         if (!choice) return;
         const next = String(choice.dataset.subcategory ?? "").trim();
-        subcategoryFilter = next === String(subcategoryFilter ?? "").trim() ? "" : next;
+        subcategoryFilter = subcategoryFilterMatchesEntry(next, subcategoryFilter) ? "" : next;
         renderCategoryDrill();
         renderGrid();
         scrollArchiveViewportTop();
@@ -11895,8 +12407,23 @@
         const outfitBtn = e.target.closest("[data-outfit-add]");
         if (outfitBtn && !outfitBtn.disabled) {
           addToOutfit(outfitBtn.dataset.outfitAdd);
+          outfitBtn.closest(".card")?.classList.remove("card--styling-reveal");
           return;
         }
+      });
+    }
+
+    if (els.grid && document.body.dataset.twArchiveStylingRevealWired !== "1") {
+      document.body.dataset.twArchiveStylingRevealWired = "1";
+      document.addEventListener("click", (e) => {
+        if (!isArchiveCardCoarsePointer()) return;
+        const t = e.target;
+        if (!(t instanceof Element)) return;
+        if (t.closest(".card--styling-reveal .card__board-add, .card--styling-reveal .card__quick-outfit")) {
+          return;
+        }
+        if (t.closest(".card--styling-reveal .card__media")) return;
+        dismissArchiveCardStylingReveal();
       });
     }
 
@@ -12049,7 +12576,7 @@
           persistSeasonNav();
           syncSeasonTabUI();
         }
-        categoryNavFilter = SLOT_OPTIONS.includes(jump) ? jump : SLOT_CLOTHING;
+        categoryNavFilter = resolveCategoryJump(jump);
         noteArchiveSearchUserChoseMainSlotFilter();
         /* All seasons + record type: clear drill first so the pool uses the new season before applying the sub-type
            (avoids a stale S/A-W pool briefly invalidating e.g. Jackets when switching from a summer link). */
@@ -12079,11 +12606,12 @@
 
     wireEditorialLandingPageArchiveLinks();
 
-    initArchiveNavScrollFold(dismissFullscreenSearchUnlessClosed);
+    initArchiveNavScrollFold();
 
     globalThis.addEventListener("pageshow", (e) => {
       const pe = /** @type {PageTransitionEvent} */ (e);
       if (!pe.persisted) return;
+      applyPageTheme();
       if (!document.getElementById("grid")) return;
       void (async () => {
         try {
@@ -12239,8 +12767,8 @@
   async function completeTwInitialPageLoader(startedAt) {
     const root = document.getElementById("tw-page-loader");
     if (!root || !document.body.classList.contains("tw-page-loader-active")) return;
-    const minMs = 600;
-    const logoInMs = 400;
+    const minMs = 1000;
+    const logoInMs = 1000;
     const fadeOutMs = 520;
     const mainInMs = 500;
     const elapsed = () => performance.now() - startedAt;
@@ -12260,7 +12788,9 @@
   }
 
   async function bootstrap() {
+    applyPageTheme();
     initTwAdminMode();
+    installPageThemeLifecycle();
     ensureHomeHeroPreloadLink();
     installTwPageLoaderShell();
     const twLoaderPageStarted = performance.now();
