@@ -18,6 +18,17 @@
     return String(item.colourCode ?? item.colorCode ?? item.colour_code ?? item.color_code ?? "").trim();
   }
 
+  /** Broad colour families — archive colour chips + optional per-item / per-variant override. */
+  const BASIC_COLOUR_FAMILY_KEYS = ["blue", "brown", "red", "white", "black", "beige", "gold", "silver", "green", "grey"];
+
+  function normalizeStoredBasicColourKey(raw) {
+    const v = String(raw ?? "")
+      .trim()
+      .toLowerCase();
+    if (v === "platinum") return "silver";
+    return BASIC_COLOUR_FAMILY_KEYS.includes(v) ? v : "";
+  }
+
   /** Uploaded swatch (`previewImage` / `swatchImage`). When set and displayable, grid swatches show it before hex fill, colour-code text, or variant cover. */
   function variantSwatchImageUrl(v) {
     if (!v || typeof v !== "object") return "";
@@ -26,7 +37,7 @@
 
   /**
    * Optional `colourVariants` on a wardrobe row (legacy JSON may use `colorVariants`).
-   * @returns {{ key: string, label: string, colour: string, colourCode: string, image: string, previewImage: string, gallery: string[], notes: string }[] | null}
+   * @returns {{ key: string, label: string, colour: string, colourCode: string, image: string, previewImage: string, gallery: string[], notes: string, basicColour?: string }[] | null}
    */
   function getItemColourVariants(item) {
     let raw = null;
@@ -53,7 +64,9 @@
       const key = String(v.key ?? "").trim();
       const image = String(v.image ?? "").trim();
       if (!key || !image) continue;
-      out.push({
+      const bc = normalizeStoredBasicColourKey(v.basicColour ?? v.colourFamily);
+      /** @type {{ key: string, label: string, colour: string, colourCode: string, image: string, previewImage: string, gallery: string[], notes: string, basicColour?: string }} */
+      const row = {
         key,
         label: String(v.label ?? v.colour ?? v.color ?? key).trim() || key,
         colour: String(v.colour ?? v.color ?? "").trim(),
@@ -62,7 +75,9 @@
         previewImage: String(v.previewImage ?? v.swatchImage ?? "").trim(),
         gallery: Array.isArray(v.gallery) ? v.gallery.map((x) => String(x ?? "").trim()).filter(Boolean) : [],
         notes: v.notes != null ? String(v.notes) : "",
-      });
+      };
+      if (bc) row.basicColour = bc;
+      out.push(row);
     }
     return out.length ? out : null;
   }
@@ -120,7 +135,8 @@
    * If only `outfitPick` is set (no hero), tap adds the colour to the outfit.
    * @param {HTMLElement} mountEl
    * @param {object} item
-   * @param {{ outfitPick?: boolean, heroImg?: HTMLImageElement | null, heroHost?: HTMLElement | null, addToOutfitOnPick?: boolean, showHeroGallery?: boolean, gridCaption?: "compact", gridMediaOverlay?: boolean }} [opts]
+   * @param {{ outfitPick?: boolean, heroImg?: HTMLImageElement | null, heroHost?: HTMLElement | null, addToOutfitOnPick?: boolean, showHeroGallery?: boolean, gridCaption?: "compact", gridMediaOverlay?: boolean, heroInitialColourKey?: string }} [opts]
+   * `heroInitialColourKey` — when set (e.g. archive colour filter), marks that variant active and matches hero if it already shows that cover.
    * `gridCaption: "compact"` — archive grid only: short caption for multi-colour rows (swatches carry the rest).
    * `gridMediaOverlay` — archive grid: stack swatches on the hero image (bottom-right), no crop change.
    */
@@ -134,6 +150,7 @@
     const outfitPick = Boolean(opts.outfitPick) && itemEligibleForOutfit(item);
     const gridCaption = opts.gridCaption;
     const gridMediaOverlay = Boolean(opts.gridMediaOverlay);
+    const heroInitialColourKey = String(opts.heroInitialColourKey ?? "").trim();
     const interactive = Boolean(heroImg) || outfitPick;
 
     const block = document.createElement("div");
@@ -231,9 +248,15 @@
     });
 
     if (heroImg && heroHost) {
-      const mainImg = String(item.image ?? "").trim();
-      const initialKey =
-        variants.find((vv) => String(vv.image ?? "").trim() === mainImg)?.key ?? variants[0]?.key;
+      let initialKey = "";
+      if (heroInitialColourKey && variants.some((vv) => String(vv.key) === heroInitialColourKey)) {
+        initialKey = heroInitialColourKey;
+      }
+      if (!initialKey) {
+        const mainImg = String(item.image ?? "").trim();
+        initialKey =
+          String(variants.find((vv) => String(vv.image ?? "").trim() === mainImg)?.key ?? variants[0]?.key ?? "");
+      }
       if (initialKey) {
         sw.querySelectorAll(".card__swatch").forEach((node) => {
           if (/** @type {HTMLElement} */ (node).dataset.variantKey === String(initialKey)) {
@@ -343,13 +366,11 @@
   const ARCHIVE_SCROLL_TTL_MS = 20 * 60 * 1000;
 
   const ARCHIVE_SORT_MODE_KEY = "timeless-wardrobe-archive-sort-v1";
-  const ARCHIVE_DISPLAY_CURRENCY_KEY = "timeless-wardrobe-display-currency-v1";
   /** User hid the “browser-only storage” banner; clearing this key shows it again. */
   const LOCAL_DATA_RISK_BANNER_DISMISSED_KEY = "timeless-wardrobe-dismiss-local-risk-v1";
   const PRICE_CURRENCY_CODES = ["TWD", "USD", "JPY", "CNY"];
   const ARCHIVE_SORT_MODES = ["archive", "price-asc", "price-desc", "date-asc", "date-desc"];
-  /** Basic colour archive filter (keyword + hex from labels / `colour` / variants). */
-  const BASIC_COLOUR_FAMILY_KEYS = ["blue", "brown", "red", "white", "black", "beige", "green", "grey"];
+  /** Basic colour archive filter: uses stored `basicColour` only when set; otherwise infers from colour / fabric / codes. */
   const BASIC_COLOUR_FILTER_KEY = "timeless-wardrobe-basic-colour-v1";
 
   /** Approximate FX vs USD — display + cross-currency sort only (not live rates). */
@@ -373,26 +394,6 @@
       /* */
     }
     return ok;
-  }
-
-  function loadPersistedDisplayCurrency() {
-    try {
-      const v = String(localStorage.getItem(ARCHIVE_DISPLAY_CURRENCY_KEY) || "").trim().toUpperCase();
-      if (PRICE_CURRENCY_CODES.includes(v)) return v;
-    } catch {
-      /* */
-    }
-    return "TWD";
-  }
-
-  function persistDisplayCurrency(v) {
-    const c = PRICE_CURRENCY_CODES.includes(String(v).trim().toUpperCase()) ? String(v).trim().toUpperCase() : "TWD";
-    try {
-      localStorage.setItem(ARCHIVE_DISPLAY_CURRENCY_KEY, c);
-    } catch {
-      /* */
-    }
-    return c;
   }
 
   function loadPersistedBasicColourFilter() {
@@ -427,6 +428,28 @@
     return key.slice(0, 1).toUpperCase() + key.slice(1);
   }
 
+  /**
+   * @param {HTMLSelectElement | null} sel
+   * @param {string} selectedKey
+   */
+  function fillBasicColourSelectOptions(sel, selectedKey) {
+    if (!sel) return;
+    const want = normalizeStoredBasicColourKey(selectedKey);
+    sel.textContent = "";
+    const o0 = document.createElement("option");
+    o0.value = "";
+    o0.textContent = "Auto (from name / code / hex)";
+    sel.appendChild(o0);
+    for (const k of BASIC_COLOUR_FAMILY_KEYS) {
+      const o = document.createElement("option");
+      o.value = k;
+      o.textContent = basicColourLabelEn(k);
+      if (k === want) o.selected = true;
+      sel.appendChild(o);
+    }
+    if (!want) o0.selected = true;
+  }
+
   const BASIC_COLOUR_SWATCH_HEX = {
     blue: "#3f67c8",
     brown: "#7b5835",
@@ -434,6 +457,8 @@
     white: "#f4f4f1",
     black: "#1b1b1b",
     beige: "#d1bfa3",
+    gold: "#c9a227",
+    silver: "#b8babf",
     green: "#4f7b56",
     grey: "#8d8e95",
   };
@@ -463,7 +488,8 @@
   }
 
   let archiveSortMode = loadPersistedArchiveSortMode();
-  let archiveDisplayCurrency = loadPersistedDisplayCurrency();
+  /** Archive list prices are converted to TWD for totals, sort, and card display. */
+  const archiveDisplayCurrency = "TWD";
   let basicColourFilter = loadPersistedBasicColourFilter();
 
   /**
@@ -581,6 +607,7 @@
   function measurementRowsToSummaryString(rows, unit = "cm") {
     const u = parseMeasurementUnitInput(unit);
     return cleanMeasurementRows(rows)
+      .filter((r) => String(r.value ?? "").trim())
       .map((r) => {
         const L = String(r.label ?? "").trim();
         const V = String(r.value ?? "").trim();
@@ -613,7 +640,7 @@
     for (const row of dyn.querySelectorAll(".measured-dims-row[data-tw-meas-row]")) {
       const label = row.querySelector(".measured-dims-row__label")?.value?.trim() ?? "";
       const value = row.querySelector(".measured-dims-row__value")?.value?.trim() ?? "";
-      if (label || value) out.push({ label, value });
+      if (value) out.push({ label, value });
     }
     return out;
   }
@@ -722,7 +749,7 @@
   function resetAddItemMeasurementBlock() {
     const el = document.getElementById("add-item-measured-dims-block");
     if (!el) return;
-    mountMeasurementRowsEditor(el, resolveInitialMeasurementRowsForEditor([], { defaultsForEmpty: true }), {
+    mountMeasurementRowsEditor(el, resolveInitialMeasurementRowsForEditor([], { defaultsForEmpty: false }), {
       unitSelectId: "add-item-measurement-unit",
       initialUnit: "cm",
     });
@@ -734,7 +761,7 @@
    * @param {object} item
    */
   function formatMeasurementRowsBrief(item) {
-    const rows = getMeasurementRows(item);
+    const rows = getMeasurementRows(item).filter((r) => String(r.value ?? "").trim());
     if (!rows.length) {
       const leg = String(item.measuredDimensions ?? "").trim();
       return leg || "";
@@ -756,8 +783,8 @@
    * @param {object} item
    */
   function appendMeasurementDisplaySection(body, item) {
-    const rows = getMeasurementRows(item);
-    const hasRows = rows.some((r) => String(r.label ?? "").trim() || String(r.value ?? "").trim());
+    const rows = getMeasurementRows(item).filter((r) => String(r.value ?? "").trim());
+    const hasRows = rows.length > 0;
     const legacy = String(item.measuredDimensions ?? "").trim();
     if (!hasRows && !legacy) return;
 
@@ -802,7 +829,7 @@
    */
   function normalizeMeasurementFields(item) {
     if (!item || typeof item !== "object") return item;
-    const rows = getMeasurementRows(item);
+    const rows = getMeasurementRows(item).filter((r) => String(r.value ?? "").trim());
     const out = { ...item };
     if (rows.length) {
       out.measurementRows = rows;
@@ -1024,7 +1051,7 @@
     Shirts: "Shirts & Tops",
     Bottoms: "Trousers",
     Tops: "Shirts & Tops",
-    Footwear: "Shoes & Boots",
+    Footwear: "Footwear",
     Fragrance: "Fragrance",
     Jewellery: "Jewellery",
     Necklace: "Jewellery",
@@ -1038,7 +1065,7 @@
     Accessories: "Accessories",
     "Small accessories": "Small Accessories",
     Bags: "Bags",
-    Hats: "Hats",
+    Hats: "Caps & Hats",
     Eyewear: "Eyewear",
     Sunglasses: "Eyewear",
     Glasses: "Eyewear",
@@ -1075,7 +1102,7 @@
     lines.push(`Weight / specs: ${String(item.weight ?? "").trim()}`);
     lines.push(`Size: ${String(item.size ?? "").trim()}`);
     {
-      const rows = getMeasurementRows(item);
+      const rows = getMeasurementRows(item).filter((r) => String(r.value ?? "").trim());
       if (rows.length) {
         const u = getMeasurementUnit(item);
         lines.push(`Measurements (${u}):`);
@@ -1630,9 +1657,13 @@
       item.metadata && typeof item.metadata === "object" && !Array.isArray(item.metadata) ? { ...item.metadata } : {};
     if (Array.isArray(item.colourVariants) && item.colourVariants.length) {
       meta.colourVariants = item.colourVariants;
+      delete meta.basicColour;
     } else {
       delete meta.colourVariants;
       delete meta.colorVariants;
+      const bc = normalizeStoredBasicColourKey(item.basicColour ?? meta.basicColour);
+      if (bc) meta.basicColour = bc;
+      else delete meta.basicColour;
     }
     const pNum = parsePriceAmountFlexible(item.price != null ? item.price : meta?.price);
     if (Number.isFinite(pNum) && pNum >= 0) {
@@ -2178,7 +2209,7 @@
       },
       seasonNav: readSeasonNavFromLocalStorage(),
       archiveSortMode: loadPersistedArchiveSortMode(),
-      displayCurrency: loadPersistedDisplayCurrency(),
+      displayCurrency: "TWD",
       basicColourFilter: loadPersistedBasicColourFilter(),
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
@@ -2518,6 +2549,46 @@
     rebuildItemIndex();
     coverResolutionCache.clear();
     wardrobeRevision += 1;
+    syncHeaderSearchCategoryPreviews();
+  }
+
+  /**
+   * Header search "Popular categories" cards: show one real cover per slot (archive order).
+   */
+  function syncHeaderSearchCategoryPreviews() {
+    const gridHost = document.querySelector(".site-header__search-category-grid");
+    if (!gridHost) return;
+    for (const slot of SLOT_OPTIONS) {
+      const card = /** @type {HTMLElement | null} */ (
+        gridHost.querySelector(`a.site-header__search-category-card[data-category-jump="${slot}"]`)
+      );
+      if (!card) continue;
+      const media = card.querySelector(".site-header__search-category-card__media");
+      if (!(media instanceof HTMLElement)) continue;
+      media.replaceChildren();
+      media.classList.remove("site-header__search-category-card__media--missing");
+      const pool = items.filter((it) => itemSlot(it) === slot);
+      if (!pool.length) {
+        media.classList.add("site-header__search-category-card__media--missing");
+        continue;
+      }
+      const pick = [...pool].sort(compareGridItems)[0];
+      if (!pick) {
+        media.classList.add("site-header__search-category-card__media--missing");
+        continue;
+      }
+      const img = document.createElement("img");
+      img.className = "site-header__search-category-card__img";
+      img.alt = "";
+      img.decoding = "async";
+      img.loading = "lazy";
+      img.draggable = false;
+      media.appendChild(img);
+      wireCoverImageWithFallbacks(img, pick, {
+        host: media,
+        missingClass: "site-header__search-category-card__media--missing",
+      });
+    }
   }
 
   /** @type {{ itemId: string, colourKey?: string }[]} */
@@ -2533,6 +2604,7 @@
 
   /** @type {Element | null} */
   let archiveFilterDrawerFocusReturn = null;
+  let archiveFilterDrawerOpenRaf = 0;
 
   /** @type {boolean} */
   let useCloudOutfits = false;
@@ -2659,11 +2731,6 @@
       if (!media.classList.contains("item-detail__media--zoomed")) return;
       setOriginFromEvent(ev);
     });
-    media.addEventListener("pointerleave", () => {
-      if (!media.classList.contains("item-detail__media--zoomed")) return;
-      heroImg.style.setProperty("--hero-zoom-x", "50%");
-      heroImg.style.setProperty("--hero-zoom-y", "50%");
-    });
   }
 
   function itemDetailIsPageRoot(root) {
@@ -2674,16 +2741,9 @@
   function afterItemDetailPageRender(root, edit) {
     if (!itemDetailIsPageRoot(root)) return;
     globalThis.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    if (!edit) return;
     queueMicrotask(() => {
-      if (edit) {
-        document.getElementById("item-edit-brand")?.focus();
-      } else {
-        const h = document.getElementById("item-detail-heading");
-        if (h) {
-          h.setAttribute("tabindex", "-1");
-          h.focus({ preventScroll: true });
-        }
-      }
+      document.getElementById("item-edit-brand")?.focus();
     });
   }
 
@@ -2763,12 +2823,14 @@
     const specific = [
       [/navy|steel\s*blue|steel-blue|powder\s+blue|air\s*force|indigo|denim|azure|cobalt|sapphire|teal|turquoise|aqua|aquamarine|blue|丹寧|天藍|藍色|藍/, "blue"],
       [/brown|chocolate|espresso|mocha|cognac|mahogany|tobacco|chestnut|camel(?!\s*hair)|hazel\b|咖|咖啡色|咖啡|棕|褐色/, "brown"],
-      [/burgundy|maroon|wine|oxblood|scarlet|crimson|ruby|brick|terracotta|coral|salmon|magenta|fuchsia|rose\b|pink|burgundy|red|紅|紅色|酒紅|玫瑰|粉|珊瑚/, "red"],
-      [/white|ivory|optic\s*white|snow\b(?!\s*wash)|off\s*-?\s*white|cream(?!\s*cotton)|奶白|雪白|米白|白色|白/, "white"],
+      [/yellow\s*gold|rose\s*gold|white\s*gold|\by\.?\s*g\.?\b|\byg\b|\b18k\b|\b14k\b|\b9k\b|\bgold\b|pvd\s*gold|黃金/, "gold"],
+      [/\bplatinum\b|\bpt950\b|950\s*pt|sterling|925|\bsilver\b(?!\s*[-–]?\s*(?:grey|gray))|\bargent\b|白金|鉑金|銀(?!灰)/, "silver"],
+      [/burgundy|maroon|wine|oxblood|scarlet|crimson|ruby|brick|terracotta|coral|salmon|magenta|fuchsia|rose(?!\s*gold)|pink|burgundy|red|紅|紅色|酒紅|玫瑰|粉|珊瑚/, "red"],
+      [/white|ivory|optic\s*white|snow\b(?!\s*wash)|off\s*-?\s*white|cream(?!\s*cotton)|ecru|奶白|雪白|米白|白色|白/, "white"],
       [/black|noir|jet\b|ink\b|黑色|黑/, "black"],
-      [/beige|tan\b|khaki|sand|ecru|oat|latte|natural(?!\s*waist)|bone|stone-wash|camel|khaki|米色|卡其|駝|奶茶|駝色/, "beige"],
+      [/beige|tan\b|khaki|sand|oat|latte|natural(?!\s*waist)|bone|stone-wash|camel|khaki|米色|卡其|駝|奶茶|駝色/, "beige"],
       [/olive|sage|mint|moss|hunter|emerald|jade|forest|green|橄欖|橄欖綠|墨綠|草綠|綠|綠色/, "green"],
-      [/grey|gray|silver|charcoal|graphite|pewter|slate|heather|melange|anthracite|ash|銀灰|灰色|灰/, "grey"],
+      [/grey|gray|charcoal|graphite|pewter|slate|heather|melange|anthracite|ash|銀灰|灰色|灰/, "grey"],
     ];
     for (const [re, fam] of specific) {
       if (re.test(textOnly)) {
@@ -2776,7 +2838,7 @@
         return fams;
       }
     }
-    if (/orange|tangerine|mustard|yellow|gold|lemon|marigold|柑橘|橙|黃|芥|金/.test(textOnly)) {
+    if (/orange|tangerine|mustard|yellow|lemon|marigold|柑橘|橙|黃|芥/.test(textOnly)) {
       fams.add("beige");
       return fams;
     }
@@ -2787,32 +2849,97 @@
     return fams;
   }
 
+  /** User-picked broad colour(s) from item / metadata / variants (normalized keys). */
   /** @returns {Set<string>} */
-  function inferItemBasicColourFamilies(item) {
-    const fams = new Set();
-    const addRaw = (raw) => {
-      const s = String(raw ?? "").trim();
-      if (!s) return;
-      const chunks = s
-        .split(/[,/&·+]|\/+|\s+-\s+|\s+and\s+|\s+·\s+|[／、]/i)
-        .map((x) => String(x ?? "").trim())
-        .filter(Boolean);
-      const parts = chunks.length ? chunks : [s];
-      for (const p of parts) {
-        for (const f of basicFamiliesFromColourSegment(p)) fams.add(f);
-      }
-    };
-    addRaw(item?.colour);
-    addRaw(itemColourCode(item));
+  function explicitItemBasicColourFamilies(item) {
+    const s = new Set();
+    if (!item || typeof item !== "object") return s;
+    const meta =
+      item.metadata && typeof item.metadata === "object" && !Array.isArray(item.metadata) ? item.metadata : null;
+    const top = normalizeStoredBasicColourKey(item.basicColour ?? meta?.basicColour);
+    if (top) s.add(top);
     const vars = getItemColourVariants(item);
     if (vars) {
       for (const v of vars) {
-        addRaw(v.label);
-        addRaw(v.colour || v.color);
-        addRaw(v.colourCode || v.colorCode);
+        const vb = normalizeStoredBasicColourKey(v.basicColour);
+        if (vb) s.add(vb);
+      }
+    }
+    return s;
+  }
+
+  /** @param {Set<string>} fams */
+  function addRawChunksToBasicColourFamilySet(raw, fams) {
+    const s = String(raw ?? "").trim();
+    if (!s) return;
+    const chunks = s
+      .split(/[,/&·+]|\/+|\s+-\s+|\s+and\s+|\s+·\s+|[／、]/i)
+      .map((x) => String(x ?? "").trim())
+      .filter(Boolean);
+    const parts = chunks.length ? chunks : [s];
+    for (const p of parts) {
+      for (const f of basicFamiliesFromColourSegment(p)) fams.add(f);
+    }
+  }
+
+  /** Inferred families from colour / fabric / codes only (no stored `basicColour`). */
+  /** @returns {Set<string>} */
+  function inferItemBasicColourFamiliesFromContent(item) {
+    const fams = new Set();
+    addRawChunksToBasicColourFamilySet(item?.colour, fams);
+    addRawChunksToBasicColourFamilySet(item?.fabric, fams);
+    addRawChunksToBasicColourFamilySet(itemColourCode(item), fams);
+    const vars = getItemColourVariants(item);
+    if (vars) {
+      for (const v of vars) {
+        addRawChunksToBasicColourFamilySet(v.label, fams);
+        addRawChunksToBasicColourFamilySet(v.colour || v.color, fams);
+        addRawChunksToBasicColourFamilySet(v.colourCode || v.colorCode, fams);
       }
     }
     return fams;
+  }
+
+  /**
+   * Families used for archive colour chips and filter. If the user set broad colour anywhere
+   * (item, metadata, or a variant), only those keys are used; otherwise text/hex inference.
+   * @returns {Set<string>}
+   */
+  function inferItemBasicColourFamilies(item) {
+    const explicit = explicitItemBasicColourFamilies(item);
+    if (explicit.size > 0) return new Set(explicit);
+    return inferItemBasicColourFamiliesFromContent(item);
+  }
+
+  /**
+   * Broad-colour families for one colour variant (stored `basicColour` or text inferred from that row only).
+   * @returns {Set<string>}
+   */
+  function colourFamiliesForVariantFields(v) {
+    const fams = new Set();
+    if (!v || typeof v !== "object") return fams;
+    const vb = normalizeStoredBasicColourKey(v.basicColour);
+    if (vb) {
+      fams.add(vb);
+      return fams;
+    }
+    addRawChunksToBasicColourFamilySet(v.label, fams);
+    addRawChunksToBasicColourFamilySet(v.colour, fams);
+    addRawChunksToBasicColourFamilySet(v.color, fams);
+    addRawChunksToBasicColourFamilySet(v.colourCode, fams);
+    addRawChunksToBasicColourFamilySet(v.colorCode, fams);
+    return fams;
+  }
+
+  /** First variant whose families include `bucket` (e.g. active archive colour filter). */
+  function firstVariantKeyMatchingBasicColourBucket(item, bucket) {
+    if (!bucket) return "";
+    const vars = getItemColourVariants(item);
+    if (!vars?.length) return "";
+    for (const v of vars) {
+      if (colourFamiliesForVariantFields(v).has(bucket)) return String(v.key);
+    }
+    return "";
   }
 
   function itemMatchesBasicColourFilter(item, bucket) {
@@ -2889,8 +3016,13 @@
     return hay.includes(q);
   }
 
+  /** Basic colour archive filter: enabled on the archive grid (all category tabs + “All”); hidden on `item.html`. */
+  function allowArchiveBasicColourFilter() {
+    return Boolean(document.getElementById("grid"));
+  }
+
   function getFilters() {
-    const allowColour = categoryNavFilter !== SLOT_FRAGRANCE;
+    const allowColour = allowArchiveBasicColourFilter();
     return {
       seasonNav: seasonNavFilter,
       category: categoryNavFilter,
@@ -2902,7 +3034,7 @@
 
   /** Category / record-type drill / search / colour — not the season tab. */
   function narrowingFiltersActive() {
-    const allowColour = categoryNavFilter !== SLOT_FRAGRANCE;
+    const allowColour = allowArchiveBasicColourFilter();
     return Boolean(
       categoryNavFilter ||
         String(subcategoryFilter ?? "").trim() ||
@@ -2916,7 +3048,7 @@
     if (categoryNavFilter) bits.push(categoryDisplayLabel(categoryNavFilter));
     const sub = String(subcategoryFilter ?? "").trim();
     if (sub) bits.push(friendlyRecordCategory(sub) || sub);
-    if (basicColourFilter) bits.push(basicColourLabelEn(basicColourFilter));
+    if (allowArchiveBasicColourFilter() && basicColourFilter) bits.push(basicColourLabelEn(basicColourFilter));
     return bits.join(" · ");
   }
 
@@ -2956,7 +3088,7 @@
     const btn = els.colourChip;
     const textEl = els.colourChipText;
     if (!btn || !textEl) return;
-    const allowColour = categoryNavFilter !== SLOT_FRAGRANCE;
+    const allowColour = allowArchiveBasicColourFilter();
     if (allowColour && basicColourFilter) {
       const label = basicColourLabelEn(basicColourFilter);
       textEl.textContent = label;
@@ -3022,11 +3154,8 @@
     persistSeasonNav();
     syncSeasonTabUI();
     archiveSortMode = persistArchiveSortMode("archive");
-    archiveDisplayCurrency = persistDisplayCurrency("TWD");
     const sortSel = document.getElementById("archive-sort");
-    const curSel = document.getElementById("archive-display-currency");
     if (sortSel) sortSel.value = archiveSortMode;
-    if (curSel) curSel.value = archiveDisplayCurrency;
     document.body.classList.remove("archive-ui--nav-folded");
     closeArchiveFilterDrawer();
     resetNarrowingFilters();
@@ -4606,6 +4735,7 @@
 
     const colourTrim = String(colourVal ?? "").trim();
     const colourCodeTrim = String(colourCodeInput ?? "").trim();
+    const basicPick = normalizeStoredBasicColourKey(document.getElementById("add-item-basic-colour")?.value ?? "");
     const newItem = {
       id: newId,
       brand,
@@ -4625,6 +4755,7 @@
       pillar: "",
     };
     if (colourCodeTrim) newItem.colourCode = colourCodeTrim;
+    if (basicPick) newItem.basicColour = basicPick;
     if (priceVal != null) {
       newItem.price = priceVal;
       newItem.priceCurrency = PRICE_CURRENCY_CODES.includes(priceCur) ? priceCur : "TWD";
@@ -4707,6 +4838,13 @@
 
     const cc = itemColourCode(src);
     if (cc) dup.colourCode = cc;
+    const bcTop = normalizeStoredBasicColourKey(
+      src?.basicColour ??
+        (src?.metadata && typeof src.metadata === "object" && !Array.isArray(src.metadata)
+          ? /** @type {any} */ (src.metadata).basicColour
+          : "")
+    );
+    if (bcTop) dup.basicColour = bcTop;
 
     const mr = getMeasurementRows(src);
     const mu = getMeasurementUnit(src);
@@ -4727,6 +4865,7 @@
         const vim = String(v.image ?? "").trim();
         const g = dedupeGalleryUrls(vim, Array.isArray(v.gallery) ? v.gallery : [], 12);
         const col = String(v.colour ?? v.color ?? "").trim();
+        const bv = normalizeStoredBasicColourKey(v.basicColour);
         return {
           key: String(v.key ?? "").trim(),
           label: String(v.label ?? "").trim(),
@@ -4736,6 +4875,7 @@
           previewImage: String(v.previewImage ?? "").trim(),
           notes: String(v.notes ?? "").trim(),
           gallery: g,
+          ...(bv ? { basicColour: bv } : {}),
         };
       });
     }
@@ -4772,10 +4912,21 @@
       cat.appendChild(o);
     }
 
-    function syncAddItemRecordTypes() {
-      fillItemEditRecordTypeSelect(recordSel, cat.value, "");
+    function syncAddItemRecordTypes(preferRecordType = "") {
+      fillItemEditRecordTypeSelect(recordSel, cat.value, preferRecordType);
     }
-    cat.addEventListener("change", syncAddItemRecordTypes);
+
+    function applyCurrentBrowseContextToAddItemForm() {
+      const slot = String(categoryNavFilter ?? "").trim();
+      if (!slot || !SLOT_OPTIONS.includes(slot)) {
+        syncAddItemRecordTypes("");
+        return;
+      }
+      cat.value = slot;
+      const prefer = String(subcategoryFilter ?? "").trim();
+      syncAddItemRecordTypes(prefer);
+    }
+    cat.addEventListener("change", () => syncAddItemRecordTypes(""));
     syncAddItemRecordTypes();
 
     photosInput?.addEventListener("change", () => {
@@ -4814,6 +4965,7 @@
     });
     openAdd?.addEventListener("click", () => {
       if (!addDlg) return;
+      applyCurrentBrowseContextToAddItemForm();
       try {
         addDlg.showModal();
       } catch {
@@ -4856,6 +5008,12 @@
     const slotLab = itemSlot(item);
     const recKey = recordCategoryForDrill(item, slotLab);
 
+    const colourBucket = getFilters().basicColour;
+    const variantKeyForHero =
+      variants?.length && colourBucket ? firstVariantKeyMatchingBasicColourBucket(item, colourBucket) : "";
+    const cardCoverItem =
+      variantKeyForHero ? itemProjectionForOutfitSlot(item, { itemId: String(item.id), colourKey: variantKeyForHero }) : item;
+
     const article = document.createElement("article");
     const outfitHighlight = inOutfit && itemEligibleForOutfit(item);
     article.className = "card" + (outfitHighlight ? " card--in-outfit" : "");
@@ -4868,11 +5026,11 @@
 
     const img = document.createElement("img");
     img.className = "card__media-img";
-    img.alt = imageAltForItem(item);
+    img.alt = imageAltForItem(cardCoverItem);
     img.loading = "lazy";
     img.decoding = "async";
     img.draggable = false;
-    wireCoverImageWithFallbacks(img, item, {
+    wireCoverImageWithFallbacks(img, cardCoverItem, {
       host: media,
       onResolved(url) {
         const ti = media.querySelector(".card__gallery-strip .card__gallery-thumb.is-active img");
@@ -4955,6 +5113,7 @@
       showHeroGallery: false,
       gridCaption: variants?.length > 1 ? "compact" : undefined,
       gridMediaOverlay: true,
+      heroInitialColourKey: variantKeyForHero || undefined,
     });
 
     const specs = document.createElement("ul");
@@ -5489,7 +5648,7 @@
 
   /**
    * @param {HTMLElement} listEl
-   * @param {{ key?: string, label?: string, colour?: string, colourCode?: string, image?: string, previewImage?: string, gallery?: string[], notes?: string }} data
+   * @param {{ key?: string, label?: string, colour?: string, colourCode?: string, basicColour?: string, image?: string, previewImage?: string, gallery?: string[], notes?: string }} data
    */
   function appendVariantEditorRow(listEl, data) {
     const key = String(data.key ?? "").trim() || newEditorVariantKey();
@@ -5533,6 +5692,11 @@
     codeIn.maxLength = 80;
     codeIn.placeholder = "Colour code (#hex, SKU…)";
     codeIn.value = colourCode;
+
+    const basicSel = document.createElement("select");
+    basicSel.className = "item-edit-variant-basic-colour";
+    basicSel.setAttribute("aria-label", "Broad colour (archive filter)");
+    fillBasicColourSelectOptions(basicSel, String(data.basicColour ?? "").trim());
 
     const notesIn = document.createElement("input");
     notesIn.type = "text";
@@ -5642,6 +5806,7 @@
     fs.appendChild(labelIn);
     fs.appendChild(colourIn);
     fs.appendChild(codeIn);
+    fs.appendChild(basicSel);
     fs.appendChild(notesIn);
     fs.appendChild(coverLab);
     fs.appendChild(rmCov);
@@ -5772,6 +5937,10 @@
         notes,
       };
       if (previewImage) rowObj.previewImage = previewImage;
+      const basicV = normalizeStoredBasicColourKey(
+        /** @type {HTMLSelectElement | null} */ (row.querySelector(".item-edit-variant-basic-colour"))?.value ?? ""
+      );
+      if (basicV) rowObj.basicColour = basicV;
       built.push(rowObj);
     }
     return built;
@@ -5826,6 +5995,8 @@
     let priceVal = parsePriceAmountFlexible(priceRaw);
     if (!Number.isFinite(priceVal) || priceVal < 0) priceVal = null;
     const notes = form.querySelector("#item-edit-notes")?.value?.trim() || "";
+    const basicSel = /** @type {HTMLSelectElement | null} */ (form.querySelector("#item-edit-basic-colour"));
+    const basicPickSingle = normalizeStoredBasicColourKey(basicSel?.value ?? "");
 
     const variantsMode = itemEditVariantsActive(form);
     /** @type {{ key: string, label: string, colour: string, colourCode: string, image: string, previewImage?: string, gallery: string[], notes: string }[] | null} */
@@ -5953,8 +6124,11 @@
 
     if (variantsMode && colourVariantsBuilt?.length) {
       updated.colourVariants = colourVariantsBuilt;
+      delete updated.basicColour;
     } else {
       delete updated.colourVariants;
+      if (basicPickSingle) updated.basicColour = basicPickSingle;
+      else delete updated.basicColour;
     }
 
     const prevMeta =
@@ -5976,6 +6150,13 @@
       delete prevMeta.measurementUnit;
       delete updated.measurementRows;
       delete updated.measurementUnit;
+    }
+    if (variantsMode && colourVariantsBuilt?.length) {
+      delete prevMeta.basicColour;
+    } else if (basicPickSingle) {
+      prevMeta.basicColour = basicPickSingle;
+    } else {
+      delete prevMeta.basicColour;
     }
     if (Object.keys(prevMeta).length) updated.metadata = prevMeta;
     else delete updated.metadata;
@@ -6071,6 +6252,13 @@
         } else {
           delete baseMeta.measurementRows;
           delete baseMeta.measurementUnit;
+        }
+        if (variantsMode && colourVariantsBuilt?.length) {
+          delete baseMeta.basicColour;
+        } else if (basicPickSingle) {
+          baseMeta.basicColour = basicPickSingle;
+        } else {
+          delete baseMeta.basicColour;
         }
         if (Object.keys(baseMeta).length) patch.metadata = baseMeta;
         else if (prev.metadata && typeof prev.metadata === "object" && !Array.isArray(prev.metadata))
@@ -6373,59 +6561,75 @@
       /** @type {HTMLElement | null} */
       let colourSingleField = null;
 
-      if (!initialVariants) {
-        const colourBlock = document.createElement("div");
-        colourBlock.className = "field--span2 item-edit-single-colour-block";
+      const colourBlock = document.createElement("div");
+      colourBlock.className = "field--span2 item-edit-single-colour-block";
+      colourBlock.hidden = Boolean(initialVariants);
 
-        const colourNameInput = document.createElement("input");
-        colourNameInput.type = "text";
-        colourNameInput.id = "item-edit-colour";
-        colourNameInput.maxLength = 80;
-        colourNameInput.autocomplete = "off";
-        colourNameInput.value = String(item.colour ?? item.color ?? "");
+      const colourNameInput = document.createElement("input");
+      colourNameInput.type = "text";
+      colourNameInput.id = "item-edit-colour";
+      colourNameInput.maxLength = 80;
+      colourNameInput.autocomplete = "off";
+      colourNameInput.value = String(item.colour ?? item.color ?? "");
 
-        const colourNameLab = document.createElement("label");
-        colourNameLab.className = "field";
-        const cspan = document.createElement("span");
-        cspan.className = "field__label";
-        cspan.textContent = "Colour (optional)";
-        colourNameLab.appendChild(cspan);
-        colourNameLab.appendChild(colourNameInput);
+      const colourNameLab = document.createElement("label");
+      colourNameLab.className = "field";
+      const cspan = document.createElement("span");
+      cspan.className = "field__label";
+      cspan.textContent = "Colour (optional)";
+      colourNameLab.appendChild(cspan);
+      colourNameLab.appendChild(colourNameInput);
 
-        const colourCodeInput = document.createElement("input");
-        colourCodeInput.type = "text";
-        colourCodeInput.id = "item-edit-colour-code";
-        colourCodeInput.maxLength = 80;
-        colourCodeInput.autocomplete = "off";
-        colourCodeInput.placeholder = "#hex, SKU…";
-        colourCodeInput.value = itemColourCode(item);
+      const colourCodeInput = document.createElement("input");
+      colourCodeInput.type = "text";
+      colourCodeInput.id = "item-edit-colour-code";
+      colourCodeInput.maxLength = 80;
+      colourCodeInput.autocomplete = "off";
+      colourCodeInput.placeholder = "#hex, SKU…";
+      colourCodeInput.value = itemColourCode(item);
 
-        const colourCodeLab = document.createElement("label");
-        colourCodeLab.className = "field";
-        const ccspan = document.createElement("span");
-        ccspan.className = "field__label";
-        ccspan.textContent = "Colour code (optional)";
-        colourCodeLab.appendChild(ccspan);
-        colourCodeLab.appendChild(colourCodeInput);
+      const colourCodeLab = document.createElement("label");
+      colourCodeLab.className = "field";
+      const ccspan = document.createElement("span");
+      ccspan.className = "field__label";
+      ccspan.textContent = "Colour code (optional)";
+      colourCodeLab.appendChild(ccspan);
+      colourCodeLab.appendChild(colourCodeInput);
 
-        colourBlock.appendChild(colourNameLab);
-        colourBlock.appendChild(colourCodeLab);
+      const itemMetaForBasic =
+        item.metadata && typeof item.metadata === "object" && !Array.isArray(item.metadata) ? item.metadata : null;
+      const initialBasic = normalizeStoredBasicColourKey(item.basicColour ?? itemMetaForBasic?.basicColour);
 
-        if (isCustomPiece) {
-          const migrateHint = document.createElement("p");
-          migrateHint.className = "item-edit-variant-migrate-hint";
-          migrateHint.textContent =
-            "Same piece in another colour needs its own cover photo — outfits will ask which colour to use.";
-          const migrateBtn = document.createElement("button");
-          migrateBtn.type = "button";
-          migrateBtn.className = "btn btn--small btn--ghost item-edit-enable-variants";
-          migrateBtn.textContent = "Add another colour…";
-          colourBlock.appendChild(migrateHint);
-          colourBlock.appendChild(migrateBtn);
-        }
-        grid.appendChild(colourBlock);
-        colourSingleField = colourBlock;
+      const basicSel = document.createElement("select");
+      basicSel.id = "item-edit-basic-colour";
+      basicSel.className = "item-edit-basic-colour";
+      fillBasicColourSelectOptions(basicSel, initialBasic);
+      const basicLab = document.createElement("label");
+      basicLab.className = "field";
+      const bspan = document.createElement("span");
+      bspan.className = "field__label";
+      bspan.textContent = "Broad colour (optional)";
+      basicLab.appendChild(bspan);
+      basicLab.appendChild(basicSel);
+
+      colourBlock.appendChild(colourNameLab);
+      colourBlock.appendChild(colourCodeLab);
+      colourBlock.appendChild(basicLab);
+
+      if (isCustomPiece) {
+        const migrateHint = document.createElement("p");
+        migrateHint.className = "item-edit-variant-migrate-hint";
+        migrateHint.textContent =
+          "Same piece in another colour needs its own cover photo — outfits will ask which colour to use.";
+        const migrateBtn = document.createElement("button");
+        migrateBtn.type = "button";
+        migrateBtn.className = "btn btn--small btn--ghost item-edit-enable-variants";
+        migrateBtn.textContent = "Add another colour…";
+        colourBlock.appendChild(migrateHint);
+        colourBlock.appendChild(migrateBtn);
       }
+      grid.appendChild(colourBlock);
+      colourSingleField = colourBlock;
 
       const variantsWrap = document.createElement("div");
       variantsWrap.id = "item-edit-variants-wrap";
@@ -6455,6 +6659,11 @@
       addVarBtn.className = "btn btn--small btn--ghost item-edit-variant-add";
       addVarBtn.textContent = "Add another colour…";
       addVarBtn.hidden = !initialVariants;
+      const disableVariantsBtn = document.createElement("button");
+      disableVariantsBtn.type = "button";
+      disableVariantsBtn.className = "btn btn--small btn--ghost item-edit-variant-disable";
+      disableVariantsBtn.textContent = "Use single colour";
+      disableVariantsBtn.hidden = !initialVariants || !colourSingleField;
 
       if (initialVariants) {
         for (const v of initialVariants) {
@@ -6463,6 +6672,7 @@
             label: v.label,
             colour: v.colour ?? v.color,
             colourCode: v.colourCode,
+            basicColour: v.basicColour,
             image: v.image,
             previewImage: v.previewImage,
             gallery: v.gallery,
@@ -6473,6 +6683,7 @@
 
       variantsWrap.appendChild(listEl);
       variantsWrap.appendChild(addVarBtn);
+      variantsWrap.appendChild(disableVariantsBtn);
 
       addVarBtn.addEventListener("click", () => {
         appendVariantEditorRow(listEl, {
@@ -6488,6 +6699,31 @@
         variantsWrap.dataset.active = "1";
         variantsWrap.hidden = false;
         addVarBtn.hidden = false;
+        disableVariantsBtn.hidden = !colourSingleField;
+      });
+
+      disableVariantsBtn.addEventListener("click", () => {
+        if (!colourSingleField) return;
+        const firstRow = listEl.querySelector(".item-edit-variant-row");
+        if (firstRow) {
+          const firstLabel = firstRow.querySelector(".item-edit-variant-label")?.value?.trim() || "";
+          const firstColour = firstRow.querySelector(".item-edit-variant-colour")?.value?.trim() || "";
+          const firstCode = firstRow.querySelector(".item-edit-variant-colour-code")?.value?.trim() || "";
+          const colourNameEl = /** @type {HTMLInputElement | null} */ (colourSingleField.querySelector("#item-edit-colour"));
+          const codeIn = /** @type {HTMLInputElement | null} */ (colourSingleField.querySelector("#item-edit-colour-code"));
+          if (colourNameEl) colourNameEl.value = firstColour || firstLabel || colourNameEl.value;
+          if (codeIn) codeIn.value = firstCode || codeIn.value;
+          const firstBasic = /** @type {HTMLSelectElement | null} */ (firstRow.querySelector(".item-edit-variant-basic-colour"));
+          const singleBasic = /** @type {HTMLSelectElement | null} */ (colourSingleField.querySelector("#item-edit-basic-colour"));
+          if (singleBasic) fillBasicColourSelectOptions(singleBasic, firstBasic?.value ?? "");
+        }
+        variantsWrap.dataset.active = "0";
+        variantsWrap.hidden = true;
+        colourSingleField.hidden = false;
+        addVarBtn.hidden = true;
+        disableVariantsBtn.hidden = true;
+        const coverField = form.querySelector("#item-edit-cover")?.closest("label");
+        if (coverField instanceof HTMLElement) coverField.hidden = false;
       });
 
       if (colourSingleField) {
@@ -6499,6 +6735,8 @@
           const codeIn = /** @type {HTMLInputElement | null} */ (colourSingleField.querySelector("#item-edit-colour-code"));
           const baseColour = colourNameEl?.value?.trim() || "";
           const baseCode = codeIn?.value?.trim() || "";
+          const basicTop = /** @type {HTMLSelectElement | null} */ (colourSingleField.querySelector("#item-edit-basic-colour"));
+          const basicFromSingle = normalizeStoredBasicColourKey(basicTop?.value ?? "");
           const label0 = baseColour || "Colour 1";
           const key0 = slugVariantKeyBase(label0) || "colour-1";
           listEl.innerHTML = "";
@@ -6507,6 +6745,7 @@
             label: label0,
             colour: baseColour,
             colourCode: baseCode,
+            basicColour: basicFromSingle,
             image: String(item.image ?? ""),
             previewImage: "",
             gallery: itemGalleryList(item),
@@ -6526,6 +6765,7 @@
           variantsWrap.hidden = false;
           colourSingleField.hidden = true;
           addVarBtn.hidden = false;
+          disableVariantsBtn.hidden = false;
           const coverField = form.querySelector("#item-edit-cover")?.closest("label");
           if (coverField instanceof HTMLElement) coverField.hidden = true;
         });
@@ -6859,6 +7099,7 @@
     title.className = "item-detail__title";
     if (root.classList.contains("item-detail__root--page")) {
       title.classList.add("item-detail__title--product");
+      title.tabIndex = -1;
     }
     title.textContent = displayNameWithoutLeadingColour(item);
     body.appendChild(title);
@@ -7025,7 +7266,11 @@
     const bc = String(o?.basicColour ?? "")
       .trim()
       .toLowerCase();
-    basicColourFilter = BASIC_COLOUR_FAMILY_KEYS.includes(bc) ? persistBasicColourFilter(bc) : persistBasicColourFilter("");
+    if (BASIC_COLOUR_FAMILY_KEYS.includes(bc)) {
+      basicColourFilter = persistBasicColourFilter(bc);
+    } else {
+      basicColourFilter = persistBasicColourFilter("");
+    }
     try {
       persistSeasonNav();
     } catch {
@@ -7248,13 +7493,35 @@
   }
 
   function syncCategoryTabUI() {
-    const nav = document.getElementById("category-nav");
-    if (!nav) return;
-    nav.querySelectorAll(".category-nav__tab").forEach((tab) => {
-      const v = tab.dataset.categoryFilter ?? "";
-      const active = v === categoryNavFilter;
-      tab.classList.toggle("is-active", active);
-      tab.setAttribute("aria-selected", active ? "true" : "false");
+    const filter = String(categoryNavFilter ?? "").trim();
+    const jumpMatches = (el) => String(el.getAttribute("data-category-jump") ?? "").trim() === filter;
+
+    document.querySelectorAll(".site-header__nav-link[data-category-jump]").forEach((el) => {
+      const active = jumpMatches(el);
+      el.classList.toggle("is-active", active);
+      if (active) el.setAttribute("aria-current", "page");
+      else el.removeAttribute("aria-current");
+    });
+
+    document.querySelectorAll(".site-header__mobile-link[data-category-jump]").forEach((el) => {
+      const active = jumpMatches(el);
+      el.classList.toggle("is-active", active);
+      if (active) el.setAttribute("aria-current", "page");
+      else el.removeAttribute("aria-current");
+    });
+
+    document
+      .querySelectorAll(".site-header__search-aside-link[data-category-jump], .site-header__search-category-card[data-category-jump]")
+      .forEach((el) => {
+        el.classList.toggle("is-active", jumpMatches(el));
+      });
+
+    const subF = String(subcategoryFilter ?? "").trim();
+    document.querySelectorAll(".site-header__submenu-link[data-category-jump]").forEach((el) => {
+      const jump = String(el.getAttribute("data-category-jump") ?? "").trim();
+      const sub = String(el.getAttribute("data-subcategory-jump") ?? "").trim();
+      const activeRow = jump === filter && (!sub || sub === subF);
+      el.classList.toggle("is-active", activeRow);
     });
   }
 
@@ -7279,8 +7546,9 @@
     }
   }
 
+  /** Match archive mobile PLP + compact header (`max-width: 900px` in CSS / `isHeaderCompactLayout`). */
   function isFiltersNarrowViewport() {
-    return globalThis.matchMedia?.("(max-width: 720px)")?.matches ?? false;
+    return globalThis.matchMedia?.("(max-width: 900px)")?.matches ?? false;
   }
 
   /** After changing category / type filters, bring the archive list back into view from the top. */
@@ -7296,7 +7564,11 @@
   function syncFiltersMenuForViewport() {
     const nav = document.getElementById("filters-nav");
     const btn = document.getElementById("filters-menu-btn");
-    if (!nav || !btn) return;
+    if (!nav) return;
+    if (!btn) {
+      nav.classList.remove("filters--menu-open");
+      return;
+    }
     if (!isFiltersNarrowViewport()) {
       nav.classList.remove("filters--menu-open");
       btn.setAttribute("aria-expanded", "true");
@@ -7342,10 +7614,15 @@
 
   function syncBasicColourFilterChipUi() {
     const chipWrap = document.getElementById("archive-colour-chips");
+    const chipBlock = chipWrap?.closest(".items-toolbar__colour-block");
     if (!chipWrap) return;
-    const allowColour = categoryNavFilter !== SLOT_FRAGRANCE;
+    const allowColour = allowArchiveBasicColourFilter();
+    if (chipBlock) chipBlock.hidden = !allowColour;
     chipWrap.hidden = !allowColour;
-    if (!allowColour) return;
+    if (!allowColour) {
+      chipWrap.replaceChildren();
+      return;
+    }
     const available = availableBasicColourFamiliesForCurrentContext();
     const counts = basicColourFamilyCountsForCurrentContext();
     const keys = [""];
@@ -7399,10 +7676,16 @@
     const openBtn = document.getElementById("archive-filter-drawer-open");
     if (!root || !openBtn) return;
     if (!root.hasAttribute("hidden")) return;
+    if (archiveFilterDrawerOpenRaf) {
+      cancelAnimationFrame(archiveFilterDrawerOpenRaf);
+      archiveFilterDrawerOpenRaf = 0;
+    }
     archiveFilterDrawerFocusReturn = document.activeElement;
     root.removeAttribute("hidden");
     root.setAttribute("aria-hidden", "false");
-    requestAnimationFrame(() => {
+    archiveFilterDrawerOpenRaf = requestAnimationFrame(() => {
+      archiveFilterDrawerOpenRaf = 0;
+      if (root.hasAttribute("hidden")) return;
       root.classList.add("archive-filter-drawer--visible");
       openBtn.setAttribute("aria-expanded", "true");
       document.body.classList.add("archive-ui--filter-drawer");
@@ -7414,7 +7697,14 @@
     const root = document.getElementById("archive-filter-drawer");
     const openBtn = document.getElementById("archive-filter-drawer-open");
     if (!root) return;
-    if (root.hasAttribute("hidden")) return;
+    if (archiveFilterDrawerOpenRaf) {
+      cancelAnimationFrame(archiveFilterDrawerOpenRaf);
+      archiveFilterDrawerOpenRaf = 0;
+    }
+    if (root.hasAttribute("hidden")) {
+      document.body.classList.remove("archive-ui--filter-drawer");
+      return;
+    }
 
     const sheet = root.querySelector(".archive-filter-drawer__sheet");
     const finalize = () => {
@@ -7458,16 +7748,6 @@
   }
 
   function wireArchiveBrowseToolControls() {
-    const curSel = document.getElementById("archive-display-currency");
-    if (curSel && curSel.dataset.twCurrencyWired !== "1") {
-      curSel.dataset.twCurrencyWired = "1";
-      curSel.value = archiveDisplayCurrency;
-      curSel.addEventListener("change", () => {
-        archiveDisplayCurrency = persistDisplayCurrency(curSel.value);
-        renderGrid();
-      });
-    }
-
     const sortSel = document.getElementById("archive-sort");
     if (sortSel && sortSel.dataset.twSortWired !== "1") {
       sortSel.dataset.twSortWired = "1";
@@ -7516,23 +7796,33 @@
     headerSearchWrap.setAttribute("aria-hidden", "true");
     headerSearchBtn?.setAttribute("aria-expanded", "false");
     headerSearchBtn?.setAttribute("aria-label", "Open search");
+    document.body.classList.remove("archive-ui--header-search-open");
   }
 
-  /** Desktop (wider than 720px): scroll direction toggles `archive-ui--nav-folded` (hides branding shell). Search stays in the expanded header with filters — no floating magnifier while folded. */
+  /** Safety: release scroll lock if drawer/search are not actually open (handles fast open/close races). */
+  function ensureBodyScrollUnlockedWhenNoOverlay() {
+    const drawerRoot = document.getElementById("archive-filter-drawer");
+    const drawerOpen = !!drawerRoot && !drawerRoot.hasAttribute("hidden");
+    const headerSearchOpen = document.getElementById("site-header-search-wrap")?.classList.contains("is-open");
+    if (!drawerOpen && !headerSearchOpen) {
+      document.body.classList.remove("archive-ui--filter-drawer");
+    }
+  }
+
+  /** Desktop (wider than 900px): scroll direction toggles `archive-ui--nav-folded` (hides branding shell). Search stays in the expanded header with filters — no floating magnifier while folded. */
   const ENABLE_ARCHIVE_NAV_SCROLL_FOLD = true;
 
   let archiveNavScrollFoldLastY = 0;
   let archiveNavScrollFoldTicking = false;
 
-  /** Sticky #filters-nav: compact “folded” chrome while scrolling down on the archive page. */
+  /** Scroll fold: hide desktop header chrome while scrolling down on the archive page (`#filters-nav` removed — optional menu state kept for compatibility). */
   function initArchiveNavScrollFold(afterWindowScrollFold) {
     if (!ENABLE_ARCHIVE_NAV_SCROLL_FOLD) {
       document.body.classList.remove("archive-ui--nav-folded");
       return;
     }
     if (!document.getElementById("grid")) return;
-    const nav = document.getElementById("filters-nav");
-    if (!nav) return;
+    const filtersNav = document.getElementById("filters-nav");
     const body = document.body;
 
     function onScrollNavFold() {
@@ -7547,21 +7837,28 @@
             archiveNavScrollFoldLastY = globalThis.scrollY ?? globalThis.pageYOffset ?? 0;
             return;
           }
+          if (body.classList.contains("archive-ui--header-submenu-open")) {
+            body.classList.remove("archive-ui--nav-folded");
+            archiveNavScrollFoldLastY = globalThis.scrollY ?? globalThis.pageYOffset ?? 0;
+            return;
+          }
           const y = globalThis.scrollY ?? globalThis.pageYOffset ?? 0;
           const dy = y - archiveNavScrollFoldLastY;
-          if (nav.classList.contains("filters--menu-open")) {
+          if (filtersNav?.classList.contains("filters--menu-open")) {
             body.classList.remove("archive-ui--nav-folded");
             archiveNavScrollFoldLastY = y;
             return;
           }
-          const wasFolded = body.classList.contains("archive-ui--nav-folded");
+          const folded = body.classList.contains("archive-ui--nav-folded");
           if (y < 48) {
-            body.classList.remove("archive-ui--nav-folded");
+            if (folded) body.classList.remove("archive-ui--nav-folded");
           } else if (dy > 6) {
-            body.classList.add("archive-ui--nav-folded");
-            if (!wasFolded) forceCloseHeaderSearchOverlay();
+            if (!folded) {
+              body.classList.add("archive-ui--nav-folded");
+              forceCloseHeaderSearchOverlay();
+            }
           } else if (dy < -6) {
-            body.classList.remove("archive-ui--nav-folded");
+            if (folded) body.classList.remove("archive-ui--nav-folded");
           }
           archiveNavScrollFoldLastY = y;
         } catch {
@@ -7610,6 +7907,9 @@
     };
 
     let headerSubmenuHideTimer = 0;
+    let headerSubmenuSwitchAnimTimer = 0;
+    let headerSubmenuOpenAnimTimer = 0;
+    let headerSubmenuActiveSlot = "";
     const cancelHeaderSubmenuHide = () => {
       if (!headerSubmenuHideTimer) return;
       clearTimeout(headerSubmenuHideTimer);
@@ -7625,10 +7925,21 @@
 
     const hideHeaderSubmenu = () => {
       cancelHeaderSubmenuHide();
+      if (headerSubmenuSwitchAnimTimer) {
+        clearTimeout(headerSubmenuSwitchAnimTimer);
+        headerSubmenuSwitchAnimTimer = 0;
+      }
+      if (headerSubmenuOpenAnimTimer) {
+        clearTimeout(headerSubmenuOpenAnimTimer);
+        headerSubmenuOpenAnimTimer = 0;
+      }
       const wrap = document.getElementById("site-header-submenu");
       if (!wrap) return;
       wrap.hidden = true;
+      wrap.classList.remove("site-header__submenu--opening");
+      wrap.classList.remove("site-header__submenu--switching");
       document.body.classList.remove("archive-ui--header-submenu-open");
+      headerSubmenuActiveSlot = "";
       const title = document.getElementById("site-header-submenu-title");
       const links = document.getElementById("site-header-submenu-links");
       const preview = document.getElementById("site-header-submenu-preview");
@@ -7636,6 +7947,76 @@
       if (links) links.replaceChildren();
       if (preview) preview.replaceChildren();
     };
+
+    const headerMenuBtn = document.getElementById("site-header-menu-btn");
+    const headerMobilePanel = document.getElementById("site-header-mobile-panel");
+    const siteHeaderEl = document.querySelector(".site-header");
+    const headerSearchBtn = document.getElementById("site-header-search-btn");
+    const headerSearchWrap = document.getElementById("site-header-search-wrap");
+    const headerSearchInput = /** @type {HTMLInputElement | null} */ (document.getElementById("filter-search"));
+    let fullscreenSearchArmScrollDismissMs = 0;
+    const closeHeaderSearch = ({ clear = false } = {}) => {
+      if (!headerSearchWrap) return;
+      const wasOpen = headerSearchWrap.classList.contains("is-open");
+      const ae = document.activeElement;
+      const refocusMagnifier =
+        wasOpen &&
+        !!headerSearchBtn &&
+        ae instanceof Element &&
+        (ae === headerSearchInput || headerSearchWrap.contains(ae));
+      fullscreenSearchArmScrollDismissMs = 0;
+      headerSearchWrap.classList.remove("is-open");
+      headerSearchWrap.setAttribute("aria-hidden", "true");
+      headerSearchBtn?.setAttribute("aria-expanded", "false");
+      headerSearchBtn?.setAttribute("aria-label", "Open search");
+      document.body.classList.remove("archive-ui--header-search-open");
+      if (clear && headerSearchInput) {
+        cancelSearchGridDebounce();
+        headerSearchInput.value = "";
+        syncFilterSearchClearVisibility();
+        renderGrid();
+      }
+      if (refocusMagnifier) queueMicrotask(() => headerSearchBtn?.focus({ preventScroll: true }));
+      ensureBodyScrollUnlockedWhenNoOverlay();
+    };
+
+    function isHeaderSearchDropdownLayout() {
+      return globalThis.matchMedia?.("(min-width: 901px)")?.matches ?? false;
+    }
+
+    function isHeaderCompactLayout() {
+      return globalThis.matchMedia?.("(max-width: 900px)")?.matches ?? false;
+    }
+
+    function syncMobileCategoryPanelTop() {
+      if (!isHeaderCompactLayout() || !siteHeaderEl) return;
+      const h = Math.ceil(siteHeaderEl.getBoundingClientRect().height) + 2;
+      document.documentElement.style.setProperty("--site-header-mobile-panel-top", `${Math.max(h, 48)}px`);
+    }
+
+    function closeMobileCategoryPanel() {
+      if (!headerMobilePanel) return;
+      headerMobilePanel.classList.remove("is-open");
+      headerMobilePanel.setAttribute("aria-hidden", "true");
+      headerMobilePanel.querySelectorAll(".site-header__mobile-link.is-open").forEach((el) => el.classList.remove("is-open"));
+      headerMobilePanel.querySelectorAll(".site-header__mobile-submenu.is-open").forEach((el) => el.classList.remove("is-open"));
+      headerMenuBtn?.setAttribute("aria-expanded", "false");
+      headerMenuBtn?.setAttribute("aria-label", "Open categories menu");
+      document.body.classList.remove("archive-ui--mobile-nav-open");
+    }
+
+    function openMobileCategoryPanel() {
+      if (!headerMobilePanel) return;
+      syncMobileCategoryPanelTop();
+      headerMobilePanel.classList.add("is-open");
+      headerMobilePanel.setAttribute("aria-hidden", "false");
+      document.body.classList.add("archive-ui--mobile-nav-open");
+      headerMenuBtn?.setAttribute("aria-expanded", "true");
+      headerMenuBtn?.setAttribute("aria-label", "Close categories menu");
+      requestAnimationFrame(() => {
+        syncMobileCategoryPanelTop();
+      });
+    }
 
     const renderHeaderSubmenuPreview = (slot, subcategory) => {
       const preview = document.getElementById("site-header-submenu-preview");
@@ -7678,6 +8059,8 @@
 
     const showHeaderSubmenuForCategory = (jump) => {
       cancelHeaderSubmenuHide();
+      const searchW = document.getElementById("site-header-search-wrap");
+      if (searchW?.classList.contains("is-open")) closeHeaderSearch();
       const slot = String(jump ?? "").trim();
       const wrap = document.getElementById("site-header-submenu");
       const title = document.getElementById("site-header-submenu-title");
@@ -7686,6 +8069,28 @@
       if (!slot || !SLOT_OPTIONS.includes(slot)) {
         hideHeaderSubmenu();
         return;
+      }
+      const openingNow = wrap.hidden;
+      if (openingNow) {
+        if (headerSubmenuOpenAnimTimer) {
+          clearTimeout(headerSubmenuOpenAnimTimer);
+          headerSubmenuOpenAnimTimer = 0;
+        }
+        wrap.classList.remove("site-header__submenu--opening");
+      }
+      const switchingSlot = !wrap.hidden && headerSubmenuActiveSlot && headerSubmenuActiveSlot !== slot;
+      if (switchingSlot) {
+        if (headerSubmenuSwitchAnimTimer) {
+          clearTimeout(headerSubmenuSwitchAnimTimer);
+          headerSubmenuSwitchAnimTimer = 0;
+        }
+        wrap.classList.remove("site-header__submenu--switching");
+        void wrap.offsetWidth;
+        wrap.classList.add("site-header__submenu--switching");
+        headerSubmenuSwitchAnimTimer = setTimeout(() => {
+          headerSubmenuSwitchAnimTimer = 0;
+          wrap.classList.remove("site-header__submenu--switching");
+        }, 320);
       }
 
       const seasonalPool = poolItemsForDrillSubcategories({ respectCategory: false });
@@ -7706,17 +8111,26 @@
 
       wrap.classList.toggle("site-header__submenu--preview-only", hasPreviewOnly);
       links.replaceChildren();
+      title.textContent = "";
       if (hasPreviewOnly) {
-        title.textContent = `${categoryDisplayLabel(slot)}`;
         renderHeaderSubmenuPreview(slot, "");
         wrap.hidden = false;
+        if (openingNow) {
+          void wrap.offsetWidth;
+          wrap.classList.add("site-header__submenu--opening");
+          headerSubmenuOpenAnimTimer = setTimeout(() => {
+            headerSubmenuOpenAnimTimer = 0;
+            wrap.classList.remove("site-header__submenu--opening");
+          }, 560);
+        }
         document.body.classList.add("archive-ui--header-submenu-open");
+        headerSubmenuActiveSlot = slot;
         return;
       }
 
       dedupedEntries.forEach(({ raw, label }, idx) => {
         const a = document.createElement("a");
-        a.href = "#category-nav";
+        a.href = "#main";
         a.className = "site-header__submenu-link";
         a.textContent = label;
         a.setAttribute("data-category-jump", slot);
@@ -7734,14 +8148,22 @@
         });
         links.appendChild(a);
       });
-      title.textContent = `${categoryDisplayLabel(slot)} · Types`;
       renderHeaderSubmenuPreview(slot, dedupedEntries[0]?.raw || "");
       wrap.hidden = false;
+      if (openingNow) {
+        void wrap.offsetWidth;
+        wrap.classList.add("site-header__submenu--opening");
+        headerSubmenuOpenAnimTimer = setTimeout(() => {
+          headerSubmenuOpenAnimTimer = 0;
+          wrap.classList.remove("site-header__submenu--opening");
+        }, 560);
+      }
       document.body.classList.add("archive-ui--header-submenu-open");
+      headerSubmenuActiveSlot = slot;
     };
 
     const headerCategoryNav = document.querySelector(".site-header__primary-nav");
-    const headerSubmenuWrap = document.getElementById("site-header-submenu");
+    const headerBrandNav = document.querySelector(".site-header__brand-nav");
     if (headerCategoryNav) {
       headerCategoryNav.addEventListener("click", (e) => {
         const link = e.target.closest("[data-category-jump]");
@@ -7753,21 +8175,11 @@
       });
       headerCategoryNav.addEventListener("pointerover", (e) => {
         if (isFiltersNarrowViewport()) return;
+        closeHeaderSearch();
         const link = e.target.closest("[data-category-jump]");
         if (!link) return;
         const jump = String(link.getAttribute("data-category-jump") ?? "").trim();
         showHeaderSubmenuForCategory(jump);
-      });
-      headerCategoryNav.addEventListener("pointerout", (e) => {
-        if (isFiltersNarrowViewport()) return;
-        const to = e.relatedTarget;
-        if (!(to instanceof Element)) {
-          scheduleHeaderSubmenuHide();
-          return;
-        }
-        if (headerCategoryNav.contains(to)) return;
-        if (headerSubmenuWrap?.contains(to)) return;
-        scheduleHeaderSubmenuHide();
       });
       headerCategoryNav.addEventListener("focusin", (e) => {
         if (isFiltersNarrowViewport()) return;
@@ -7783,24 +8195,63 @@
       e.preventDefault();
       resetAllArchiveFilters();
       hideHeaderSubmenu();
+      closeMobileCategoryPanel();
       collapseFiltersMenuPanel();
       scrollArchiveViewportTop();
     });
 
-    const headerWrap = document.querySelector(".site-header__inner");
-    headerWrap?.addEventListener("pointerleave", () => {
-      if (isFiltersNarrowViewport()) return;
-      scheduleHeaderSubmenuHide(60);
-    });
+    const headerSubmenuRoot = document.getElementById("site-header-submenu");
 
-    headerSubmenuWrap?.addEventListener("pointerenter", () => {
+    siteHeaderEl?.addEventListener("pointerenter", () => {
       if (isFiltersNarrowViewport()) return;
       cancelHeaderSubmenuHide();
     });
-    headerSubmenuWrap?.addEventListener("pointerleave", () => {
+
+    headerSubmenuRoot?.addEventListener("pointerenter", () => {
       if (isFiltersNarrowViewport()) return;
-      scheduleHeaderSubmenuHide(70);
+      cancelHeaderSubmenuHide();
     });
+
+    headerSubmenuRoot?.addEventListener("pointerleave", (e) => {
+      if (isFiltersNarrowViewport()) return;
+      const to = e.relatedTarget;
+      if (!(to instanceof Element)) {
+        scheduleHeaderSubmenuHide(260);
+        return;
+      }
+      if (siteHeaderEl?.contains(to)) return;
+      scheduleHeaderSubmenuHide(100);
+    });
+
+    headerCategoryNav?.addEventListener("pointerleave", (e) => {
+      if (isFiltersNarrowViewport()) return;
+      const sub = document.getElementById("site-header-submenu");
+      if (!sub || sub.hidden) return;
+      const to = e.relatedTarget;
+      if (!(to instanceof Element)) {
+        scheduleHeaderSubmenuHide(260);
+        return;
+      }
+      if (sub.contains(to)) return;
+      if (headerCategoryNav.contains(to)) return;
+      if (siteHeaderEl?.contains(to)) return;
+      scheduleHeaderSubmenuHide(100);
+    });
+
+    /** Tap / click outside the header closes the mega panel (hover alone uses pointerleave above). */
+    document.addEventListener(
+      "pointerdown",
+      (e) => {
+        if (isFiltersNarrowViewport()) return;
+        const sub = document.getElementById("site-header-submenu");
+        if (!sub || sub.hidden) return;
+        const t = e.target;
+        if (!(t instanceof Element)) return;
+        if (siteHeaderEl?.contains(t)) return;
+        hideHeaderSubmenu();
+      },
+      true
+    );
 
     const headerSubmenuLinks = document.getElementById("site-header-submenu-links");
     headerSubmenuLinks?.addEventListener("click", (e) => {
@@ -7829,34 +8280,6 @@
       });
     });
 
-    const headerMenuBtn = document.getElementById("site-header-menu-btn");
-    const headerMobilePanel = document.getElementById("site-header-mobile-panel");
-    const headerSearchBtn = document.getElementById("site-header-search-btn");
-    const headerSearchWrap = document.getElementById("site-header-search-wrap");
-    const headerSearchInput = /** @type {HTMLInputElement | null} */ (document.getElementById("filter-search"));
-    let fullscreenSearchArmScrollDismissMs = 0;
-    const closeHeaderSearch = ({ clear = false } = {}) => {
-      if (!headerSearchWrap) return;
-      const wasOpen = headerSearchWrap.classList.contains("is-open");
-      const ae = document.activeElement;
-      const refocusMagnifier =
-        wasOpen &&
-        !!headerSearchBtn &&
-        ae instanceof Element &&
-        (ae === headerSearchInput || headerSearchWrap.contains(ae));
-      fullscreenSearchArmScrollDismissMs = 0;
-      headerSearchWrap.classList.remove("is-open");
-      headerSearchWrap.setAttribute("aria-hidden", "true");
-      headerSearchBtn?.setAttribute("aria-expanded", "false");
-      headerSearchBtn?.setAttribute("aria-label", "Open search");
-      if (clear && headerSearchInput) {
-        cancelSearchGridDebounce();
-        headerSearchInput.value = "";
-        syncFilterSearchClearVisibility();
-        renderGrid();
-      }
-      if (refocusMagnifier) queueMicrotask(() => headerSearchBtn?.focus({ preventScroll: true }));
-    };
     headerSearchBtn?.addEventListener("click", () => {
       if (!headerSearchWrap) return;
       const open = !headerSearchWrap.classList.contains("is-open");
@@ -7867,25 +8290,48 @@
       if (open) {
         fullscreenSearchArmScrollDismissMs = Date.now();
         hideHeaderSubmenu();
-        headerMobilePanel?.classList.remove("is-open");
-        headerMenuBtn?.setAttribute("aria-expanded", "false");
-        headerMenuBtn?.setAttribute("aria-label", "Open categories menu");
+        closeMobileCategoryPanel();
+        if (isHeaderSearchDropdownLayout()) {
+          document.body.classList.add("archive-ui--header-search-open");
+        }
         queueMicrotask(() => headerSearchInput?.focus());
       } else {
         closeHeaderSearch();
       }
     });
+    document.getElementById("site-header-search-close")?.addEventListener("click", () => {
+      closeHeaderSearch();
+    });
+    headerSearchWrap?.addEventListener("click", (e) => {
+      const chip = /** @type {HTMLElement | null} */ (e.target.closest("[data-trending-search]"));
+      if (chip && headerSearchWrap.contains(chip)) {
+        e.preventDefault();
+        const q = String(chip.getAttribute("data-trending-search") ?? "").trim();
+        if (headerSearchInput && q) {
+          headerSearchInput.value = q;
+          syncFilterSearchClearVisibility();
+          scheduleRenderGridFromSearchInput();
+          queueMicrotask(() => headerSearchInput.focus());
+        }
+        return;
+      }
+      const a = e.target.closest(".site-header__search-aside-link[data-category-jump], .site-header__search-category-card[data-category-jump]");
+      if (!a || !headerSearchWrap?.contains(a)) return;
+      e.preventDefault();
+      const jump = String(a.getAttribute("data-category-jump") ?? "").trim();
+      jumpHeaderCategory(jump);
+      hideHeaderSubmenu();
+      closeHeaderSearch();
+    });
     headerMenuBtn?.addEventListener("click", () => {
       if (!headerMobilePanel) return;
       const open = !headerMobilePanel.classList.contains("is-open");
-      headerMobilePanel.classList.toggle("is-open", open);
-      headerMenuBtn.setAttribute("aria-expanded", open ? "true" : "false");
-      headerMenuBtn.setAttribute("aria-label", open ? "Close categories menu" : "Open categories menu");
-      if (!open) {
-        headerMobilePanel.querySelectorAll(".site-header__mobile-link.is-open").forEach((el) => el.classList.remove("is-open"));
-        headerMobilePanel
-          .querySelectorAll(".site-header__mobile-submenu.is-open")
-          .forEach((el) => el.classList.remove("is-open"));
+      if (open) {
+        closeHeaderSearch();
+        hideHeaderSubmenu();
+        openMobileCategoryPanel();
+      } else {
+        closeMobileCategoryPanel();
       }
     });
     headerMobilePanel?.addEventListener("click", (e) => {
@@ -7915,7 +8361,7 @@
           sub.className = "site-header__mobile-submenu is-open";
           for (const k of keys) {
             const a = document.createElement("a");
-            a.href = "#category-nav";
+            a.href = "#main";
             a.className = "site-header__mobile-submenu-link";
             a.setAttribute("data-category-jump", jump);
             a.setAttribute("data-subcategory-jump", k);
@@ -7939,24 +8385,20 @@
       renderCategoryDrill();
       renderGrid();
       scrollArchiveViewportTop();
-      headerMobilePanel.classList.remove("is-open");
-      headerMenuBtn?.setAttribute("aria-expanded", "false");
-      headerMenuBtn?.setAttribute("aria-label", "Open categories menu");
-      headerMobilePanel.querySelectorAll(".site-header__mobile-link.is-open").forEach((el) => el.classList.remove("is-open"));
-      headerMobilePanel
-        .querySelectorAll(".site-header__mobile-submenu.is-open")
-        .forEach((el) => el.classList.remove("is-open"));
+      closeMobileCategoryPanel();
       collapseFiltersMenuPanel();
     });
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
       if (headerMobilePanel?.classList.contains("is-open")) {
-        headerMobilePanel.classList.remove("is-open");
-        headerMenuBtn?.setAttribute("aria-expanded", "false");
-        headerMenuBtn?.setAttribute("aria-label", "Open categories menu");
+        closeMobileCategoryPanel();
       }
       if (headerSearchWrap?.classList.contains("is-open")) {
         closeHeaderSearch();
+      }
+      const sub = document.getElementById("site-header-submenu");
+      if (sub && !sub.hidden) {
+        hideHeaderSubmenu();
       }
     });
     /** Enter or scroll collapses fullscreen search overlay (results underneath look odd if it stays open). */
@@ -7967,24 +8409,21 @@
       closeHeaderSearch();
     };
 
-    document.querySelector(".site-header__search-surface")?.addEventListener(
-      "scroll",
-      dismissFullscreenSearchUnlessClosed,
-      { passive: true }
+    headerSearchWrap?.addEventListener(
+      "wheel",
+      () => {
+        if (isHeaderSearchDropdownLayout()) return;
+        dismissFullscreenSearchUnlessClosed();
+      },
+      { passive: true, capture: true }
     );
-    headerSearchWrap?.addEventListener("wheel", dismissFullscreenSearchUnlessClosed, {
-      passive: true,
-      capture: true,
-    });
     document.addEventListener("click", (e) => {
       if (!headerMobilePanel?.classList.contains("is-open")) return;
       const t = e.target;
       if (!(t instanceof Element)) return;
       if (headerMobilePanel.contains(t)) return;
       if (headerMenuBtn?.contains(t)) return;
-      headerMobilePanel.classList.remove("is-open");
-      headerMenuBtn?.setAttribute("aria-expanded", "false");
-      headerMenuBtn?.setAttribute("aria-label", "Open categories menu");
+      closeMobileCategoryPanel();
     });
     document.addEventListener("click", (e) => {
       if (!headerSearchWrap?.classList.contains("is-open")) return;
@@ -7995,21 +8434,44 @@
       if (headerSearchBtn?.contains(t)) return;
       closeHeaderSearch();
     });
+    if (document.body.dataset.twStrictFilePickerClickWired !== "1") {
+      document.body.dataset.twStrictFilePickerClickWired = "1";
+      document.addEventListener(
+        "click",
+        (e) => {
+          const t = e.target;
+          if (!(t instanceof Element)) return;
+          const label = t.closest("label.field--file");
+          if (!label) return;
+          const input = label.querySelector('input[type="file"]');
+          if (!input) return;
+          if (t === input) return;
+          e.preventDefault();
+        },
+        true
+      );
+    }
     globalThis.matchMedia?.("(max-width: 900px)")?.addEventListener?.("change", (ev) => {
       if (ev.matches) return;
-      headerMobilePanel?.classList.remove("is-open");
-      headerMenuBtn?.setAttribute("aria-expanded", "false");
-      headerMenuBtn?.setAttribute("aria-label", "Open categories menu");
+      closeMobileCategoryPanel();
       hideHeaderSubmenu();
       closeHeaderSearch();
+      ensureBodyScrollUnlockedWhenNoOverlay();
     });
 
     if (isFiltersNarrowViewport()) {
-      headerMobilePanel?.classList.remove("is-open");
-      headerMenuBtn?.setAttribute("aria-expanded", "false");
-      headerMenuBtn?.setAttribute("aria-label", "Open categories menu");
+      closeMobileCategoryPanel();
       closeHeaderSearch();
+      ensureBodyScrollUnlockedWhenNoOverlay();
     }
+
+    globalThis.addEventListener(
+      "resize",
+      () => {
+        if (headerMobilePanel?.classList.contains("is-open")) syncMobileCategoryPanelTop();
+      },
+      { passive: true }
+    );
 
     const seasonMini = document.getElementById("season-nav-mini");
     seasonMini?.addEventListener("click", (e) => {
@@ -8017,7 +8479,7 @@
       if (!tab) return;
       const v = String(tab.dataset.seasonFilter ?? "").trim();
       if (v !== "S/S" && v !== "A/W") return;
-      seasonNavFilter = v;
+      seasonNavFilter = seasonNavFilter === v ? "All" : v;
       persistSeasonNav();
       subcategoryFilter = "";
       syncSeasonTabUI();
@@ -8046,7 +8508,7 @@
         if (!seasonTab) return;
         const v = String(seasonTab.dataset.seasonFilter ?? "").trim();
         if (v !== "S/S" && v !== "A/W") return;
-        seasonNavFilter = v;
+        seasonNavFilter = seasonNavFilter === v ? "All" : v;
         persistSeasonNav();
         subcategoryFilter = "";
         syncSeasonTabUI();
@@ -8056,27 +8518,9 @@
       });
     }
 
-    const catNav = document.getElementById("category-nav");
-    if (catNav) {
-      catNav.addEventListener("click", (e) => {
-        const tab = e.target.closest(".category-nav__tab");
-        if (!tab) return;
-        categoryNavFilter = tab.dataset.categoryFilter ?? "";
-        subcategoryFilter = "";
-        syncCategoryTabUI();
-        renderCategoryDrill();
-        renderGrid();
-        scrollArchiveViewportTop();
-        const drill = document.getElementById("category-drill");
-        if (isFiltersNarrowViewport() && (drill?.hidden ?? true)) {
-          collapseFiltersMenuPanel();
-        }
-      });
-    }
-
-    const drill = document.getElementById("category-drill");
-    if (drill) {
-      drill.addEventListener("click", (e) => {
+    const categoryDrill = document.getElementById("category-drill");
+    if (categoryDrill) {
+      categoryDrill.addEventListener("click", (e) => {
         const choice = e.target.closest(".category-drill__choice");
         if (!choice) return;
         subcategoryFilter = choice.dataset.subcategory ?? "";
@@ -8201,7 +8645,7 @@
         if (e.key !== "Escape") return;
         collapseFiltersMenuPanel();
       });
-      globalThis.matchMedia?.("(max-width: 720px)")?.addEventListener?.("change", () => {
+      globalThis.matchMedia?.("(max-width: 900px)")?.addEventListener?.("change", () => {
         syncFiltersMenuForViewport();
       });
     }

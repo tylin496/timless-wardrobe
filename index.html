@@ -2,6 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
       content="A personal wardrobe archive — browse pieces by category and season, track spend, build outfits, and save looks."
@@ -23,23 +24,38 @@
     <a class="skip-link" href="#filter-search">Skip to search</a>
     <a class="skip-link" href="#add-item-open">Skip to add item</a>
     <a class="skip-link" href="#season-nav">Skip to season</a>
-    <a class="skip-link" href="#category-nav">Skip to categories</a>
+    <a class="skip-link" href="#site-header-primary-nav">Skip to categories</a>
     <a class="skip-link" href="#saved-outfits-heading">Skip to saved outfits</a>
 
     <header class="site-header">
       <div class="site-header__inner">
+        <div class="site-header__mega">
         <div class="site-header__brand-nav" aria-label="Primary header">
           <h1 class="site-title">
-            <a href="#category-nav" id="site-header-home" class="site-title__primary">Timeless Wardrobe</a>
+            <a href="#main" id="site-header-home" class="site-title__primary">
+              <img
+                src="logo.png"
+                alt=""
+                class="site-title__mark"
+                width="44"
+                height="44"
+                decoding="async"
+              />
+              <span class="site-title__wordmark">Timeless Wardrobe</span>
+            </a>
             <span class="site-title__territory">
               <strong>English Heritage × Mediterranean Leisure</strong>
             </span>
           </h1>
-          <nav class="site-header__primary-nav" aria-label="Main categories">
-            <a href="#category-nav" class="site-header__nav-link" data-category-jump="Clothing">Clothing</a>
-            <a href="#category-nav" class="site-header__nav-link" data-category-jump="Accessories">Accessories</a>
-            <a href="#category-nav" class="site-header__nav-link" data-category-jump="Watches">Watches</a>
-            <a href="#category-nav" class="site-header__nav-link" data-category-jump="Fragrance">Fragrance</a>
+          <nav
+            id="site-header-primary-nav"
+            class="site-header__primary-nav"
+            aria-label="Main categories"
+          >
+            <a href="#main" class="site-header__nav-link" data-category-jump="Clothing">Clothing</a>
+            <a href="#main" class="site-header__nav-link" data-category-jump="Accessories">Accessories</a>
+            <a href="#main" class="site-header__nav-link" data-category-jump="Watches">Watches</a>
+            <a href="#main" class="site-header__nav-link" data-category-jump="Fragrance">Fragrance</a>
           </nav>
           <div class="site-header__tools">
             <div class="site-header__season-mini" id="season-nav-mini" aria-label="Season quick filter">
@@ -62,17 +78,6 @@
             </div>
             <button
               type="button"
-              id="site-header-saved-toggle"
-              class="site-header__saved-btn"
-              aria-expanded="false"
-              aria-controls="outfit-dock"
-              aria-label="Open saved outfits"
-              title="Saved outfits"
-            >
-              <span class="site-header__saved-icon" aria-hidden="true">♡</span>
-            </button>
-            <button
-              type="button"
               id="site-header-search-btn"
               class="site-header__search-btn"
               aria-expanded="false"
@@ -81,6 +86,27 @@
               title="Search"
             >
               <span class="site-header__search-icon" aria-hidden="true"></span>
+            </button>
+            <button
+              type="button"
+              id="site-header-saved-toggle"
+              class="site-header__saved-btn"
+              aria-expanded="false"
+              aria-controls="outfit-dock"
+              aria-label="Open saved outfits"
+              title="Saved outfits"
+            >
+              <span class="site-header__saved-icon" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </span>
             </button>
             <button
               type="button"
@@ -98,36 +124,6 @@
             </button>
           </div>
         </div>
-        <div id="site-header-search-wrap" class="site-header__search-wrap" aria-hidden="true">
-          <div class="site-header__search-surface">
-            <label class="site-header__search-field" for="filter-search">
-              <span class="site-header__search-label">Search</span>
-              <span class="filters__search-field">
-                <input
-                  id="filter-search"
-                  type="search"
-                  aria-label="Search wardrobe"
-                  placeholder="輸入文字搜尋"
-                  autocomplete="off"
-                  spellcheck="false"
-                  autocorrect="off"
-                  autocapitalize="off"
-                  enterkeyhint="search"
-                  title="Search wardrobe by brand, name, category, season, colour, notes…"
-                />
-                <button
-                  type="button"
-                  id="filter-search-clear"
-                  class="filters__search-clear"
-                  aria-label="Clear search"
-                  hidden
-                >
-                  <span class="filters__search-clear-icon" aria-hidden="true">×</span>
-                </button>
-              </span>
-            </label>
-          </div>
-        </div>
         <div id="site-header-submenu" class="site-header__submenu" hidden>
           <div id="site-header-submenu-title" class="site-header__submenu-title"></div>
           <div class="site-header__submenu-body">
@@ -135,126 +131,129 @@
             <div id="site-header-submenu-preview" class="site-header__submenu-preview"></div>
           </div>
         </div>
-        <nav id="site-header-mobile-panel" class="site-header__mobile-panel" aria-label="Mobile categories">
-          <a href="#category-nav" class="site-header__mobile-link" data-category-jump="Clothing">Clothing</a>
-          <a href="#category-nav" class="site-header__mobile-link" data-category-jump="Accessories">Accessories</a>
-          <a href="#category-nav" class="site-header__mobile-link" data-category-jump="Watches">Watches</a>
-          <a href="#category-nav" class="site-header__mobile-link" data-category-jump="Fragrance">Fragrance</a>
-        </nav>
+        </div>
+        <div id="site-header-search-wrap" class="site-header__search-wrap" aria-hidden="true">
+          <div class="site-header__search-surface">
+            <div class="site-header__search-head">
+              <label class="site-header__search-field" for="filter-search">
+                <span class="site-header__search-label">Search</span>
+                <div class="site-header__search-pill-wrap">
+                  <span class="site-header__search-pill-icon" aria-hidden="true"></span>
+                  <span class="filters__search-field">
+                    <input
+                      id="filter-search"
+                      type="search"
+                      aria-label="Search wardrobe"
+                      placeholder="Search"
+                      autocomplete="off"
+                      spellcheck="false"
+                      autocorrect="off"
+                      autocapitalize="off"
+                      enterkeyhint="search"
+                      title="Search wardrobe by brand, name, category, season, colour, notes…"
+                    />
+                    <button
+                      type="button"
+                      id="filter-search-clear"
+                      class="filters__search-clear"
+                      aria-label="Clear search"
+                      hidden
+                    >
+                      <span class="filters__search-clear-icon" aria-hidden="true">×</span>
+                    </button>
+                  </span>
+                </div>
+              </label>
+              <button
+                type="button"
+                id="site-header-search-close"
+                class="site-header__search-close"
+                aria-label="Close search"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
+            <div class="site-header__search-trending" aria-label="Trending searches">
+              <p class="site-header__search-trending-heading">Trending searches</p>
+              <div class="site-header__search-trending-scroll">
+                <button type="button" class="site-header__search-trending-chip" data-trending-search="Shorts">
+                  <span class="site-header__search-trending-chip-icon" aria-hidden="true"></span>
+                  <span>Shorts</span>
+                </button>
+                <button type="button" class="site-header__search-trending-chip" data-trending-search="Dress">
+                  <span class="site-header__search-trending-chip-icon" aria-hidden="true"></span>
+                  <span>Dress</span>
+                </button>
+                <button type="button" class="site-header__search-trending-chip" data-trending-search="Polo shirt">
+                  <span class="site-header__search-trending-chip-icon" aria-hidden="true"></span>
+                  <span>Polo shirt</span>
+                </button>
+                <button type="button" class="site-header__search-trending-chip" data-trending-search="Bags">
+                  <span class="site-header__search-trending-chip-icon" aria-hidden="true"></span>
+                  <span>Bags</span>
+                </button>
+                <button type="button" class="site-header__search-trending-chip" data-trending-search="Trench">
+                  <span class="site-header__search-trending-chip-icon" aria-hidden="true"></span>
+                  <span>Trench</span>
+                </button>
+                <button type="button" class="site-header__search-trending-chip" data-trending-search="Loafers">
+                  <span class="site-header__search-trending-chip-icon" aria-hidden="true"></span>
+                  <span>Loafers</span>
+                </button>
+              </div>
+            </div>
+            <div class="site-header__search-dropdown-body">
+              <div class="site-header__search-dropdown-aside">
+                <p class="site-header__search-aside-heading">Quick browse</p>
+                <nav class="site-header__search-aside-nav" aria-label="Search shortcuts">
+                  <a href="#main" class="site-header__search-aside-link" data-category-jump="Clothing">Clothing</a>
+                  <a href="#main" class="site-header__search-aside-link" data-category-jump="Accessories">Accessories</a>
+                  <a href="#main" class="site-header__search-aside-link" data-category-jump="Watches">Watches</a>
+                  <a href="#main" class="site-header__search-aside-link" data-category-jump="Fragrance">Fragrance</a>
+                </nav>
+              </div>
+              <div class="site-header__search-dropdown-main">
+                <p class="site-header__search-main-heading">Popular categories</p>
+                <div class="site-header__search-category-grid" aria-label="Sections">
+                  <a href="#main" class="site-header__search-category-card" data-category-jump="Clothing">
+                    <div class="site-header__search-category-card__media" aria-hidden="true"></div>
+                    <span class="site-header__search-category-card__title">Clothing</span>
+                    <span class="site-header__search-category-card__cta">Browse archive</span>
+                  </a>
+                  <a href="#main" class="site-header__search-category-card" data-category-jump="Accessories">
+                    <div class="site-header__search-category-card__media" aria-hidden="true"></div>
+                    <span class="site-header__search-category-card__title">Accessories</span>
+                    <span class="site-header__search-category-card__cta">Browse archive</span>
+                  </a>
+                  <a href="#main" class="site-header__search-category-card" data-category-jump="Watches">
+                    <div class="site-header__search-category-card__media" aria-hidden="true"></div>
+                    <span class="site-header__search-category-card__title">Watches</span>
+                    <span class="site-header__search-category-card__cta">Browse archive</span>
+                  </a>
+                  <a href="#main" class="site-header__search-category-card" data-category-jump="Fragrance">
+                    <div class="site-header__search-category-card__media" aria-hidden="true"></div>
+                    <span class="site-header__search-category-card__title">Fragrance</span>
+                    <span class="site-header__search-category-card__cta">Browse archive</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </header>
 
-    <nav id="filters-nav" class="filters" aria-label="Filter wardrobe">
-      <button
-        type="button"
-        class="filters__menu-btn"
-        id="filters-menu-btn"
-        aria-expanded="false"
-        aria-controls="filters-menu-panel"
-      >
-        Categories
-      </button>
-      <div id="filters-menu-panel" class="filters__panel">
-        <div class="filters__collapsible">
-        <div id="category-nav" class="category-nav">
-        <div class="category-nav__row">
-          <div class="category-nav__primary">
-            <p class="category-nav__label">Categories</p>
-            <ul class="category-nav__list" role="tablist">
-              <li role="presentation">
-                <button
-                  type="button"
-                  class="category-nav__tab is-active"
-                  role="tab"
-                  aria-selected="true"
-                  data-category-filter=""
-                  id="cat-tab-all"
-                >
-                  All
-                </button>
-              </li>
-              <li role="presentation">
-                <button
-                  type="button"
-                  class="category-nav__tab"
-                  role="tab"
-                  aria-selected="false"
-                  data-category-filter="Clothing"
-                >
-                  Clothing
-                </button>
-              </li>
-              <li role="presentation">
-                <button
-                  type="button"
-                  class="category-nav__tab"
-                  role="tab"
-                  aria-selected="false"
-                  data-category-filter="Accessories"
-                >
-                  Accessories
-                </button>
-              </li>
-              <li role="presentation">
-                <button
-                  type="button"
-                  class="category-nav__tab"
-                  role="tab"
-                  aria-selected="false"
-                  data-category-filter="Watches"
-                >
-                  Watches
-                </button>
-              </li>
-              <li role="presentation">
-                <button
-                  type="button"
-                  class="category-nav__tab"
-                  role="tab"
-                  aria-selected="false"
-                  data-category-filter="Fragrance"
-                >
-                  Fragrance
-                </button>
-              </li>
-            </ul>
-          </div>
-        </div>
-        </div>
-        <div class="filters__meta-row">
-          <p class="filters__spend-total" id="filter-spend-total" aria-live="polite"></p>
-          <div class="filters__browse-tools" id="filters-browse-tools">
-            <label class="filters__browse-inline" for="archive-display-currency">
-              <span class="filters__browse-inline-label">Price currency</span>
-              <select id="archive-display-currency" class="filters__browse-inline-select">
-                <option value="TWD">TWD</option>
-                <option value="USD">USD</option>
-                <option value="JPY">JPY</option>
-                <option value="CNY">CNY</option>
-              </select>
-            </label>
-          </div>
-        </div>
-        <div class="filters__count-row" id="filter-count-row" aria-live="polite">
-          <span class="filters__count-row__primary" id="filter-count"></span>
-          <button type="button" class="filter-search-chip" id="filter-category-chip" hidden>
-            <span class="filter-search-chip__text" id="filter-category-chip-text"></span>
-            <span class="filter-search-chip__close" aria-hidden="true">×</span>
-          </button>
-          <button type="button" class="filter-search-chip" id="filter-search-chip" hidden>
-            <span class="filter-search-chip__text" id="filter-search-chip-text"></span>
-            <span class="filter-search-chip__close" aria-hidden="true">×</span>
-          </button>
-          <button type="button" class="filter-search-chip" id="filter-colour-chip" hidden>
-            <span class="filter-search-chip__text" id="filter-colour-chip-text"></span>
-            <span class="filter-search-chip__close" aria-hidden="true">×</span>
-          </button>
-          <button type="button" class="filter-search-chip" id="filter-subcategory-chip" hidden>
-            <span class="filter-search-chip__text" id="filter-subcategory-chip-text"></span>
-            <span class="filter-search-chip__close" aria-hidden="true">×</span>
-          </button>
-        </div>
-        </div>
+    <nav
+      id="site-header-mobile-panel"
+      class="site-header__mobile-panel"
+      aria-label="Mobile categories"
+      aria-hidden="true"
+    >
+      <div class="site-header__mobile-panel-scroll">
+        <a href="#main" class="site-header__mobile-link" data-category-jump="Clothing">Clothing</a>
+        <a href="#main" class="site-header__mobile-link" data-category-jump="Accessories">Accessories</a>
+        <a href="#main" class="site-header__mobile-link" data-category-jump="Watches">Watches</a>
+        <a href="#main" class="site-header__mobile-link" data-category-jump="Fragrance">Fragrance</a>
       </div>
     </nav>
 
@@ -321,29 +320,61 @@
 
     <main id="main" tabindex="-1">
       <section class="items-toolbar" aria-label="Item tools">
-        <button
-          type="button"
-          class="items-toolbar__filter-sort-btn"
-          id="archive-filter-drawer-open"
-          aria-haspopup="dialog"
-          aria-controls="archive-filter-drawer"
-          aria-expanded="false"
+        <div id="category-drill" class="category-drill category-drill--toolbar" hidden>
+          <div id="category-drill-grid" class="category-drill__grid"></div>
+        </div>
+        <div class="items-toolbar__top-row">
+          <div class="items-toolbar__archive-summary" aria-live="polite">
+            <p class="items-toolbar__spend-line" id="filter-spend-total"></p>
+            <p class="items-toolbar__count-line" id="filter-count"></p>
+          </div>
+          <button
+            type="button"
+            class="items-toolbar__filter-sort-btn"
+            id="archive-filter-drawer-open"
+            aria-haspopup="dialog"
+            aria-controls="archive-filter-drawer"
+            aria-expanded="false"
+          >
+            <span class="items-toolbar__filter-sort-icon" aria-hidden="true">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <line x1="4" y1="21" x2="4" y2="14" />
+                <line x1="4" y1="10" x2="4" y2="3" />
+                <line x1="12" y1="21" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12" y2="3" />
+                <line x1="20" y1="21" x2="20" y2="16" />
+                <line x1="20" y1="12" x2="20" y2="3" />
+                <line x1="1" y1="14" x2="7" y2="14" />
+                <line x1="9" y1="8" x2="15" y2="8" />
+                <line x1="17" y1="16" x2="23" y2="16" />
+              </svg>
+            </span>
+            <span>Filter &amp; Sort</span>
+          </button>
+        </div>
+        <div
+          class="items-toolbar__chips filters__count-row"
+          id="filter-count-row"
+          aria-label="Active filters"
+          aria-live="polite"
         >
-          <span class="items-toolbar__filter-sort-icon" aria-hidden="true">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-              <line x1="4" y1="21" x2="4" y2="14" />
-              <line x1="4" y1="10" x2="4" y2="3" />
-              <line x1="12" y1="21" x2="12" y2="12" />
-              <line x1="12" y1="8" x2="12" y2="3" />
-              <line x1="20" y1="21" x2="20" y2="16" />
-              <line x1="20" y1="12" x2="20" y2="3" />
-              <line x1="1" y1="14" x2="7" y2="14" />
-              <line x1="9" y1="8" x2="15" y2="8" />
-              <line x1="17" y1="16" x2="23" y2="16" />
-            </svg>
-          </span>
-          <span>Filter &amp; Sort</span>
-        </button>
+          <button type="button" class="filter-search-chip" id="filter-category-chip" hidden>
+            <span class="filter-search-chip__text" id="filter-category-chip-text"></span>
+            <span class="filter-search-chip__close" aria-hidden="true">×</span>
+          </button>
+          <button type="button" class="filter-search-chip" id="filter-search-chip" hidden>
+            <span class="filter-search-chip__text" id="filter-search-chip-text"></span>
+            <span class="filter-search-chip__close" aria-hidden="true">×</span>
+          </button>
+          <button type="button" class="filter-search-chip" id="filter-colour-chip" hidden>
+            <span class="filter-search-chip__text" id="filter-colour-chip-text"></span>
+            <span class="filter-search-chip__close" aria-hidden="true">×</span>
+          </button>
+          <button type="button" class="filter-search-chip" id="filter-subcategory-chip" hidden>
+            <span class="filter-search-chip__text" id="filter-subcategory-chip-text"></span>
+            <span class="filter-search-chip__close" aria-hidden="true">×</span>
+          </button>
+        </div>
       </section>
       <div id="grid" class="grid" role="list"></div>
       <div id="empty-wrap" class="empty-wrap" hidden>
@@ -514,6 +545,22 @@
                   autocomplete="off"
                   placeholder="#hex, SKU…"
                 />
+              </label>
+              <label class="field">
+                <span class="field__label">Broad colour (optional)</span>
+                <select id="add-item-basic-colour" name="basicColour" aria-label="Broad colour for archive filters">
+                  <option value="">Auto (from name / code / hex)</option>
+                  <option value="blue">Blue</option>
+                  <option value="brown">Brown</option>
+                  <option value="red">Red</option>
+                  <option value="white">White</option>
+                  <option value="black">Black</option>
+                  <option value="beige">Beige</option>
+                  <option value="gold">Gold</option>
+                  <option value="silver">Silver</option>
+                  <option value="green">Green</option>
+                  <option value="grey">Grey</option>
+                </select>
               </label>
               <label class="field">
                 <span class="field__label">Fabric (optional)</span>
