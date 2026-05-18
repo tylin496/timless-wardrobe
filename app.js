@@ -12684,35 +12684,26 @@
     return out;
   }
 
-  /**
-   * `outfit_items.item_id` references `wardrobe_items.id` with ON DELETE RESTRICT — Postgres
-   * rejects deleting a row that still appears in any saved outfit. Remove those links first.
-   * If RLS blocks deletes, PostgREST can return success with 0 rows removed — we detect that and throw.
-   */
-  async function unlinkCloudOutfitsReferencingWardrobeItem(itemId) {
+  function removeWardrobeItemFromSavedOutfitState(itemId) {
     const sid = String(itemId ?? "").trim();
-    if (!sid || !isSupabaseReady()) return;
-    const { error } = await supabaseClient.from("outfit_items").delete().eq("item_id", sid);
-    if (error) throw error;
-    const { count, error: countErr } = await supabaseClient
-      .from("outfit_items")
-      .select("item_id", { count: "exact", head: true })
-      .eq("item_id", sid);
-    if (countErr) {
-      console.warn("outfit_items count after unlink:", countErr);
-    } else if (count != null && count > 0) {
-      const blocked = new Error(
-        "Saved outfits still reference this piece in the database (DELETE on outfit_items removed no rows — check Supabase RLS: anon needs DELETE on outfit_items, see migrations/20250513000000_init_wardrobe.sql)."
-      );
-      /** @type {any} */ (blocked).code = "OUTFIT_ITEMS_UNLINK_BLOCKED";
-      throw blocked;
-    }
+    if (!sid) return;
     savedOutfits = savedOutfits.map((o) => {
       const slots = Array.isArray(o.slots) ? o.slots : [];
       const next = slots.filter((s) => String(s.itemId ?? "") !== sid);
       if (next.length === slots.length) return o;
       return { ...o, slots: next };
     });
+  }
+
+  function messageForWardrobeRowDeleteFailure(err) {
+    const detail = formatSupabaseUserMessage(err);
+    if (/foreign key|violates foreign key constraint|outfit_items_item_id_fkey/i.test(detail)) {
+      return (
+        "Delete row failed: saved outfits still reference this piece. " +
+        "Run pending Supabase migrations so outfit_items.item_id uses ON DELETE CASCADE, then retry."
+      );
+    }
+    return detail ? `Delete row failed: ${detail}` : "Delete row failed.";
   }
 
   function formatSupabaseUserMessage(err) {
@@ -12782,7 +12773,7 @@
   }
 
   function toastCloudDeleteFailure(step, err) {
-    const detail = formatSupabaseUserMessage(err);
+    const detail = step === "row" ? messageForWardrobeRowDeleteFailure(err) : formatSupabaseUserMessage(err);
     const hint =
       step === "unlink"
         ? "Unlink failed"
@@ -12790,15 +12781,15 @@
           ? "Delete row failed"
           : "Delete failed";
     const max = 220;
-    const tail = detail ? `: ${detail}` : "";
-    const msg = `${hint}${tail}`.slice(0, max);
+    const msg = (step === "row" ? detail || hint : `${hint}${detail ? `: ${detail}` : ""}`).slice(0, max);
     showToast(msg);
     console.warn(`deleteWardrobePieceFromBrowser (${step})`, err);
   }
 
   /**
-   * Remove a wardrobe piece via Supabase only: unlink outfit refs, delete referenced Storage objects, DELETE
-   * the `wardrobe_items` row. If Supabase is not ready, refuses (no offline delete).
+   * Remove a wardrobe piece via Supabase only: DELETE the `wardrobe_items` row first
+   * so Postgres atomically cascades saved-outfit links, then clean up referenced Storage objects.
+   * If Supabase is not ready, refuses (no offline delete).
    * The id is always saved to `collection_hidden_ids` so `syncMissingRowsToSupabase` never re-upserts seed/file rows with the same id
    * (critical when the catalogue comes only from Supabase). With seed-merge catalogue, hidden ids still suppress resurgence after reload.
    */
@@ -12813,66 +12804,60 @@
 
     const isCustom = sid.startsWith("custom-");
 
-    currentOutfitSlots = currentOutfitSlots.filter((s) => s.itemId !== sid);
-
-    const prevCloud = cloudBackedCustomItems.slice();
-    cloudBackedCustomItems = cloudBackedCustomItems.filter((x) => String(x.id) !== sid);
+    const item = itemById.get(sid) || items.find((x) => String(x?.id ?? "") === String(sid));
 
     try {
-      const item = itemById.get(sid) || items.find((x) => String(x?.id ?? "") === String(sid));
-
-      try {
-        await unlinkCloudOutfitsReferencingWardrobeItem(sid);
-      } catch (e1) {
-        cloudBackedCustomItems = prevCloud;
-        toastCloudDeleteFailure("unlink", e1);
-        return;
-      }
-      try {
-        await deleteWardrobeItemImagesFromCloud(item);
-      } catch (eImg) {
-        console.warn("Image cleanup before delete (continuing):", eImg);
-      }
-      const { error } = await supabaseClient.from(WARDROBE_TABLE).delete().eq("id", sid);
+      const { data: deletedRow, error } = await supabaseClient
+        .from(WARDROBE_TABLE)
+        .delete()
+        .eq("id", sid)
+        .select("id")
+        .maybeSingle();
       if (error) throw error;
+      if (!deletedRow?.id) {
+        throw new Error("Supabase accepted the request but did not delete a wardrobe_items row. Check DELETE RLS.");
+      }
+    } catch (e) {
+      toastCloudDeleteFailure("row", e);
+      return;
+    }
 
-      wardrobeBase = wardrobeBase.filter((row) => String(row?.id ?? "") !== sid);
+    currentOutfitSlots = currentOutfitSlots.filter((s) => s.itemId !== sid);
+    removeWardrobeItemFromSavedOutfitState(sid);
+    cloudBackedCustomItems = cloudBackedCustomItems.filter((x) => String(x.id) !== sid);
+    wardrobeBase = wardrobeBase.filter((row) => String(row?.id ?? "") !== sid);
 
-      if (isCustom) {
+    try {
+      await deleteWardrobeItemImagesFromCloud(item);
+    } catch (eImg) {
+      console.warn("Image cleanup after delete (continuing):", eImg);
+    }
+
+    if (isCustom) {
+      try {
         stripCustomIdsFromLocalStorage([sid]);
         await mirrorLocalCustomItemsToProjectFile();
-      }
-
-      try {
-        const all = loadCollectionOverrides();
-        if (Object.prototype.hasOwnProperty.call(all, sid)) {
-          delete all[sid];
-          await saveCollectionOverrides(all);
-        }
       } catch (e) {
-        console.warn(e);
+        console.warn("Local custom item cleanup after cloud delete failed.", e);
       }
+    }
 
+    try {
+      const all = loadCollectionOverrides();
+      if (Object.prototype.hasOwnProperty.call(all, sid)) {
+        delete all[sid];
+        await saveCollectionOverrides(all);
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+
+    try {
       const hidden = loadCollectionHiddenIds();
       hidden.add(sid);
       await saveCollectionHiddenIds(hidden);
     } catch (e) {
-      cloudBackedCustomItems = prevCloud;
-      try {
-        if (useCloudOutfits && isSupabaseReady()) {
-          const api = await import("./js/supabase-client.js");
-          const res = await api.fetchOutfits(supabaseClient);
-          if (res.ok) {
-            savedOutfits = (res.outfits || [])
-              .map((o) => normalizeSavedOutfitRecord(o))
-              .filter(Boolean);
-          }
-        }
-      } catch (e2) {
-        console.warn("fetchOutfits after delete failure", e2);
-      }
-      toastCloudDeleteFailure("row", e);
-      return;
+      console.warn("Could not persist hidden collection id after cloud delete.", e);
     }
 
     mergeWardrobeFromSources();
@@ -17158,7 +17143,7 @@
             return;
           }
           const msg =
-            "Delete this piece from Supabase? Links in saved outfits are removed first (`outfit_items`). Then we delete Storage objects only when the image URL maps to your wardrobe-images bucket—external URLs stay. Finally we delete the `wardrobe_items` row; nothing here can restore it.";
+            "Delete this piece from Supabase? The `wardrobe_items` row is deleted first so Postgres removes saved-outfit links atomically. Then Storage objects are cleaned up only when the image URL maps to your wardrobe-images bucket—external URLs stay. Nothing here can restore it.";
           if (!confirm(msg)) return;
           void deleteWardrobePieceFromBrowser(it.id);
           return;
