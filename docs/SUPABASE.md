@@ -9,10 +9,7 @@
 ## 1. Create the database
 
 1. Open your Supabase project → **SQL Editor**.
-2. Paste the contents of `supabase/migrations/20250513000000_init_wardrobe.sql` and run it.
-3. Paste the contents of `supabase/migrations/20250514100000_add_pillar_to_wardrobe.sql` and run it (adds `pillar` for thesis-line grouping: English Heritage / Mediterranean Leisure / Collections).
-4. Paste the contents of `supabase/migrations/20250515120000_add_gallery_to_wardrobe.sql` and run it (adds `gallery` JSON array for extra images per item; `image` stays the cover).
-5. Paste the contents of `supabase/migrations/20250518120000_wardrobe_size_measured.sql` and run it (adds optional `size` and `measured_dimensions` text columns).
+2. Run every SQL file in `supabase/migrations/` in filename order. These create the base wardrobe/outfit tables, add the later wardrobe columns, configure prototype RLS policies, and install the atomic outfit-write helpers used by the browser.
 
 (Alternatively use the Supabase CLI: `supabase db push` if you link a project — not required for this MVP.)
 

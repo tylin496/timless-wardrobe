@@ -251,16 +251,46 @@ export async function deleteOutfitById(client, id) {
   return { ok: true };
 }
 
+function isMissingAtomicOutfitUpdateRpcError(error) {
+  const msg = String(error?.message ?? error?.details ?? error?.hint ?? error?.code ?? "");
+  return /update_outfit_with_items|schema cache|could not find the function|pgrst202|42883/i.test(msg);
+}
+
+function outfitSlotsToRows(record) {
+  const slots = Array.isArray(record.slots) ? record.slots : [];
+  return slots.map((s, sort_order) => {
+    const ck = String(s.colourKey ?? s.colorKey ?? "").trim();
+    return {
+      outfit_id: record.id,
+      item_id: String(s.itemId ?? "").trim(),
+      sort_order,
+      colour_key: ck || null,
+    };
+  });
+}
+
 /**
  * Replace name and line items for an existing outfit (local id must match cloud row).
  * @param {import('@supabase/supabase-js').SupabaseClient} client
  * @param {{ id: string, name: string, slots: { itemId: string, colourKey?: string; colorKey?: string }[] }} record
  */
 export async function updateOutfitWithItems(client, record) {
-  const { error: eDel } = await client.from("outfit_items").delete().eq("outfit_id", record.id);
-  if (eDel) return { ok: false, error: eDel.message };
-
   const notes = String(record.notes ?? "").trim();
+  const rows = outfitSlotsToRows(record);
+  const rpcSlots = rows.map((r) => ({
+    itemId: r.item_id,
+    colourKey: r.colour_key,
+  }));
+
+  const { error: eRpc } = await client.rpc("update_outfit_with_items", {
+    p_outfit_id: record.id,
+    p_name: record.name,
+    p_notes: notes,
+    p_slots: rpcSlots,
+  });
+  if (!eRpc) return { ok: true };
+  if (!isMissingAtomicOutfitUpdateRpcError(eRpc)) return { ok: false, error: eRpc.message };
+
   const patch = { name: record.name };
   if (notes) patch.notes = notes;
   let eUp;
@@ -270,19 +300,17 @@ export async function updateOutfitWithItems(client, record) {
   }
   if (eUp) return { ok: false, error: eUp.message };
 
-  const slots = Array.isArray(record.slots) ? record.slots : [];
-  const rows = slots.map((s, sort_order) => {
-    const ck = String(s.colourKey ?? s.colorKey ?? "").trim();
-    return {
-      outfit_id: record.id,
-      item_id: String(s.itemId ?? "").trim(),
-      sort_order,
-      colour_key: ck || null,
-    };
-  });
   if (rows.length) {
-    const { error: eIns } = await client.from("outfit_items").insert(rows);
-    if (eIns) return { ok: false, error: eIns.message };
+    const { error: eUpsert } = await client.from("outfit_items").upsert(rows, {
+      onConflict: "outfit_id,sort_order",
+    });
+    if (eUpsert) return { ok: false, error: eUpsert.message };
   }
+  const { error: eTrim } = await client
+    .from("outfit_items")
+    .delete()
+    .eq("outfit_id", record.id)
+    .gte("sort_order", rows.length);
+  if (eTrim) return { ok: false, error: eTrim.message };
   return { ok: true };
 }
