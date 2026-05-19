@@ -251,27 +251,9 @@ export async function deleteOutfitById(client, id) {
   return { ok: true };
 }
 
-/**
- * Replace name and line items for an existing outfit (local id must match cloud row).
- * @param {import('@supabase/supabase-js').SupabaseClient} client
- * @param {{ id: string, name: string, slots: { itemId: string, colourKey?: string; colorKey?: string }[] }} record
- */
-export async function updateOutfitWithItems(client, record) {
-  const { error: eDel } = await client.from("outfit_items").delete().eq("outfit_id", record.id);
-  if (eDel) return { ok: false, error: eDel.message };
-
-  const notes = String(record.notes ?? "").trim();
-  const patch = { name: record.name };
-  if (notes) patch.notes = notes;
-  let eUp;
-  ({ error: eUp } = await client.from("outfits").update(patch).eq("id", record.id));
-  if (eUp && notes && /notes|column/i.test(String(eUp.message ?? ""))) {
-    ({ error: eUp } = await client.from("outfits").update({ name: record.name }).eq("id", record.id));
-  }
-  if (eUp) return { ok: false, error: eUp.message };
-
+function outfitItemRowsForRecord(record) {
   const slots = Array.isArray(record.slots) ? record.slots : [];
-  const rows = slots.map((s, sort_order) => {
+  return slots.map((s, sort_order) => {
     const ck = String(s.colourKey ?? s.colorKey ?? "").trim();
     return {
       outfit_id: record.id,
@@ -280,9 +262,75 @@ export async function updateOutfitWithItems(client, record) {
       colour_key: ck || null,
     };
   });
+}
+
+function normalizeExistingOutfitItemRows(outfitId, rows) {
+  return (Array.isArray(rows) ? rows : []).map((row, sort_order) => {
+    const ck =
+      row?.colour_key != null
+        ? String(row.colour_key).trim()
+        : row?.color_key != null
+          ? String(row.color_key).trim()
+          : "";
+    return {
+      outfit_id: outfitId,
+      item_id: String(row?.item_id ?? row?.itemId ?? "").trim(),
+      sort_order: Number.isFinite(Number(row?.sort_order)) ? Number(row.sort_order) : sort_order,
+      colour_key: ck || null,
+    };
+  });
+}
+
+async function updateOutfitBaseRow(client, record) {
+  const patch = {
+    name: record.name,
+    notes: String(record.notes ?? "").trim(),
+  };
+  let error;
+  ({ error } = await client.from("outfits").update(patch).eq("id", record.id));
+  if (error && /notes|column/i.test(String(error.message ?? ""))) {
+    ({ error } = await client.from("outfits").update({ name: record.name }).eq("id", record.id));
+  }
+  return error;
+}
+
+async function restoreOutfitItemRows(client, outfitId, previousRows) {
+  const { error: clearErr } = await client.from("outfit_items").delete().eq("outfit_id", outfitId);
+  if (clearErr) return clearErr;
+  if (!previousRows.length) return null;
+  const { error: restoreErr } = await client.from("outfit_items").insert(previousRows);
+  return restoreErr || null;
+}
+
+/**
+ * Replace name and line items for an existing outfit (local id must match cloud row).
+ * @param {import('@supabase/supabase-js').SupabaseClient} client
+ * @param {{ id: string, name: string, slots: { itemId: string, colourKey?: string; colorKey?: string }[] }} record
+ */
+export async function updateOutfitWithItems(client, record) {
+  const { data: existingRows, error: eRead } = await client
+    .from("outfit_items")
+    .select("item_id, sort_order, colour_key")
+    .eq("outfit_id", record.id)
+    .order("sort_order", { ascending: true });
+  if (eRead) return { ok: false, error: eRead.message };
+
+  const previousRows = normalizeExistingOutfitItemRows(record.id, existingRows);
+
+  const eUp = await updateOutfitBaseRow(client, record);
+  if (eUp) return { ok: false, error: eUp.message };
+
+  const { error: eDel } = await client.from("outfit_items").delete().eq("outfit_id", record.id);
+  if (eDel) return { ok: false, error: eDel.message };
+
+  const rows = outfitItemRowsForRecord(record);
   if (rows.length) {
     const { error: eIns } = await client.from("outfit_items").insert(rows);
-    if (eIns) return { ok: false, error: eIns.message };
+    if (eIns) {
+      const restoreErr = await restoreOutfitItemRows(client, record.id, previousRows);
+      const restoreMsg = restoreErr ? `; rollback failed: ${restoreErr.message}` : "";
+      return { ok: false, error: `${eIns.message}${restoreMsg}` };
+    }
   }
   return { ok: true };
 }
