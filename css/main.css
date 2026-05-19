@@ -16042,8 +16042,11 @@ video.ed-lp__hero-layer-video {
 }
 
 .ed-lp__division-rail-scroller-wrap {
-  @apply ml-[var(--ed-lp-division-rail-pad-left)] mr-0;
   position: relative;
+  margin-left: 0;
+  margin-right: 0;
+  /* Pad inside 100% width — margin-left + width:100% caused ~18px page overflow on mobile. */
+  padding-left: var(--ed-lp-division-rail-pad-left);
   width: 100%;
   max-width: 100%;
   min-width: 0;
