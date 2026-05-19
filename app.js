@@ -37,13 +37,115 @@
 
   /** Split collection rows merged into one id — remap saved outfit lines. */
   const LEGACY_OUTFIT_ITEM_TO_SLOT = new Map([
-    ["uniqlo-ocbd-shirt-blue", { itemId: "uniqlo-ocbd-shirt", colourKey: "blue" }],
-    ["uniqlo-ocbd-shirt-white", { itemId: "uniqlo-ocbd-shirt", colourKey: "white" }],
-    ["uniqlo-ocbd-shirt-pink-stripe", { itemId: "uniqlo-ocbd-shirt", colourKey: "pink-stripe" }],
-    ["uniqlo-ocbd-shirt-blue-striped", { itemId: "uniqlo-ocbd-shirt", colourKey: "blue-striped" }],
-    ["uniqlo-tuck-trousers-grey", { itemId: "uniqlo-tuck-trousers", colourKey: "grey" }],
-    ["uniqlo-tuck-trousers-beige", { itemId: "uniqlo-tuck-trousers", colourKey: "beige" }],
+    ["uniqlo-ocbd-shirt-blue", { itemId: "ocbd-shirt", colourKey: "blue" }],
+    ["uniqlo-ocbd-shirt-white", { itemId: "ocbd-shirt", colourKey: "white" }],
+    ["uniqlo-ocbd-shirt-pink-stripe", { itemId: "ocbd-shirt", colourKey: "pink-stripe" }],
+    ["uniqlo-ocbd-shirt-blue-striped", { itemId: "ocbd-shirt", colourKey: "blue-striped" }],
+    ["uniqlo-tuck-trousers-grey", { itemId: "pleated-trousers", colourKey: "grey" }],
+    ["uniqlo-tuck-trousers-beige", { itemId: "pleated-trousers", colourKey: "beige" }],
   ]);
+
+  /** 2026-05 name-slug id migration — old long ids → slug(item.name). */
+  const LEGACY_ITEM_ID_MAP = new Map([
+    ["acme-cultum-navy-double-breasted-super-120s-blazer", "navy-double-breasted-blazer"],
+    ["alden-563-tassel-loafer-color-8-cordovan", "tassel-loafer"],
+    ["barbour-sage-beaufort-waxed-jacket", "sage-beaufort-waxed-jacket"],
+    ["brooks-brothers-golden-fleece-navy-twill-blazer", "golden-fleece-navy-blazer"],
+    ["brooks-brothers-light-brown-houndstooth-tweed-jacket", "houndstooth-tweed-jacket"],
+    ["burberrys-beige-single-breasted-balmacaan-coat", "balmacaan-coat"],
+    ["cartier-tank-solo-large", "tank-solo"],
+    ["common-projects-achilles-low-white", "achilles-low"],
+    ["crockett-jones-chukka-snuff-suede", "chukka"],
+    ["crockett-jones-pembroke-tan", "pembroke"],
+    ["custom-027c1993-57b9-4d7a-9b86-320f76fb7415", "glen-check-tweed-jacket"],
+    ["custom-11c5213e-a24b-4840-8fcf-8bafccdbde06", "pleated-trousers"],
+    ["custom-1a53223b-b4fc-4da3-91b1-c4dffdac6b40", "rib-knit-polo-shirt-dark-chocolate"],
+    ["custom-207c8109-cc63-4c01-987e-af5b0201df46", "cordovan-l-zip-wallet-regular-price"],
+    ["custom-2aeb4687-58b4-4a4b-90be-43492ca9e1cb", "dw-5600"],
+    ["custom-49cb4503-d1f7-4a7d-b0b2-dc60a5549976", "sapphire-three-stone-ring"],
+    ["custom-684a379c-0d9f-48a4-ae3a-f098d31ca842", "anthony"],
+    ["custom-69db120c-9ec2-4f76-a08c-744a42777fb3", "kingsman-0847-sunglasses"],
+    ["custom-7bdd5e7c-546b-4360-b725-1741c8c274f4", "structured-knit-polo-shirt"],
+    ["custom-85878caf-3b5c-4307-9fa4-4d76d3776d8f", "panama-hat"],
+    ["custom-86c016e3-006a-4785-98f2-0f61bd952439", "helmet-bag"],
+    ["custom-90145ca5-c982-4d0d-8e0e-3a772a21ff53", "american-flag-hat"],
+    ["custom-b1b60797-6d7a-4cc6-b294-b3a82e1c0712", "boat-and-tote"],
+    ["custom-b5af381a-752a-4e09-a1d5-434ab96efda0", "original-wayfarer-sunglasses"],
+    ["custom-c60ef29b-7596-4b2c-aac2-6d1dcedbd74c", "smoke-olive-acetate-optical"],
+    ["custom-c6f7f72c-01dd-42fc-a5aa-4aa79a135d67", "ligne-2"],
+    ["custom-f5c105c7-9ca8-486f-b726-e7aa8b8fd416", "boston-metal-frames"],
+    ["future-sapphire-engagement-ring", "sapphire-ring"],
+    ["future-wedding-bands", "wedding-bands"],
+    ["gu-olive-brown-wide-straight-trousers", "wide-straight-trousers"],
+    ["gu-wine-cable-knit-polo", "cable-knit-polo"],
+    ["hm-hole-knit-beige-polo", "hole-knit-polo-shirt"],
+    ["hm-linen-pleated-shorts-beige", "linen-pleated-shorts"],
+    ["hm-oatmeal-stripe-camp-collar-shirt", "striped-camp-collar-shirt"],
+    ["jewellery-curb-bracelet", "curb-bracelet"],
+    ["jewellery-rolo-chain", "rolo-chain"],
+    ["jewellery-ruby-gypsy-ring", "ruby-gypsy-ring"],
+    ["jewellery-signet-ring", "signet-ring"],
+    ["jpress-grey-herringbone-tweed-jacket", "herringbone-tweed-jacket"],
+    ["llbean-camel-corduroy-trousers", "corduroy-trousers"],
+    ["mfk-grand-soir", "grand-soir"],
+    ["muji-black-fine-knit-wool-ribbed-turtleneck", "rib-knit-roll-neck-neck-jumper"],
+    ["muji-cream-wide-leg-jeans", "wide-leg-jeans"],
+    ["muji-dark-navy-wool-high-gauge-v-neck-cardigan", "v-neck-cardigan"],
+    ["muji-ecru-sherpa-fleece-vest-olive-trim", "boa-fleece-vest"],
+    ["muji-oatmeal-beige-heavy-aran-wool-cable-knit-jumper", "aran-cable-knit-jumper"],
+    ["muji-slate-blue-lightweight-fine-knit-tee", "fine-knit-t-shirt"],
+    ["muji-washed-off-white-breton-boat-neck-tee", "washed-breton-stripe-boat-neck-3-4-sleeve-t-shirt"],
+    ["nicolai-new-york", "new-york"],
+    ["paraboot-ferret-lisse-cafe", "ferret"],
+    ["private-white-vc-midnight-navy-ventile-harrington", "ventile-harrington"],
+    ["prl-beige-basket-weave-linen-jacket", "basket-weave-linen-jacket"],
+    ["prl-washed-wine-cream-rugby-shirt", "washed-rugby-shirt"],
+    ["prl-wine-polo-bear-wool-cashmere-jumper", "polo-bear-jumper"],
+    ["spier-mackay-camel-hair-polo-coat", "camel-hair-polo-coat"],
+    ["the-engineer-black-cotton-long-sleeve-polo", "knit-long-sleeve-polo"],
+    ["the-engineer-brown-mixed-fair-isle-wool-vest", "fair-isle-vest"],
+    ["the-engineer-ecru-linen-safari-jacket", "linen-safari-jacket"],
+    ["tissot-prx-quartz-35mm-gold-pvd", "prx-quartz"],
+    ["tudor-black-bay-58", "black-bay-58"],
+    ["uniqlo-beige-kataaze-knit-mock-neck", "kataaze-knit-mock-neck"],
+    ["uniqlo-ecru-cricket-cable-knit-jumper-vest", "cricket-cable-knit-jumper-vest"],
+    ["uniqlo-jwa-straight-jeans", "jwa-straight-jeans"],
+    ["uniqlo-light-blue-linen-camp-collar-shirt", "linen-camp-collar-shirt"],
+    ["uniqlo-ocbd-shirt", "ocbd-shirt"],
+    ["zara-cream-linen-loop-collar-shirt", "linen-loop-collar-shirt"],
+    ["zara-dark-grey-open-knit-polo", "cutwork-knit-polo-shirt"],
+    ["zara-dusty-ice-blue-ribbed-knit-polo", "rib-knit-polo-shirt-dusty-ice-blue"],
+    ["zara-ecru-purl-knit-t-shirt", "purl-knit-t-shirt"],
+    ["zara-navy-baker-neck-knitted-t-shirt", "baker-neck-knitted-t-shirt"],
+  ]);
+
+  function slugItemName(name) {
+    return String(name ?? "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .replace(/-+/g, "-");
+  }
+
+  function proposeNewItemId(name) {
+    const base = slugItemName(name);
+    if (!base) return "";
+    const taken = new Set(items.map((i) => String(i?.id ?? "").trim()).filter(Boolean));
+    if (!taken.has(base)) return base;
+    for (let n = 2; n < 1000; n++) {
+      const cand = `${base}-${n}`;
+      if (!taken.has(cand)) return cand;
+    }
+    return `${base}-${Date.now()}`;
+  }
+
+  function resolveCanonicalItemId(id) {
+    const sid = String(id ?? "").trim();
+    if (!sid) return "";
+    return LEGACY_ITEM_ID_MAP.get(sid) || sid;
+  }
 
   function itemColourCode(item) {
     if (!item || typeof item !== "object") return "";
@@ -302,8 +404,8 @@
     const preview = document.createElement("button");
     preview.type = "button";
     preview.className = "item-edit-colour-code-preview item-edit-colour-code-preview--empty";
-    preview.setAttribute("aria-label", "Choose colour");
-    preview.title = "Choose colour";
+    preview.setAttribute("aria-label", "Choose a colour");
+    preview.title = "Choose a colour";
     return preview;
   }
 
@@ -588,7 +690,7 @@
     const title = document.createElement("h2");
     title.id = "item-colour-picker-heading";
     title.className = "item-colour-picker__title";
-    title.textContent = "Choose colour";
+    title.textContent = "Choose a colour";
 
     const sv = document.createElement("div");
     sv.className = "item-colour-picker__sv";
@@ -1725,14 +1827,15 @@
   function normalizeOutfitSlot(raw) {
     if (raw == null) return null;
     if (typeof raw === "string") {
-      const itemId = raw.trim();
+      let itemId = raw.trim();
       if (!itemId) return null;
+      itemId = resolveCanonicalItemId(itemId);
       const leg = LEGACY_OUTFIT_ITEM_TO_SLOT.get(itemId);
       if (leg) return { itemId: leg.itemId, colourKey: leg.colourKey };
       return { itemId };
     }
     if (typeof raw === "object" && raw.itemId != null) {
-      let itemId = String(raw.itemId).trim();
+      let itemId = resolveCanonicalItemId(String(raw.itemId).trim());
       let colourKey = String(raw.colourKey ?? raw.colorKey ?? "").trim();
       const leg = LEGACY_OUTFIT_ITEM_TO_SLOT.get(itemId);
       if (leg) {
@@ -3058,7 +3161,7 @@
       const expanded = !sec.classList.contains("item-detail__notes-section--expanded");
       sec.classList.toggle("item-detail__notes-section--expanded", expanded);
       textEl.classList.toggle("item-detail__notes-text--clamped", !expanded);
-      toggle.textContent = expanded ? "Read less" : "Read More";
+      toggle.textContent = expanded ? "Read less" : "Read more";
       toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
     });
   }
@@ -3108,7 +3211,7 @@
     const toggle = document.createElement("button");
     toggle.type = "button";
     toggle.className = "item-detail__notes-toggle";
-    toggle.textContent = "Read More";
+    toggle.textContent = "Read more";
     toggle.setAttribute("aria-expanded", "false");
     toggle.hidden = true;
 
@@ -4976,6 +5079,10 @@
   function rebuildItemIndex() {
     itemById.clear();
     for (const i of items) itemById.set(i.id, i);
+    for (const [oldId, newId] of LEGACY_ITEM_ID_MAP) {
+      const row = itemById.get(newId);
+      if (row) itemById.set(oldId, row);
+    }
   }
 
   function normalizeCustomItemRows(arr) {
@@ -5650,11 +5757,13 @@
         return { ...base, __collectionOrdinal: idx };
       });
     slotRecordFallbackCategory = computeSlotRecordFallbackCategories(mergedBase);
-    const mergedList = isHybridLocalCatalogueEnabled()
-      ? [...mergedBase, ...filterCloudRowsForHybridCatalogue(cloudBackedCustomItems)]
-      : isCloudModeActive()
-        ? [...mergedBase]
-        : [...loadCustomItems(), ...mergedBase];
+    const mergedList = dedupeWardrobeRowsByCanonicalId(
+      isHybridLocalCatalogueEnabled()
+        ? [...mergedBase, ...filterCloudRowsForHybridCatalogue(cloudBackedCustomItems)]
+        : isCloudModeActive()
+          ? [...mergedBase]
+          : [...loadCustomItems(), ...mergedBase]
+    );
     items = mergedList.map((row) => {
       let row2 = row;
       let cat = String(row2.category ?? "").trim();
@@ -9085,7 +9194,7 @@
         const clearAll = document.createElement("button");
         clearAll.type = "button";
         clearAll.className = "items-toolbar__active-chips-clear";
-        clearAll.textContent = "Clear All";
+        clearAll.textContent = "Clear all";
         clearAll.setAttribute("aria-label", "Clear all active filters");
         clearAll.addEventListener("click", (e) => {
           e.preventDefault();
@@ -10743,7 +10852,7 @@
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
     const label = document.createElement("span");
     label.className = "outfit-toast__label";
-    label.textContent = "ITEM ADDED";
+    label.textContent = "Piece added";
     toastEl.append(icon, label);
     toastEl.hidden = false;
     requestAnimationFrame(() => {
@@ -11149,7 +11258,7 @@
 
   function handleOutfitSaveClick() {
     if (!currentOutfitSlots.length) {
-      showToast("Add at least one piece to the board first.");
+      showToast(`Add at least one piece to ${OUTFITS_UI_NAME.toLowerCase()} first.`);
       return;
     }
     if (!isStylingBoardSaveFormOpen()) {
@@ -11196,7 +11305,7 @@
     const name = els.outfitName?.value.trim() ?? "";
     const notes = els.outfitNotes?.value.trim() ?? "";
     if (!currentOutfitSlots.length) {
-      showToast("Add at least one piece to the board first.");
+      showToast(`Add at least one piece to ${OUTFITS_UI_NAME.toLowerCase()} first.`);
       return;
     }
     if (!name) {
@@ -13337,10 +13446,11 @@
 
     if (photoSlots.length) showAddItemFormMsg("Processing images…", false);
 
-    const newId =
-      typeof crypto !== "undefined" && crypto.randomUUID
-        ? `custom-${crypto.randomUUID()}`
-        : `custom-${Date.now()}`;
+    const newId = proposeNewItemId(name);
+    if (!newId) {
+      showAddItemFormMsg("Could not derive an id from the piece name.", true);
+      return;
+    }
 
     let dataUrl = "";
     let galleryDeduped = [];
@@ -13438,12 +13548,9 @@
    * COLLECTION seed rows become a new custom entry; does not change seed files.
    */
   function buildDuplicateCustomItem(src) {
-    const id =
-      typeof crypto !== "undefined" && crypto.randomUUID
-        ? `custom-${crypto.randomUUID()}`
-        : `custom-${Date.now()}`;
     const nameBase = String(src?.name ?? "").trim();
     const dupName = nameBase ? `${nameBase} (copy)` : "Untitled (copy)";
+    const id = proposeNewItemId(dupName) || proposeNewItemId("untitled-copy");
 
     const main = String(src?.image ?? "").trim();
     const galleryDeduped = dedupeGalleryUrls(main, itemGalleryList(src), 12);
@@ -13879,7 +13986,7 @@
   }
 
   function stylingBoardCtaLabel() {
-    return isFiltersNarrowViewport() ? "+" : "ADD TO OUTFIT";
+    return isFiltersNarrowViewport() ? "+" : `ADD TO ${OUTFITS_UI_NAME.toUpperCase()}`;
   }
 
   function syncBoardAddButtonPresentation(btn, blocked) {
@@ -13910,7 +14017,7 @@
   }
 
   function itemDetailBoardCtaLabel(blocked) {
-    return blocked ? "ON OUTFIT" : "ADD TO OUTFIT";
+    return blocked ? `ON ${OUTFITS_UI_NAME.toUpperCase()}` : `ADD TO ${OUTFITS_UI_NAME.toUpperCase()}`;
   }
 
   function itemDetailBoardBlockedState(item) {
@@ -14266,7 +14373,11 @@
   }
 
   function isCustomWardrobeItem(item) {
-    return item && typeof item.id === "string" && item.id.startsWith("custom-");
+    if (!item || typeof item.id !== "string") return false;
+    const id = String(item.id).trim();
+    if (!id) return false;
+    if (id.startsWith("custom-")) return true;
+    return !isLocalCatalogueItemId(id);
   }
 
   function compareGridItems(a, b) {
@@ -14408,6 +14519,13 @@
     renderGrid();
   }
 
+  /** Clear type drill / narrowing; keep division (+ season tab when set). */
+  function navigateCollectionDivisionRoot() {
+    if (!String(categoryNavFilter ?? "").trim()) return;
+    clearBrowseNarrowingKeepDivision();
+    scrollCollectionViewportTop();
+  }
+
   function renderCollectionHeadingBreadcrumb(host, { searchActive = false } = {}) {
     if (!host) return;
 
@@ -14462,26 +14580,46 @@
       isCurrent: false,
     });
 
+    const subDrilled = subcategoryFilters.size > 0;
+
     if (searchActive) {
       appendSep();
       appendCrumb("SEARCH", { isCurrent: true });
-    } else if (season && cat) {
-      appendSep();
-      appendCrumb(collectionHeadingSeasonShortLabel(), {
-        onClick: navigateCollectionAllSeasonsKeepDivision,
-        isCurrent: false,
-      });
-    } else if (season || cat) {
-      /* Season-only: title is “S/S Collection”; division-only: title is the slot — trail ends at COLLECTION / */
-      appendSep();
+    } else {
+      if (season) {
+        appendSep();
+        appendCrumb(collectionHeadingSeasonShortLabel(), {
+          onClick: navigateCollectionAllSeasonsKeepDivision,
+          isCurrent: false,
+        });
+      }
+      if (cat) {
+        appendSep();
+        appendCrumb(categoryDisplayLabel(cat), {
+          onClick: navigateCollectionDivisionRoot,
+          isCurrent: !subDrilled,
+        });
+        if (subDrilled) appendSep();
+      } else if (season) {
+        /* Season-only PLP — title is “S/S Collection”; trail ends at COLLECTION / S/S / */
+        appendSep();
+      }
     }
 
     host.appendChild(nav);
   }
 
-  /** Line 2 — division name, or “S/S Collection” when filtered by season only. */
+  /** Line 2 — active type drill label, division name, or “S/S Collection” when season-only. */
   function collectionHeadingTitleLine(parentCategory) {
     const cat = String(parentCategory ?? "").trim();
+    if (cat && subcategoryFilters.size === 1) {
+      const sub = [...subcategoryFilters][0];
+      const drillLabel = friendlyRecordCategory(sub) || String(sub ?? "").trim();
+      if (drillLabel) return drillLabel;
+    }
+    if (cat && subcategoryFilters.size > 1) {
+      return `${subcategoryFilters.size} types`;
+    }
     if (cat) return categoryDisplayLabel(cat);
     const season = normalizeSeasonNavToken(seasonNavFilter);
     const seasonShort = collectionHeadingSeasonShortLabel();
@@ -14526,9 +14664,19 @@
     elTitle.textContent = title;
     elTitle.classList.remove("items-toolbar__page-title--placeholder");
     const season = normalizeSeasonNavToken(seasonNavFilter);
+    const slot = String(categoryNavFilter ?? "").trim();
     const trailParts = collectionHeadingUsesHomeCrumb(searchActive) ? ["HOME"] : ["COLLECTION"];
     if (searchActive) trailParts.push("SEARCH");
-    else if (season && !collectionHeadingSeasonOnlyBrowse()) trailParts.push(collectionHeadingSeasonLabel());
+    else {
+      if (season && !collectionHeadingSeasonOnlyBrowse()) trailParts.push(collectionHeadingSeasonLabel());
+      if (slot) trailParts.push(categoryDisplayLabel(slot));
+      if (subcategoryFilters.size === 1) {
+        const drillLabel = friendlyRecordCategory([...subcategoryFilters][0]);
+        if (drillLabel) trailParts.push(drillLabel);
+      } else if (subcategoryFilters.size > 1) {
+        trailParts.push(`${subcategoryFilters.size} types`);
+      }
+    }
     root.setAttribute("aria-label", `${trailParts.join(" / ")} · ${title}`);
   }
   /** Per-slot subcategory drill / mega menu: view entire parent category (empty `subcategoryFilter`). */
@@ -15107,7 +15255,7 @@
       editBtn.type = "button";
       editBtn.className = "saved-card__ctrl";
       editBtn.textContent = "Edit";
-      editBtn.title = "Load onto the board and update on save.";
+      editBtn.title = `Load onto ${OUTFITS_UI_NAME.toLowerCase()} and update on save.`;
       editBtn.dataset.outfitEdit = outfit.id;
       const delBtn = document.createElement("button");
       delBtn.type = "button";
@@ -17554,7 +17702,8 @@
    */
   async function resolveItemForDetailPage(pageId) {
     if (!pageId) return null;
-    let hit = itemById.get(pageId);
+    const canonical = resolveCanonicalItemId(pageId);
+    let hit = itemById.get(canonical) || itemById.get(pageId);
     if (hit) return hit;
 
     try {
@@ -17567,7 +17716,7 @@
     } catch (e) {
       console.warn("Detail page refresh before lookup failed:", e);
     }
-    hit = itemById.get(pageId);
+    hit = itemById.get(canonical) || itemById.get(pageId);
     return hit || null;
   }
 
@@ -19022,14 +19171,11 @@
           "#site-header-submenu-title, .mega-menu-content__heading, .site-header__submenu-title"
         )
         .forEach((el) => el.remove());
-      content.querySelectorAll("hr").forEach((el) => {
-        if (el.closest(".mega-menu-preview__head")) return;
-        el.remove();
-      });
+      content.querySelectorAll("hr").forEach((el) => el.remove());
     };
 
     const syncDesktopMegaMenuPreviewLabel = (_slot) => {
-      /* Preview rail uses a rule-only `.mega-menu-preview__head` (no label copy). */
+      /* Preview rail has no title row — cards only. */
     };
 
     const clearHeaderSubmenuContent = () => {
@@ -19518,7 +19664,7 @@
       if (!matches.length) {
         const empty = document.createElement("p");
         empty.className = "site-header__submenu-preview-empty";
-        empty.textContent = "No items in this type yet.";
+        empty.textContent = "No pieces in this category yet.";
         preview.appendChild(empty);
         return;
       }
@@ -20380,7 +20526,24 @@
   function isLocalCatalogueItemId(id) {
     if (!isHybridLocalCatalogueEnabled()) return false;
     const sid = String(id ?? "").trim();
-    return Boolean(sid && catalogueLockManifest.ids.has(sid));
+    if (!sid) return false;
+    const canonical = resolveCanonicalItemId(sid);
+    return Boolean(catalogueLockManifest.ids.has(canonical));
+  }
+
+  /** Drop duplicate rows when cloud still uses pre-migration ids alongside frozen seed. */
+  function dedupeWardrobeRowsByCanonicalId(rowList) {
+    const seen = new Set();
+    /** @type {object[]} */
+    const out = [];
+    for (const row of rowList) {
+      if (!row || row.id == null) continue;
+      const canon = resolveCanonicalItemId(String(row.id));
+      if (!canon || seen.has(canon)) continue;
+      seen.add(canon);
+      out.push(row);
+    }
+    return out;
   }
 
   /** Cloud rows that are not part of the frozen local catalogue (new pieces stay on Supabase). */

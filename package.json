@@ -14,6 +14,8 @@
     "db:backup-to-local": "node scripts/backup_wardrobe_to_local.mjs",
     "db:apply-local-text": "node scripts/apply_local_wardrobe_text.mjs",
     "db:titlecase-brands-once": "node scripts/titlecase_brands_once.mjs",
+    "db:migrate-item-ids": "node scripts/migrate_wardrobe_ids_to_name_slug.mjs",
+    "db:migrate-supabase-ids": "node scripts/migrate_supabase_item_ids.mjs",
     "db:import-seed": "node scripts/import_seed_to_supabase.mjs",
     "storage:prune-orphans": "node scripts/prune_wardrobe_storage_orphans.mjs"
   },

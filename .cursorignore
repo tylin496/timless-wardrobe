@@ -1,0 +1,18 @@
+# Keep Cursor / AI indexing off heavy assets (still in git & deploy).
+images/
+dist/
+node_modules/
+.git/
+
+# Claude / agent worktree copies (duplicate wardrobe assets)
+.claude/
+
+# Local exports & backups
+data/local/
+data/wardrobe.js.backup-*
+data/wardrobe.json
+
+# Large media
+**/*.mp4
+**/*.mov
+**/*.webm

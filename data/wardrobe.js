@@ -1,7 +1,7 @@
 /**
  * Timeless Wardrobe — frozen catalogue seed (offline fallback + dev).
  *
- * Frozen from Supabase wardrobe_items on 2026-05-19T14:43:57.148Z.
+ * Frozen from Supabase wardrobe_items on 2026-05-19T16:13:59.642Z.
  * Regenerate: npm run db:freeze-catalogue
  *
  * Collection thesis is described in the site header. Each row uses `category` (and optional
@@ -15,7 +15,7 @@
 
 const WARDROBE_ITEMS = [
   {
-    "id": "acme-cultum-navy-double-breasted-super-120s-blazer",
+    "id": "navy-double-breasted-blazer",
     "category": "Jackets",
     "brand": "Acme Cultum",
     "name": "Navy Double-Breasted  Blazer",
@@ -26,9 +26,9 @@ const WARDROBE_ITEMS = [
     "weight": "265 gsm",
     "size": "56C",
     "purchaseDate": "2024-11-06",
-    "image": "/images/wardrobe/acme-cultum-navy-double-breasted-super-120s-blazer/main/cover.png",
+    "image": "/images/wardrobe/navy-double-breasted-blazer/main/cover.png",
     "gallery": [
-      "/images/wardrobe/acme-cultum-navy-double-breasted-super-120s-blazer/main/gallery/01.jpg"
+      "/images/wardrobe/navy-double-breasted-blazer/main/gallery/01.jpg"
     ],
     "metadata": {
       "price": 1284.65,
@@ -37,7 +37,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "alden-563-tassel-loafer-color-8-cordovan",
+    "id": "tassel-loafer",
     "category": "Footwear",
     "brand": "Alden",
     "name": "Tassel Loafer",
@@ -48,9 +48,9 @@ const WARDROBE_ITEMS = [
     "weight": "563",
     "size": "US 10.5 E",
     "purchaseDate": "2023-01-19",
-    "image": "/images/wardrobe/alden-563-tassel-loafer-color-8-cordovan/main/cover.png",
+    "image": "/images/wardrobe/tassel-loafer/main/cover.png",
     "gallery": [
-      "/images/wardrobe/alden-563-tassel-loafer-color-8-cordovan/main/gallery/01.png"
+      "/images/wardrobe/tassel-loafer/main/gallery/01.png"
     ],
     "notes": "Sole: Single oak leather outsole \nLast: Aberdeen",
     "metadata": {
@@ -61,7 +61,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "barbour-sage-beaufort-waxed-jacket",
+    "id": "sage-beaufort-waxed-jacket",
     "category": "Outerwear",
     "brand": "Barbour",
     "name": "Sage Beaufort Waxed Jacket",
@@ -71,11 +71,11 @@ const WARDROBE_ITEMS = [
     "fabric": "Waxed cotton",
     "size": "44",
     "purchaseDate": "2025-08-01",
-    "image": "/images/wardrobe/barbour-sage-beaufort-waxed-jacket/main/cover.png",
+    "image": "/images/wardrobe/sage-beaufort-waxed-jacket/main/cover.png",
     "gallery": [
-      "/images/wardrobe/barbour-sage-beaufort-waxed-jacket/main/gallery/01.jpg",
-      "/images/wardrobe/barbour-sage-beaufort-waxed-jacket/main/gallery/02.jpg",
-      "/images/wardrobe/barbour-sage-beaufort-waxed-jacket/main/gallery/03.jpg"
+      "/images/wardrobe/sage-beaufort-waxed-jacket/main/gallery/01.jpg",
+      "/images/wardrobe/sage-beaufort-waxed-jacket/main/gallery/02.jpg",
+      "/images/wardrobe/sage-beaufort-waxed-jacket/main/gallery/03.jpg"
     ],
     "metadata": {
       "price": 43200,
@@ -84,7 +84,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "jewellery-curb-bracelet",
+    "id": "curb-bracelet",
     "category": "Jewellery",
     "brand": "Bespoke",
     "name": "Curb Bracelet",
@@ -94,10 +94,10 @@ const WARDROBE_ITEMS = [
     "weight": "18ct yellow gold, 5.2 mm",
     "size": "20.5 cm （8.07inches）",
     "purchaseDate": "2024-10-26",
-    "image": "/images/wardrobe/jewellery-curb-bracelet/1778704222719-cover-edit.png",
+    "image": "/images/wardrobe/curb-bracelet/1778704222719-cover-edit.png",
     "gallery": [
-      "/images/wardrobe/jewellery-curb-bracelet/main/gallery/01.jpg",
-      "/images/wardrobe/jewellery-curb-bracelet/main/gallery/01.png"
+      "/images/wardrobe/curb-bracelet/main/gallery/01.jpg",
+      "/images/wardrobe/curb-bracelet/main/gallery/01.png"
     ],
     "notes": "Size: 20.5 cm （8.07inches）\nWeight: 11.71 g\nGold price: 596 CNY/g (base: 472, +45% vs 2020)\nMaking: 124 CNY/g\nTotal: 6,973 CNY ≈ 31,200 TWD (2024)\nDate: 26 October 2024",
     "metadata": {
@@ -107,7 +107,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "jewellery-rolo-chain",
+    "id": "rolo-chain",
     "category": "Jewellery",
     "brand": "Bespoke",
     "name": "Rolo Chain",
@@ -116,9 +116,9 @@ const WARDROBE_ITEMS = [
     "colourCode": "#D6C082",
     "size": "50 cm",
     "purchaseDate": "2024-08-20",
-    "image": "/images/wardrobe/jewellery-rolo-chain/1778704232768-cover-edit.png",
+    "image": "/images/wardrobe/rolo-chain/1778704232768-cover-edit.png",
     "gallery": [
-      "/images/wardrobe/jewellery-rolo-chain/main/gallery/01.jpg"
+      "/images/wardrobe/rolo-chain/main/gallery/01.jpg"
     ],
     "notes": "Size: 50 cm\nWeight: 9.29 g\nGold price: 514 CNY/g (base: 431, +25% vs 2020)\nMaking: 83 CNY/g\nTotal: 4,778 CNY ≈ 21,400 TWD (2024)\n\u001aDate: 20 August 2024",
     "metadata": {
@@ -129,7 +129,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "jewellery-ruby-gypsy-ring",
+    "id": "ruby-gypsy-ring",
     "category": "Jewellery",
     "brand": "Bespoke",
     "name": "Ruby Gypsy Ring",
@@ -140,11 +140,11 @@ const WARDROBE_ITEMS = [
     "weight": "18ct yellow gold with Diamonds, 6.8 mm face, 3 mm shank",
     "size": "HK 22",
     "purchaseDate": "2024-08-04",
-    "image": "/images/wardrobe/jewellery-ruby-gypsy-ring/1778698277222-cover-edit.png",
+    "image": "/images/wardrobe/ruby-gypsy-ring/1778698277222-cover-edit.png",
     "gallery": [
-      "/images/wardrobe/jewellery-ruby-gypsy-ring/main/gallery/01.jpg"
+      "/images/wardrobe/ruby-gypsy-ring/main/gallery/01.jpg"
     ],
-    "notes": "Size: HK 22 (2024-10-10; adjusted to 22.5–23 on 2026-04-07)\nWeight: 8.20 g (total, including stones)   Gold price: 604 CNY/g (base 450, +47% vs 2020)\nRuby: 3 × 4 mm (~0.2 ct)\nDiamonds: 2.3 mm × 2 (total ~0.1 ct)\nMaking: 154 CNY/g\nTotal: 5,057 CNY ≈ 22,600 TWD (2024)\nDate: 4 October 2024\n\nEngraving\nInscription: Ad Meliora . 2024\n￼\n\nReference: A gold ring inset with a single turquoise, inscribed Rumpenheim, 1843",
+    "notes": "Size: HK 22 (2024-10-10; adjusted to 22.5–23 on 2026-04-07)\nWeight: 8.20 g (total, including stones)     Gold price: 604 CNY/g (base 450, +47% vs 2020)\nRuby: 3 × 4 mm (~0.2 ct)\nDiamonds: 2.3 mm × 2 (total ~0.1 ct)\nMaking: 154 CNY/g\nTotal: 5,057 CNY ≈ 22,600 TWD (2024)\nDate: 4 October 2024\n\nEngraving\nInscription: Ad Meliora . 2024\n￼\n\nReference: A gold ring inset with a single turquoise, inscribed Rumpenheim, 1843",
     "metadata": {
       "price": 22600,
       "basicColour": "gold",
@@ -155,7 +155,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "jewellery-signet-ring",
+    "id": "signet-ring",
     "category": "Jewellery",
     "brand": "Bespoke",
     "name": "Signet Ring",
@@ -165,13 +165,13 @@ const WARDROBE_ITEMS = [
     "weight": "18ct yellow gold, 12 × 14 mm",
     "size": "HK 14",
     "purchaseDate": "2020-11-01",
-    "image": "/images/wardrobe/jewellery-signet-ring/1778698092039-cover-edit.png",
+    "image": "/images/wardrobe/signet-ring/1778698092039-cover-edit.png",
     "gallery": [
-      "/images/wardrobe/jewellery-signet-ring/main/gallery/01.jpg",
-      "/images/wardrobe/jewellery-signet-ring/main/gallery/01.png",
-      "/images/wardrobe/jewellery-signet-ring/main/gallery/02.jpg"
+      "/images/wardrobe/signet-ring/main/gallery/01.jpg",
+      "/images/wardrobe/signet-ring/main/gallery/01.png",
+      "/images/wardrobe/signet-ring/main/gallery/02.jpg"
     ],
-    "notes": "Size: HK 14 (2020-11-20; confirmed 2026-04-07)\nWeight: 9.6 g (actual)   Gold price: 411 CNY/g (base: 385 CNY/g)\nMaking: 78 CNY/g\nTotal: 4,698 CNY ≈ 20,000 TWD (2020)\nDate: 1 November 2020\n\nEngraving: Victorian interlaced monogram (TYL)",
+    "notes": "Size: HK 14 (2020-11-20; confirmed 2026-04-07)\nWeight: 9.6 g (actual)     Gold price: 411 CNY/g (base: 385 CNY/g)\nMaking: 78 CNY/g\nTotal: 4,698 CNY ≈ 20,000 TWD (2020)\nDate: 1 November 2020\n\nEngraving: Victorian interlaced monogram (TYL)",
     "metadata": {
       "price": 20000,
       "priceCurrency": "TWD"
@@ -179,7 +179,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "brooks-brothers-golden-fleece-navy-twill-blazer",
+    "id": "golden-fleece-navy-blazer",
     "category": "Jackets",
     "brand": "Brooks Brothers",
     "name": "Golden Fleece Navy Blazer",
@@ -190,9 +190,9 @@ const WARDROBE_ITEMS = [
     "weight": "300 gsm",
     "size": "46R",
     "purchaseDate": "2025-02-01",
-    "image": "/images/wardrobe/brooks-brothers-golden-fleece-navy-twill-blazer/1778693552701-cover-edit.png",
+    "image": "/images/wardrobe/golden-fleece-navy-blazer/1778693552701-cover-edit.png",
     "gallery": [
-      "/images/wardrobe/brooks-brothers-golden-fleece-navy-twill-blazer/main/gallery/01.png"
+      "/images/wardrobe/golden-fleece-navy-blazer/main/gallery/01.png"
     ],
     "metadata": {
       "price": 55,
@@ -201,7 +201,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "brooks-brothers-light-brown-houndstooth-tweed-jacket",
+    "id": "houndstooth-tweed-jacket",
     "category": "Jackets",
     "brand": "Brooks Brothers",
     "name": "Houndstooth Tweed Jacket",
@@ -212,13 +212,13 @@ const WARDROBE_ITEMS = [
     "weight": "~450 gsm",
     "size": "46R",
     "purchaseDate": "2025-03-09",
-    "image": "/images/wardrobe/brooks-brothers-light-brown-houndstooth-tweed-jacket/main/cover.png",
+    "image": "/images/wardrobe/houndstooth-tweed-jacket/main/cover.png",
     "gallery": [
-      "/images/wardrobe/brooks-brothers-light-brown-houndstooth-tweed-jacket/main/gallery/01.jpg",
-      "/images/wardrobe/brooks-brothers-light-brown-houndstooth-tweed-jacket/main/gallery/02.jpg",
-      "/images/wardrobe/brooks-brothers-light-brown-houndstooth-tweed-jacket/main/gallery/03.jpg",
-      "/images/wardrobe/brooks-brothers-light-brown-houndstooth-tweed-jacket/main/gallery/04.jpg",
-      "/images/wardrobe/brooks-brothers-light-brown-houndstooth-tweed-jacket/main/gallery/05.jpg"
+      "/images/wardrobe/houndstooth-tweed-jacket/main/gallery/01.jpg",
+      "/images/wardrobe/houndstooth-tweed-jacket/main/gallery/02.jpg",
+      "/images/wardrobe/houndstooth-tweed-jacket/main/gallery/03.jpg",
+      "/images/wardrobe/houndstooth-tweed-jacket/main/gallery/04.jpg",
+      "/images/wardrobe/houndstooth-tweed-jacket/main/gallery/05.jpg"
     ],
     "metadata": {
       "price": 79.99,
@@ -227,7 +227,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "burberrys-beige-single-breasted-balmacaan-coat",
+    "id": "balmacaan-coat",
     "category": "Outerwear",
     "brand": "Burberrys",
     "name": "Balmacaan Coat",
@@ -237,11 +237,11 @@ const WARDROBE_ITEMS = [
     "weight": "Single-Breasted",
     "size": "42R",
     "purchaseDate": "2020-12-06",
-    "image": "/images/wardrobe/burberrys-beige-single-breasted-balmacaan-coat/main/cover.png",
+    "image": "/images/wardrobe/balmacaan-coat/main/cover.png",
     "gallery": [
-      "/images/wardrobe/burberrys-beige-single-breasted-balmacaan-coat/main/gallery/01.png",
-      "/images/wardrobe/burberrys-beige-single-breasted-balmacaan-coat/main/gallery/02.png",
-      "/images/wardrobe/burberrys-beige-single-breasted-balmacaan-coat/main/gallery/01.jpg"
+      "/images/wardrobe/balmacaan-coat/main/gallery/01.png",
+      "/images/wardrobe/balmacaan-coat/main/gallery/02.png",
+      "/images/wardrobe/balmacaan-coat/main/gallery/01.jpg"
     ],
     "metadata": {
       "price": 83.99,
@@ -250,7 +250,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "cartier-tank-solo-large",
+    "id": "tank-solo",
     "category": "Dress watch",
     "brand": "Cartier",
     "name": "Tank Solo",
@@ -260,9 +260,9 @@ const WARDROBE_ITEMS = [
     "weight": "W5200004",
     "size": "Large Model",
     "purchaseDate": "2024-11-03",
-    "image": "/images/wardrobe/cartier-tank-solo-large/main/cover.png",
+    "image": "/images/wardrobe/tank-solo/main/cover.png",
     "gallery": [
-      "/images/wardrobe/cartier-tank-solo-large/main/gallery/01.jpg"
+      "/images/wardrobe/tank-solo/main/gallery/01.jpg"
     ],
     "notes": "Reference: W5200004\nMovement: Cartier Cal. 690 quartz\nCase: 34.8 × 27.4 mm, 18ct yellow gold with alloyed steel case back\nThickness: 5.55 mm\nLugs: 17 mm\nCrown: Beaded crown set with blue synthetic spinel cabochon\nDial: Clear silvered opaline dial, Roman numerals\nHands: Blued-steel sword-shaped hands\nCrystal: Square sapphire crystal\nStrap: Brown square-scale alligator leather\nBuckle: 18ct yellow gold ardillon buckle\nWater Resistance: 3 bar (30 m)\n\nNotes:\nDesigned by Louis Cartier in 1917, the Tank remains one of the purest expressions of modern watch design, defined by geometry, restraint, and exact proportion. In continuous production for over a century, it has remained unmistakable while giving rise to later interpretations including Tank Cintrée, Chinoise, Américaine, and Française. The blue spinel cabochon crown, Roman numerals, and blued-steel hands preserve Cartier’s original design language. At only 5.55 mm thick, it retains the ultra-thin elegance expected of a true dress watch. As the only solid-gold watch in this collection, the Tank serves as its aesthetic anchor—not a variation, but one of the original canonical forms of twentieth-century design.",
     "metadata": {
@@ -275,7 +275,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "common-projects-achilles-low-white",
+    "id": "achilles-low",
     "category": "Footwear",
     "brand": "Common Projects",
     "name": "Achilles Low",
@@ -285,9 +285,9 @@ const WARDROBE_ITEMS = [
     "fabric": "Leather",
     "size": "EU 45",
     "purchaseDate": "2025-11-28",
-    "image": "/images/wardrobe/common-projects-achilles-low-white/1778704429485-cover-edit.png",
+    "image": "/images/wardrobe/achilles-low/1778704429485-cover-edit.png",
     "gallery": [
-      "/images/wardrobe/common-projects-achilles-low-white/main/gallery/01.webp"
+      "/images/wardrobe/achilles-low/main/gallery/01.webp"
     ],
     "notes": "Margom cup sole. Date: 28 Nov 2025.",
     "metadata": {
@@ -297,7 +297,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "crockett-jones-chukka-snuff-suede",
+    "id": "chukka",
     "category": "Footwear",
     "brand": "Crockett & Jones",
     "name": "Chukka",
@@ -307,9 +307,9 @@ const WARDROBE_ITEMS = [
     "fabric": "Repello suede",
     "size": "UK 10 D",
     "purchaseDate": "2023-01-29",
-    "image": "/images/wardrobe/crockett-jones-chukka-snuff-suede/1778697977522-cover-edit.png",
+    "image": "/images/wardrobe/chukka/1778697977522-cover-edit.png",
     "gallery": [
-      "/images/wardrobe/crockett-jones-chukka-snuff-suede/main/gallery/01.jpg"
+      "/images/wardrobe/chukka/main/gallery/01.jpg"
     ],
     "notes": "Unlined ankle boot; Scotch-guard treated\nSole: single leather\nLast: 200",
     "metadata": {
@@ -320,7 +320,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "crockett-jones-pembroke-tan",
+    "id": "pembroke",
     "category": "Footwear",
     "brand": "Crockett & Jones",
     "name": "Pembroke",
@@ -330,9 +330,9 @@ const WARDROBE_ITEMS = [
     "fabric": "Scotch grain calf",
     "size": "UK 10 E",
     "purchaseDate": "2020-10-26",
-    "image": "/images/wardrobe/crockett-jones-pembroke-tan/1778698000508-cover-edit.png",
+    "image": "/images/wardrobe/pembroke/1778698000508-cover-edit.png",
     "gallery": [
-      "/images/wardrobe/crockett-jones-pembroke-tan/main/gallery/01.jpg"
+      "/images/wardrobe/pembroke/main/gallery/01.jpg"
     ],
     "notes": "Type: Full brogue country derby, wing-tip with full punching. Sole: Dainite rubber. Last: 325. Date: 27 Oct 2020.",
     "metadata": {
@@ -343,17 +343,17 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "custom-69db120c-9ec2-4f76-a08c-744a42777fb3",
+    "id": "kingsman-0847-sunglasses",
     "category": "Eyewear",
-    "brand": "Cutler And Gross",
+    "brand": "Cutler and Gross",
     "name": "Kingsman 0847 Sunglasses",
     "season": "All-season",
     "colour": "Black, Brown Lenses",
     "purchaseDate": "2023-11-27",
-    "image": "/images/wardrobe/custom-69db120c-9ec2-4f76-a08c-744a42777fb3/main/cover.png",
+    "image": "/images/wardrobe/kingsman-0847-sunglasses/main/cover.png",
     "gallery": [
-      "/images/wardrobe/custom-69db120c-9ec2-4f76-a08c-744a42777fb3/main/gallery/01.png",
-      "/images/wardrobe/custom-69db120c-9ec2-4f76-a08c-744a42777fb3/main/gallery/02.png"
+      "/images/wardrobe/kingsman-0847-sunglasses/main/gallery/01.png",
+      "/images/wardrobe/kingsman-0847-sunglasses/main/gallery/02.png"
     ],
     "metadata": {
       "price": 177.99,
@@ -363,7 +363,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "future-sapphire-engagement-ring",
+    "id": "sapphire-ring",
     "category": "Jewellery",
     "brand": "Future Piece",
     "name": "Sapphire Ring",
@@ -371,9 +371,9 @@ const WARDROBE_ITEMS = [
     "colour": "Platinum",
     "colourCode": "#e8e8e8",
     "fabric": "Platinum",
-    "image": "/images/wardrobe/future-sapphire-engagement-ring/main/cover.png",
+    "image": "/images/wardrobe/sapphire-ring/main/cover.png",
     "gallery": [
-      "/images/wardrobe/future-sapphire-engagement-ring/main/gallery/01.png"
+      "/images/wardrobe/sapphire-ring/main/gallery/01.png"
     ],
     "notes": "Sapphire: 8 × 6 mm (1.3 - 1.5 ct)\nHue: Light cornflower blue (矢車菊藍)\n\nReference: Garrard 1735 sapphire ring",
     "metadata": {
@@ -383,7 +383,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "future-wedding-bands",
+    "id": "wedding-bands",
     "category": "Jewellery",
     "brand": "Future Piece",
     "name": "Wedding Bands",
@@ -391,7 +391,7 @@ const WARDROBE_ITEMS = [
     "colour": "Gold",
     "colourCode": "#D6C082",
     "fabric": "Pt950 1.8 mm (bride) / 18ct YG 2 mm size 13 (groom)",
-    "image": "/images/wardrobe/future-wedding-bands/1778704141467-cover-edit.png",
+    "image": "/images/wardrobe/wedding-bands/1778704141467-cover-edit.png",
     "notes": "Inscription: spouse name · date (e.g. Edward · 29 Mai). Worn at base when stacked. Reference: bands of Prince Edward Duke of Kent (1767–1820) and Princess Victoria Duchess of Kent (1786–1861).",
     "metadata": {
       "basicColour": "gold"
@@ -399,15 +399,15 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "custom-2aeb4687-58b4-4a4b-90be-43492ca9e1cb",
+    "id": "dw-5600",
     "category": "Beater",
     "brand": "G-Shock",
     "name": "DW-5600",
     "season": "All-season",
     "purchaseDate": "2020-04-09",
-    "image": "/images/wardrobe/custom-2aeb4687-58b4-4a4b-90be-43492ca9e1cb/main/cover.png",
+    "image": "/images/wardrobe/dw-5600/main/cover.png",
     "gallery": [
-      "/images/wardrobe/custom-2aeb4687-58b4-4a4b-90be-43492ca9e1cb/main/gallery/01.jpg"
+      "/images/wardrobe/dw-5600/main/gallery/01.jpg"
     ],
     "metadata": {
       "price": 1479,
@@ -417,7 +417,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "gu-wine-cable-knit-polo",
+    "id": "cable-knit-polo",
     "category": "Shirts",
     "brand": "Gu",
     "name": "Cable-Knit Polo",
@@ -427,9 +427,9 @@ const WARDROBE_ITEMS = [
     "fabric": "53% Cotton, 47% Acrylic",
     "size": "XL",
     "purchaseDate": "2025-07-15",
-    "image": "/images/wardrobe/gu-wine-cable-knit-polo/main/cover.png",
+    "image": "/images/wardrobe/cable-knit-polo/main/cover.png",
     "gallery": [
-      "/images/wardrobe/gu-wine-cable-knit-polo/main/gallery/01.jpg"
+      "/images/wardrobe/cable-knit-polo/main/gallery/01.jpg"
     ],
     "metadata": {
       "price": 1990,
@@ -439,7 +439,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "gu-olive-brown-wide-straight-trousers",
+    "id": "wide-straight-trousers",
     "category": "Bottoms",
     "brand": "Gu",
     "name": "Wide-Straight Trousers",
@@ -450,9 +450,9 @@ const WARDROBE_ITEMS = [
     "weight": "Crease front",
     "size": "XL",
     "purchaseDate": "2025-08-11 · Taupe",
-    "image": "/images/wardrobe/gu-olive-brown-wide-straight-trousers/1778703733818-cover-edit.png",
+    "image": "/images/wardrobe/wide-straight-trousers/1778703733818-cover-edit.png",
     "gallery": [
-      "/images/wardrobe/gu-olive-brown-wide-straight-trousers/main/gallery/01.avif"
+      "/images/wardrobe/wide-straight-trousers/main/gallery/01.avif"
     ],
     "notes": "ワイドスラックス+EC(丈長め78.5cm)",
     "metadata": {
@@ -462,7 +462,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "hm-hole-knit-beige-polo",
+    "id": "hole-knit-polo-shirt",
     "category": "Shirts",
     "brand": "H&M",
     "name": "Hole-Knit Polo Shirt",
@@ -472,9 +472,9 @@ const WARDROBE_ITEMS = [
     "fabric": "Knit",
     "size": "XL",
     "purchaseDate": "2025-07-28",
-    "image": "/images/wardrobe/hm-hole-knit-beige-polo/1778703469914-cover-edit.png",
+    "image": "/images/wardrobe/hole-knit-polo-shirt/1778703469914-cover-edit.png",
     "gallery": [
-      "/images/wardrobe/hm-hole-knit-beige-polo/main/gallery/01.webp"
+      "/images/wardrobe/hole-knit-polo-shirt/main/gallery/01.webp"
     ],
     "metadata": {
       "price": 2499,
@@ -483,7 +483,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "hm-linen-pleated-shorts-beige",
+    "id": "linen-pleated-shorts",
     "category": "Bottoms",
     "brand": "H&M",
     "name": "Linen Pleated Shorts",
@@ -493,9 +493,9 @@ const WARDROBE_ITEMS = [
     "fabric": "Linen",
     "size": "XL",
     "purchaseDate": "2025-07-29",
-    "image": "/images/wardrobe/hm-linen-pleated-shorts-beige/1778703351069-cover-edit.png",
+    "image": "/images/wardrobe/linen-pleated-shorts/1778703351069-cover-edit.png",
     "gallery": [
-      "/images/wardrobe/hm-linen-pleated-shorts-beige/main/gallery/01.png"
+      "/images/wardrobe/linen-pleated-shorts/main/gallery/01.png"
     ],
     "metadata": {
       "price": 3600,
@@ -505,7 +505,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "hm-oatmeal-stripe-camp-collar-shirt",
+    "id": "striped-camp-collar-shirt",
     "category": "Shirts",
     "brand": "H&M",
     "name": "Striped Camp Collar Shirt",
@@ -514,11 +514,11 @@ const WARDROBE_ITEMS = [
     "colourCode": "#cdc5bc",
     "size": "XL",
     "purchaseDate": "2025-08-01",
-    "image": "/images/wardrobe/hm-oatmeal-stripe-camp-collar-shirt/1778703504683-cover-edit.png",
+    "image": "/images/wardrobe/striped-camp-collar-shirt/1778703504683-cover-edit.png",
     "gallery": [
-      "/images/wardrobe/hm-oatmeal-stripe-camp-collar-shirt/main/gallery/01.webp",
-      "/images/wardrobe/hm-oatmeal-stripe-camp-collar-shirt/main/gallery/02.webp",
-      "/images/wardrobe/hm-oatmeal-stripe-camp-collar-shirt/main/gallery/03.webp"
+      "/images/wardrobe/striped-camp-collar-shirt/main/gallery/01.webp",
+      "/images/wardrobe/striped-camp-collar-shirt/main/gallery/02.webp",
+      "/images/wardrobe/striped-camp-collar-shirt/main/gallery/03.webp"
     ],
     "notes": "Regular Fit Textured resort shirt",
     "metadata": {
@@ -528,7 +528,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "jpress-grey-herringbone-tweed-jacket",
+    "id": "herringbone-tweed-jacket",
     "category": "Jackets",
     "brand": "J. Press",
     "name": "Herringbone Tweed Jacket",
@@ -539,9 +539,9 @@ const WARDROBE_ITEMS = [
     "weight": "~480 gsm",
     "size": "46R",
     "purchaseDate": "2025-01-13",
-    "image": "/images/wardrobe/jpress-grey-herringbone-tweed-jacket/main/cover.png",
+    "image": "/images/wardrobe/herringbone-tweed-jacket/main/cover.png",
     "gallery": [
-      "/images/wardrobe/jpress-grey-herringbone-tweed-jacket/main/gallery/01.png"
+      "/images/wardrobe/herringbone-tweed-jacket/main/gallery/01.png"
     ],
     "metadata": {
       "price": 175,
@@ -550,7 +550,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "custom-c60ef29b-7596-4b2c-aac2-6d1dcedbd74c",
+    "id": "smoke-olive-acetate-optical",
     "category": "Eyewear",
     "brand": "Klassic.",
     "name": "Smoke Olive Acetate Optical",
@@ -559,10 +559,10 @@ const WARDROBE_ITEMS = [
     "colourCode": "#555425",
     "weight": "M141",
     "purchaseDate": "2024-08-15",
-    "image": "/images/wardrobe/custom-c60ef29b-7596-4b2c-aac2-6d1dcedbd74c/main/cover.png",
+    "image": "/images/wardrobe/smoke-olive-acetate-optical/main/cover.png",
     "gallery": [
-      "/images/wardrobe/custom-c60ef29b-7596-4b2c-aac2-6d1dcedbd74c/main/gallery/01.jpg",
-      "/images/wardrobe/custom-c60ef29b-7596-4b2c-aac2-6d1dcedbd74c/main/gallery/02.jpg"
+      "/images/wardrobe/smoke-olive-acetate-optical/main/gallery/01.jpg",
+      "/images/wardrobe/smoke-olive-acetate-optical/main/gallery/02.jpg"
     ],
     "metadata": {
       "price": 990,
@@ -572,7 +572,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "llbean-camel-corduroy-trousers",
+    "id": "corduroy-trousers",
     "category": "Bottoms",
     "brand": "L.L.Bean",
     "name": "Corduroy Trousers",
@@ -582,9 +582,9 @@ const WARDROBE_ITEMS = [
     "fabric": "Corduroy",
     "size": "38 x 30 inch",
     "purchaseDate": "2025-01-01",
-    "image": "/images/wardrobe/llbean-camel-corduroy-trousers/main/cover.png",
+    "image": "/images/wardrobe/corduroy-trousers/main/cover.png",
     "gallery": [
-      "/images/wardrobe/llbean-camel-corduroy-trousers/main/gallery/01.jpg"
+      "/images/wardrobe/corduroy-trousers/main/gallery/01.jpg"
     ],
     "metadata": {
       "price": 11000,
@@ -594,7 +594,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "mfk-grand-soir",
+    "id": "grand-soir",
     "category": "Evening",
     "brand": "Maison Francis Kurkdjian",
     "name": "Grand Soir",
@@ -604,9 +604,9 @@ const WARDROBE_ITEMS = [
     "weight": "Labdanum, benzoin, vanilla, amber",
     "size": "70 ml",
     "purchaseDate": "2025-08-01",
-    "image": "/images/wardrobe/mfk-grand-soir/main/cover.png",
+    "image": "/images/wardrobe/grand-soir/main/cover.png",
     "gallery": [
-      "/images/wardrobe/mfk-grand-soir/main/gallery/01.jpg"
+      "/images/wardrobe/grand-soir/main/gallery/01.jpg"
     ],
     "metadata": {
       "price": 22000,
@@ -616,7 +616,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "muji-oatmeal-beige-heavy-aran-wool-cable-knit-jumper",
+    "id": "aran-cable-knit-jumper",
     "category": "Mid Layer",
     "brand": "Muji",
     "name": "Aran Cable-Knit Jumper",
@@ -627,9 +627,9 @@ const WARDROBE_ITEMS = [
     "weight": "Heavy",
     "size": "XL",
     "purchaseDate": "2024-12-27",
-    "image": "/images/wardrobe/muji-oatmeal-beige-heavy-aran-wool-cable-knit-jumper/main/cover.png",
+    "image": "/images/wardrobe/aran-cable-knit-jumper/main/cover.png",
     "gallery": [
-      "/images/wardrobe/muji-oatmeal-beige-heavy-aran-wool-cable-knit-jumper/main/gallery/01.png"
+      "/images/wardrobe/aran-cable-knit-jumper/main/gallery/01.png"
     ],
     "metadata": {
       "price": 7990,
@@ -639,7 +639,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "muji-slate-blue-lightweight-fine-knit-tee",
+    "id": "fine-knit-t-shirt",
     "category": "Shirts",
     "brand": "Muji",
     "name": "Fine Knit T-Shirt",
@@ -651,9 +651,9 @@ const WARDROBE_ITEMS = [
     "size": "XL",
     "measuredDimensions": "Measurements: XL\t72.0cm\t48.0cm\t120.0cm\t118.0cm\t53.0cm\t27.5cm\t51.5cm\t106.0cm\t60.0cm\t59.0cm cm",
     "purchaseDate": "2025-04-07",
-    "image": "/images/wardrobe/muji-slate-blue-lightweight-fine-knit-tee/main/cover.png",
+    "image": "/images/wardrobe/fine-knit-t-shirt/main/cover.png",
     "gallery": [
-      "/images/wardrobe/muji-slate-blue-lightweight-fine-knit-tee/main/gallery/01.jpg"
+      "/images/wardrobe/fine-knit-t-shirt/main/gallery/01.jpg"
     ],
     "notes": "* Lightweight hemp-blend knit with a dry, breathable hand feel.\n* Knitted from twisted hemp and polyester yarns for improved washability, shape retention, and reduced surface fuzz.\n* Garment-washed to preserve the natural texture of hemp while achieving 90%+ UV protection.\n* Relaxed crew-neck silhouette, suitable for wearing alone or layered over a T-shirt.\n* Slightly sheer, lightweight fabric with an easy, relaxed fit.",
     "metadata": {
@@ -669,7 +669,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "muji-dark-navy-wool-high-gauge-v-neck-cardigan",
+    "id": "v-neck-cardigan",
     "category": "Mid Layer",
     "brand": "Muji",
     "name": "V-Neck Cardigan",
@@ -680,10 +680,10 @@ const WARDROBE_ITEMS = [
     "weight": "Lightweight",
     "size": "XL",
     "purchaseDate": "2024-12-17",
-    "image": "/images/wardrobe/muji-dark-navy-wool-high-gauge-v-neck-cardigan/main/cover.png",
+    "image": "/images/wardrobe/v-neck-cardigan/main/cover.png",
     "gallery": [
-      "/images/wardrobe/muji-dark-navy-wool-high-gauge-v-neck-cardigan/main/gallery/01.jpg",
-      "/images/wardrobe/muji-dark-navy-wool-high-gauge-v-neck-cardigan/main/gallery/02.webp"
+      "/images/wardrobe/v-neck-cardigan/main/gallery/01.jpg",
+      "/images/wardrobe/v-neck-cardigan/main/gallery/02.webp"
     ],
     "notes": "紳士　洗えるウールハイゲージＶネックカーディガン紳士ＸＬ・ダークネイビー",
     "metadata": {
@@ -693,7 +693,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "muji-cream-wide-leg-jeans",
+    "id": "wide-leg-jeans",
     "category": "Bottoms",
     "brand": "Muji",
     "name": "Wide-Leg Jeans",
@@ -703,9 +703,9 @@ const WARDROBE_ITEMS = [
     "fabric": "Kapok, Cotton",
     "size": "XL",
     "purchaseDate": "2025-04-21",
-    "image": "/images/wardrobe/muji-cream-wide-leg-jeans/main/cover.png",
+    "image": "/images/wardrobe/wide-leg-jeans/main/cover.png",
     "gallery": [
-      "/images/wardrobe/muji-cream-wide-leg-jeans/main/gallery/01.jpg"
+      "/images/wardrobe/wide-leg-jeans/main/gallery/01.jpg"
     ],
     "notes": "木の実から作ったカポック混キャンバスワイドパンツ\nカラー：生成\nサイズ：紳士ＸＬ\n商品番号：84218460",
     "metadata": {
@@ -715,7 +715,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "nicolai-new-york",
+    "id": "new-york",
     "category": "Day",
     "brand": "Nicolaï",
     "name": "New York",
@@ -725,9 +725,9 @@ const WARDROBE_ITEMS = [
     "weight": "Bergamot, black pepper, oak moss.",
     "size": "100 ml",
     "purchaseDate": "2025-08-02",
-    "image": "/images/wardrobe/nicolai-new-york/1778704154934-cover-edit.png",
+    "image": "/images/wardrobe/new-york/1778704154934-cover-edit.png",
     "gallery": [
-      "/images/wardrobe/nicolai-new-york/main/gallery/01.png"
+      "/images/wardrobe/new-york/main/gallery/01.png"
     ],
     "metadata": {
       "price": 23000,
@@ -737,7 +737,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "paraboot-ferret-lisse-cafe",
+    "id": "ferret",
     "category": "Footwear",
     "brand": "Paraboot",
     "name": "Ferret",
@@ -747,11 +747,11 @@ const WARDROBE_ITEMS = [
     "weight": "Rubber Sole",
     "size": "UK 10",
     "purchaseDate": "2025-08-03",
-    "image": "/images/wardrobe/paraboot-ferret-lisse-cafe/main/cover.png",
+    "image": "/images/wardrobe/ferret/main/cover.png",
     "gallery": [
-      "/images/wardrobe/paraboot-ferret-lisse-cafe/main/gallery/01.jpg",
-      "/images/wardrobe/paraboot-ferret-lisse-cafe/main/gallery/02.jpg",
-      "/images/wardrobe/paraboot-ferret-lisse-cafe/main/gallery/03.jpg"
+      "/images/wardrobe/ferret/main/gallery/01.jpg",
+      "/images/wardrobe/ferret/main/gallery/02.jpg",
+      "/images/wardrobe/ferret/main/gallery/03.jpg"
     ],
     "metadata": {
       "price": 41696,
@@ -761,7 +761,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "prl-beige-basket-weave-linen-jacket",
+    "id": "basket-weave-linen-jacket",
     "category": "Jackets",
     "brand": "Polo Ralph Lauren",
     "name": "Basket-Weave Linen Jacket",
@@ -772,9 +772,9 @@ const WARDROBE_ITEMS = [
     "weight": "~280 gsm",
     "size": "AB8",
     "purchaseDate": "2025-02-01",
-    "image": "/images/wardrobe/prl-beige-basket-weave-linen-jacket/main/cover.png",
+    "image": "/images/wardrobe/basket-weave-linen-jacket/main/cover.png",
     "gallery": [
-      "/images/wardrobe/prl-beige-basket-weave-linen-jacket/main/gallery/01.jpg"
+      "/images/wardrobe/basket-weave-linen-jacket/main/gallery/01.jpg"
     ],
     "notes": "Polo Ralph Lauren Vintage Linen Sport Coat (1990s, Made in Japan)\n\n* Era: 1990s\n* Line: Polo by Ralph Lauren\n* Licensee: Impact 21 Co., Ltd. (Japanese subsidiary of Ralph Lauren)\n* Measurements:\n    * Back Length: 78 cm\n    * Shoulder: 49 cm\n    * Chest: 61 cm\n    * Sleeve Length: 64 cm\n* Colour: Mixed Beige\n* Shell: 100% Linen\n* Lining: Cupro\n* Country of Origin: Made in Japan\n\nNotes:\nA Japanese domestic licensed piece from the 1990s under Impact 21, featuring classic American tailoring details including a 3-roll-2 front, notch lapels, side vents, and breathable linen construction. The relaxed silhouette reflects the softer Ivy / trad tailoring proportions typical of Ralph Lauren’s 1990s tailoring. Suitable as a warm-weather sport coat with strong compatibility for both Ivy and classic American casual wardrobes.",
     "metadata": {
@@ -785,7 +785,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "prl-wine-polo-bear-wool-cashmere-jumper",
+    "id": "polo-bear-jumper",
     "category": "Mid Layer",
     "brand": "Polo Ralph Lauren",
     "name": "Polo Bear Jumper",
@@ -795,12 +795,12 @@ const WARDROBE_ITEMS = [
     "fabric": "Wool-cashmere",
     "size": "XL",
     "purchaseDate": "2025-01-07",
-    "image": "/images/wardrobe/prl-wine-polo-bear-wool-cashmere-jumper/main/cover.png",
+    "image": "/images/wardrobe/polo-bear-jumper/main/cover.png",
     "gallery": [
-      "/images/wardrobe/prl-wine-polo-bear-wool-cashmere-jumper/main/gallery/01.jpg",
-      "/images/wardrobe/prl-wine-polo-bear-wool-cashmere-jumper/main/gallery/02.jpg",
-      "/images/wardrobe/prl-wine-polo-bear-wool-cashmere-jumper/main/gallery/03.jpg",
-      "/images/wardrobe/prl-wine-polo-bear-wool-cashmere-jumper/main/gallery/04.jpg"
+      "/images/wardrobe/polo-bear-jumper/main/gallery/01.jpg",
+      "/images/wardrobe/polo-bear-jumper/main/gallery/02.jpg",
+      "/images/wardrobe/polo-bear-jumper/main/gallery/03.jpg",
+      "/images/wardrobe/polo-bear-jumper/main/gallery/04.jpg"
     ],
     "metadata": {
       "price": 28000,
@@ -809,7 +809,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "prl-washed-wine-cream-rugby-shirt",
+    "id": "washed-rugby-shirt",
     "category": "Mid Layer",
     "brand": "Polo Ralph Lauren",
     "name": "Washed Rugby Shirt",
@@ -819,11 +819,11 @@ const WARDROBE_ITEMS = [
     "fabric": "Cotton",
     "size": "XL",
     "purchaseDate": "2025-01-19",
-    "image": "/images/wardrobe/prl-washed-wine-cream-rugby-shirt/1778705113968-cover-edit.png",
+    "image": "/images/wardrobe/washed-rugby-shirt/1778705113968-cover-edit.png",
     "gallery": [
-      "/images/wardrobe/prl-washed-wine-cream-rugby-shirt/main/gallery/01.webp",
-      "/images/wardrobe/prl-washed-wine-cream-rugby-shirt/main/gallery/02.webp",
-      "/images/wardrobe/prl-washed-wine-cream-rugby-shirt/main/gallery/03.webp"
+      "/images/wardrobe/washed-rugby-shirt/main/gallery/01.webp",
+      "/images/wardrobe/washed-rugby-shirt/main/gallery/02.webp",
+      "/images/wardrobe/washed-rugby-shirt/main/gallery/03.webp"
     ],
     "metadata": {
       "price": 6490,
@@ -835,7 +835,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "custom-b5af381a-752a-4e09-a1d5-434ab96efda0",
+    "id": "original-wayfarer-sunglasses",
     "category": "Eyewear",
     "brand": "Ray-Ban",
     "name": "Original Wayfarer Sunglasses",
@@ -843,13 +843,13 @@ const WARDROBE_ITEMS = [
     "colour": "Tortoise, G-15 Green",
     "colourCode": "#332720",
     "purchaseDate": "2025-08-08",
-    "image": "/images/wardrobe/custom-b5af381a-752a-4e09-a1d5-434ab96efda0/main/cover.png",
+    "image": "/images/wardrobe/original-wayfarer-sunglasses/main/cover.png",
     "gallery": [
-      "/images/wardrobe/custom-b5af381a-752a-4e09-a1d5-434ab96efda0/main/gallery/05.webp",
-      "/images/wardrobe/custom-b5af381a-752a-4e09-a1d5-434ab96efda0/main/gallery/01.webp",
-      "/images/wardrobe/custom-b5af381a-752a-4e09-a1d5-434ab96efda0/main/gallery/02.webp",
-      "/images/wardrobe/custom-b5af381a-752a-4e09-a1d5-434ab96efda0/main/gallery/03.webp",
-      "/images/wardrobe/custom-b5af381a-752a-4e09-a1d5-434ab96efda0/main/gallery/04.webp"
+      "/images/wardrobe/original-wayfarer-sunglasses/main/gallery/05.webp",
+      "/images/wardrobe/original-wayfarer-sunglasses/main/gallery/01.webp",
+      "/images/wardrobe/original-wayfarer-sunglasses/main/gallery/02.webp",
+      "/images/wardrobe/original-wayfarer-sunglasses/main/gallery/03.webp",
+      "/images/wardrobe/original-wayfarer-sunglasses/main/gallery/04.webp"
     ],
     "metadata": {
       "price": 6490,
@@ -859,7 +859,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "custom-c6f7f72c-01dd-42fc-a5aa-4aa79a135d67",
+    "id": "ligne-2",
     "category": "Jewellery",
     "brand": "S.T. Dupont",
     "name": "Ligne-2",
@@ -867,18 +867,18 @@ const WARDROBE_ITEMS = [
     "colour": "Gold",
     "colourCode": "#fef4bb",
     "purchaseDate": "2026-05-19",
-    "image": "/images/wardrobe/custom-c6f7f72c-01dd-42fc-a5aa-4aa79a135d67/main/cover.png",
+    "image": "/images/wardrobe/ligne-2/main/cover.png",
     "gallery": [
-      "/images/wardrobe/custom-c6f7f72c-01dd-42fc-a5aa-4aa79a135d67/main/gallery/01.png",
-      "/images/wardrobe/custom-c6f7f72c-01dd-42fc-a5aa-4aa79a135d67/main/gallery/02.png",
-      "/images/wardrobe/custom-c6f7f72c-01dd-42fc-a5aa-4aa79a135d67/main/gallery/03.png",
-      "/images/wardrobe/custom-c6f7f72c-01dd-42fc-a5aa-4aa79a135d67/main/gallery/04.png"
+      "/images/wardrobe/ligne-2/main/gallery/01.png",
+      "/images/wardrobe/ligne-2/main/gallery/02.png",
+      "/images/wardrobe/ligne-2/main/gallery/03.png",
+      "/images/wardrobe/ligne-2/main/gallery/04.png"
     ],
     "notes": "Lighter Line 2, small model. Microdiamond tip Yellow gold color. Associated lighter stone: black. Associated gas refill: red (REF 900435). Lighter delivered empty of gas, refill sold separately."
   },
 
   {
-    "id": "the-engineer-brown-mixed-fair-isle-wool-vest",
+    "id": "fair-isle-vest",
     "category": "Mid Layer",
     "brand": "The Engineer",
     "name": "Fair Isle Vest",
@@ -888,9 +888,9 @@ const WARDROBE_ITEMS = [
     "fabric": "Wool",
     "size": "XXL",
     "purchaseDate": "2024-11-03",
-    "image": "/images/wardrobe/the-engineer-brown-mixed-fair-isle-wool-vest/main/cover.png",
+    "image": "/images/wardrobe/fair-isle-vest/main/cover.png",
     "gallery": [
-      "/images/wardrobe/the-engineer-brown-mixed-fair-isle-wool-vest/main/gallery/01.jpg"
+      "/images/wardrobe/fair-isle-vest/main/gallery/01.jpg"
     ],
     "metadata": {
       "price": 357.97,
@@ -899,7 +899,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "the-engineer-black-cotton-long-sleeve-polo",
+    "id": "knit-long-sleeve-polo",
     "category": "Shirts",
     "brand": "The Engineer",
     "name": "Knit Long-Sleeve Polo",
@@ -908,9 +908,9 @@ const WARDROBE_ITEMS = [
     "fabric": "Cotton",
     "size": "XXL",
     "purchaseDate": "2024-11-03",
-    "image": "/images/wardrobe/the-engineer-black-cotton-long-sleeve-polo/main/cover.png",
+    "image": "/images/wardrobe/knit-long-sleeve-polo/main/cover.png",
     "gallery": [
-      "/images/wardrobe/the-engineer-black-cotton-long-sleeve-polo/main/gallery/01.png"
+      "/images/wardrobe/knit-long-sleeve-polo/main/gallery/01.png"
     ],
     "metadata": {
       "price": 407.82,
@@ -919,7 +919,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "the-engineer-ecru-linen-safari-jacket",
+    "id": "linen-safari-jacket",
     "category": "Outerwear",
     "brand": "The Engineer",
     "name": "Linen Safari Jacket",
@@ -930,9 +930,9 @@ const WARDROBE_ITEMS = [
     "weight": "~350 gsm",
     "size": "XXL",
     "purchaseDate": "2023-01-28",
-    "image": "/images/wardrobe/the-engineer-ecru-linen-safari-jacket/main/cover.png",
+    "image": "/images/wardrobe/linen-safari-jacket/main/cover.png",
     "gallery": [
-      "/images/wardrobe/the-engineer-ecru-linen-safari-jacket/main/gallery/01.jpg"
+      "/images/wardrobe/linen-safari-jacket/main/gallery/01.jpg"
     ],
     "metadata": {
       "price": 893.32,
@@ -941,7 +941,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "tissot-prx-quartz-35mm-gold-pvd",
+    "id": "prx-quartz",
     "category": "Everyday",
     "brand": "Tissot",
     "name": "PRX Quartz",
@@ -951,9 +951,9 @@ const WARDROBE_ITEMS = [
     "weight": "T137.210.33.021.00",
     "size": "35 mm",
     "purchaseDate": "2024-08-08",
-    "image": "/images/wardrobe/tissot-prx-quartz-35mm-gold-pvd/main/cover.png",
+    "image": "/images/wardrobe/prx-quartz/main/cover.png",
     "gallery": [
-      "/images/wardrobe/tissot-prx-quartz-35mm-gold-pvd/main/gallery/01.jpg"
+      "/images/wardrobe/prx-quartz/main/gallery/01.jpg"
     ],
     "notes": "Movement: ETA F06.115 quartz\nCase: : 35mm YG PVD coating, thckness 9.6mm\nDial: Champagne sunburst\nBracelet: Integrated gold PVD coating\n\n\fNotes:\nPRX 源⾃ 70 年代 integrated-bracelet watch 的設計語⾔ , 與 VC 222 共享類似的造型 ｡ 儘管全錶都是⾦⾊調 , vintage luxury sports watch 的外觀使其仍能作為⼀隻稱職的 everyday watch , 同時作為未來邁向 Rolex 16018 的過渡 ｡",
     "metadata": {
@@ -964,7 +964,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "custom-207c8109-cc63-4c01-987e-af5b0201df46",
+    "id": "cordovan-l-zip-wallet-regular-price",
     "category": "Bags",
     "brand": "Tsuchiya Kaban",
     "name": "Cordovan L Zip Wallet Regular price",
@@ -973,10 +973,10 @@ const WARDROBE_ITEMS = [
     "colourCode": "#7c371b",
     "size": "Cordovan",
     "purchaseDate": "2024-12-26",
-    "image": "/images/wardrobe/custom-207c8109-cc63-4c01-987e-af5b0201df46/main/cover.png",
+    "image": "/images/wardrobe/cordovan-l-zip-wallet-regular-price/main/cover.png",
     "gallery": [
-      "/images/wardrobe/custom-207c8109-cc63-4c01-987e-af5b0201df46/main/gallery/01.jpg",
-      "/images/wardrobe/custom-207c8109-cc63-4c01-987e-af5b0201df46/main/gallery/03.webp"
+      "/images/wardrobe/cordovan-l-zip-wallet-regular-price/main/gallery/01.jpg",
+      "/images/wardrobe/cordovan-l-zip-wallet-regular-price/main/gallery/03.webp"
     ],
     "notes": "Crafted from aniline-dyed Japanese cordovan, this minimalist wallet offers sleek design and efficient functionality. The luxuriously smooth leather has striking presence in a streamlined profile that slips effortlessly into any pocket. Over time, it develops a rich, gem-like luster—the perfect companion for an intentional lifestyle.",
     "metadata": {
@@ -987,7 +987,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "tudor-black-bay-58",
+    "id": "black-bay-58",
     "category": "Dive watch",
     "brand": "Tudor",
     "name": "Black Bay 58",
@@ -997,10 +997,10 @@ const WARDROBE_ITEMS = [
     "weight": "M79030N",
     "size": "39 mm",
     "purchaseDate": "2024-10-17",
-    "image": "/images/wardrobe/tudor-black-bay-58/main/cover.png",
+    "image": "/images/wardrobe/black-bay-58/main/cover.png",
     "gallery": [
-      "/images/wardrobe/tudor-black-bay-58/main/gallery/01.jpg",
-      "/images/wardrobe/tudor-black-bay-58/main/gallery/02.jpg"
+      "/images/wardrobe/black-bay-58/main/gallery/01.jpg",
+      "/images/wardrobe/black-bay-58/main/gallery/02.jpg"
     ],
     "notes": "Movement: MT5402\nCase: 39mm SS, thickness 11.9mm\nLugs: 20mm lug width\nDial: Black domed\nBracelet: Riveted steel bracelet\n\nNotes:\nBB58 的比例與細節承襲 1958 年 Tudor ／ Rolex Submariner (7924 ／ 7922) 的設定, 包括窄外圈與纖薄中殼｡ 12 點紅⾊倒三⾓呼應 6538 ｢Big Crown｣, gilt dial 亦與現有⾦飾相呼應 ｡ 是本收藏裡唯⼀真正意義上的運動錶 ｡",
     "metadata": {
@@ -1011,7 +1011,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "uniqlo-jwa-straight-jeans",
+    "id": "jwa-straight-jeans",
     "category": "Bottoms",
     "brand": "Uniqlo",
     "name": "JWA Straight Jeans",
@@ -1021,9 +1021,9 @@ const WARDROBE_ITEMS = [
     "fabric": "Denim",
     "size": "35inch",
     "purchaseDate": "2026-03-24",
-    "image": "/images/wardrobe/uniqlo-jwa-straight-jeans/main/cover.png",
+    "image": "/images/wardrobe/jwa-straight-jeans/main/cover.png",
     "gallery": [
-      "/images/wardrobe/uniqlo-jwa-straight-jeans/main/gallery/01.jpg"
+      "/images/wardrobe/jwa-straight-jeans/main/gallery/01.jpg"
     ],
     "metadata": {
       "price": 1290,
@@ -1033,7 +1033,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "uniqlo-beige-kataaze-knit-mock-neck",
+    "id": "kataaze-knit-mock-neck",
     "category": "Shirts",
     "brand": "Uniqlo",
     "name": "Kataaze Knit Mock Neck",
@@ -1043,9 +1043,9 @@ const WARDROBE_ITEMS = [
     "fabric": "Acrylic blend",
     "size": "XL",
     "purchaseDate": "2022-02-13",
-    "image": "/images/wardrobe/uniqlo-beige-kataaze-knit-mock-neck/main/cover.png",
+    "image": "/images/wardrobe/kataaze-knit-mock-neck/main/cover.png",
     "gallery": [
-      "/images/wardrobe/uniqlo-beige-kataaze-knit-mock-neck/main/gallery/01.jpg"
+      "/images/wardrobe/kataaze-knit-mock-neck/main/gallery/01.jpg"
     ],
     "metadata": {
       "price": 990,
@@ -1054,7 +1054,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "uniqlo-light-blue-linen-camp-collar-shirt",
+    "id": "linen-camp-collar-shirt",
     "category": "Shirts",
     "brand": "Uniqlo",
     "name": "Linen Camp Collar Shirt",
@@ -1064,9 +1064,9 @@ const WARDROBE_ITEMS = [
     "fabric": "Linen",
     "size": "XL",
     "purchaseDate": "2025-07-13",
-    "image": "/images/wardrobe/uniqlo-light-blue-linen-camp-collar-shirt/1778705380735-cover-edit.png",
+    "image": "/images/wardrobe/linen-camp-collar-shirt/1778705380735-cover-edit.png",
     "gallery": [
-      "/images/wardrobe/uniqlo-light-blue-linen-camp-collar-shirt/main/gallery/01.avif"
+      "/images/wardrobe/linen-camp-collar-shirt/main/gallery/01.avif"
     ],
     "notes": "コットンリネンシャツ",
     "metadata": {
@@ -1076,7 +1076,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "uniqlo-ocbd-shirt",
+    "id": "ocbd-shirt",
     "category": "Shirts",
     "brand": "Uniqlo",
     "name": "OCBD Shirt",
@@ -1086,50 +1086,50 @@ const WARDROBE_ITEMS = [
     "fabric": "Cotton",
     "size": "XL",
     "purchaseDate": "2020-01-01",
-    "image": "/images/wardrobe/uniqlo-ocbd-shirt/1778706728073-variant-blue-cover.png",
+    "image": "/images/wardrobe/ocbd-shirt/1778706728073-variant-blue-cover.png",
     "colourVariants": [
       {
         "key": "blue",
-        "image": "/images/wardrobe/uniqlo-ocbd-shirt/variants/blue/cover.png",
+        "image": "/images/wardrobe/ocbd-shirt/variants/blue/cover.png",
         "label": "Blue",
         "notes": "",
         "colour": "Blue",
         "gallery": [
-          "/images/wardrobe/uniqlo-ocbd-shirt/main/gallery/01.png"
+          "/images/wardrobe/ocbd-shirt/main/gallery/01.png"
         ],
         "colourCode": "#BAC9EF",
-        "previewImage": "/images/wardrobe/uniqlo-ocbd-shirt/variants/blue/preview.jpg"
+        "previewImage": "/images/wardrobe/ocbd-shirt/variants/blue/preview.jpg"
       },
       {
         "key": "white",
-        "image": "/images/wardrobe/uniqlo-ocbd-shirt/variants/white/cover.png",
+        "image": "/images/wardrobe/ocbd-shirt/variants/white/cover.png",
         "label": "White",
         "notes": "",
         "colour": "White",
         "gallery": [],
         "colourCode": "#F5F5F9",
-        "previewImage": "/images/wardrobe/uniqlo-ocbd-shirt/variants/white/preview.jpg"
+        "previewImage": "/images/wardrobe/ocbd-shirt/variants/white/preview.jpg"
       },
       {
         "key": "pink-stripe",
-        "image": "/images/wardrobe/uniqlo-ocbd-shirt/variants/pink-stripe/cover.png",
+        "image": "/images/wardrobe/ocbd-shirt/variants/pink-stripe/cover.png",
         "label": "Pink stripe",
         "notes": "",
         "colour": "Pink stripe",
         "gallery": [],
         "colourCode": "#EEE7E4",
         "basicColour": "red",
-        "previewImage": "/images/wardrobe/uniqlo-ocbd-shirt/variants/pink-stripe/preview.png"
+        "previewImage": "/images/wardrobe/ocbd-shirt/variants/pink-stripe/preview.png"
       },
       {
         "key": "blue-striped",
-        "image": "/images/wardrobe/uniqlo-ocbd-shirt/variants/blue-striped/cover.png",
+        "image": "/images/wardrobe/ocbd-shirt/variants/blue-striped/cover.png",
         "label": "Blue striped",
         "notes": "",
         "colour": "Blue striped",
         "gallery": [],
         "colourCode": "#DCE1F5",
-        "previewImage": "/images/wardrobe/uniqlo-ocbd-shirt/variants/blue-striped/preview.png"
+        "previewImage": "/images/wardrobe/ocbd-shirt/variants/blue-striped/preview.png"
       }
     ],
     "metadata": {
@@ -1138,53 +1138,53 @@ const WARDROBE_ITEMS = [
       "colourVariants": [
         {
           "key": "blue",
-          "image": "/images/wardrobe/uniqlo-ocbd-shirt/variants/blue/cover.png",
+          "image": "/images/wardrobe/ocbd-shirt/variants/blue/cover.png",
           "label": "Blue",
           "notes": "",
           "colour": "Blue",
           "gallery": [
-            "/images/wardrobe/uniqlo-ocbd-shirt/main/gallery/01.png"
+            "/images/wardrobe/ocbd-shirt/main/gallery/01.png"
           ],
           "colourCode": "#BAC9EF",
-          "previewImage": "/images/wardrobe/uniqlo-ocbd-shirt/variants/blue/preview.jpg"
+          "previewImage": "/images/wardrobe/ocbd-shirt/variants/blue/preview.jpg"
         },
         {
           "key": "white",
-          "image": "/images/wardrobe/uniqlo-ocbd-shirt/variants/white/cover.png",
+          "image": "/images/wardrobe/ocbd-shirt/variants/white/cover.png",
           "label": "White",
           "notes": "",
           "colour": "White",
           "gallery": [],
           "colourCode": "#F5F5F9",
-          "previewImage": "/images/wardrobe/uniqlo-ocbd-shirt/variants/white/preview.jpg"
+          "previewImage": "/images/wardrobe/ocbd-shirt/variants/white/preview.jpg"
         },
         {
           "key": "pink-stripe",
-          "image": "/images/wardrobe/uniqlo-ocbd-shirt/variants/pink-stripe/cover.png",
+          "image": "/images/wardrobe/ocbd-shirt/variants/pink-stripe/cover.png",
           "label": "Pink stripe",
           "notes": "",
           "colour": "Pink stripe",
           "gallery": [],
           "colourCode": "#EEE7E4",
           "basicColour": "red",
-          "previewImage": "/images/wardrobe/uniqlo-ocbd-shirt/variants/pink-stripe/preview.png"
+          "previewImage": "/images/wardrobe/ocbd-shirt/variants/pink-stripe/preview.png"
         },
         {
           "key": "blue-striped",
-          "image": "/images/wardrobe/uniqlo-ocbd-shirt/variants/blue-striped/cover.png",
+          "image": "/images/wardrobe/ocbd-shirt/variants/blue-striped/cover.png",
           "label": "Blue striped",
           "notes": "",
           "colour": "Blue striped",
           "gallery": [],
           "colourCode": "#DCE1F5",
-          "previewImage": "/images/wardrobe/uniqlo-ocbd-shirt/variants/blue-striped/preview.png"
+          "previewImage": "/images/wardrobe/ocbd-shirt/variants/blue-striped/preview.png"
         }
       ]
     }
   },
 
   {
-    "id": "zara-dark-grey-open-knit-polo",
+    "id": "cutwork-knit-polo-shirt",
     "category": "Shirts",
     "brand": "Zara",
     "name": "Cutwork Knit Polo Shirt",
@@ -1194,10 +1194,10 @@ const WARDROBE_ITEMS = [
     "fabric": "88% acrylic, 12% polyester",
     "size": "XL",
     "purchaseDate": "2025-07-29",
-    "image": "/images/wardrobe/zara-dark-grey-open-knit-polo/main/cover.png",
+    "image": "/images/wardrobe/cutwork-knit-polo-shirt/main/cover.png",
     "gallery": [
-      "/images/wardrobe/zara-dark-grey-open-knit-polo/main/gallery/01.jpg",
-      "/images/wardrobe/zara-dark-grey-open-knit-polo/main/gallery/02.jpg"
+      "/images/wardrobe/cutwork-knit-polo-shirt/main/gallery/01.jpg",
+      "/images/wardrobe/cutwork-knit-polo-shirt/main/gallery/02.jpg"
     ],
     "notes": "Relaxed fit knit polo shirt woven from yarn with an open structure. Lapel collar with front opening. Short sleeves. Ribbed trims.",
     "metadata": {
@@ -1208,7 +1208,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "zara-cream-linen-loop-collar-shirt",
+    "id": "linen-loop-collar-shirt",
     "category": "Shirts",
     "brand": "Zara",
     "name": "Linen Loop-Collar Shirt",
@@ -1217,9 +1217,9 @@ const WARDROBE_ITEMS = [
     "fabric": "Linen",
     "size": "XL",
     "purchaseDate": "2025-08-09",
-    "image": "/images/wardrobe/zara-cream-linen-loop-collar-shirt/main/cover.png",
+    "image": "/images/wardrobe/linen-loop-collar-shirt/main/cover.png",
     "gallery": [
-      "/images/wardrobe/zara-cream-linen-loop-collar-shirt/main/gallery/01.jpg"
+      "/images/wardrobe/linen-loop-collar-shirt/main/gallery/01.jpg"
     ],
     "notes": "FLOWING REGULAR FIT SHIRT",
     "metadata": {
@@ -1229,7 +1229,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "zara-ecru-purl-knit-t-shirt",
+    "id": "purl-knit-t-shirt",
     "category": "Shirts",
     "brand": "Zara",
     "name": "Purl-Knit T-Shirt",
@@ -1237,9 +1237,9 @@ const WARDROBE_ITEMS = [
     "colour": "Off-White",
     "size": "XL",
     "purchaseDate": "2025-08-05",
-    "image": "/images/wardrobe/zara-ecru-purl-knit-t-shirt/main/cover.png",
+    "image": "/images/wardrobe/purl-knit-t-shirt/main/cover.png",
     "gallery": [
-      "/images/wardrobe/zara-ecru-purl-knit-t-shirt/main/gallery/01.jpg"
+      "/images/wardrobe/purl-knit-t-shirt/main/gallery/01.jpg"
     ],
     "metadata": {
       "price": 5990,
@@ -1249,7 +1249,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "zara-dusty-ice-blue-ribbed-knit-polo",
+    "id": "rib-knit-polo-shirt-dusty-ice-blue",
     "category": "Shirts",
     "brand": "Zara",
     "name": "Rib Knit Polo Shirt",
@@ -1259,9 +1259,9 @@ const WARDROBE_ITEMS = [
     "fabric": "Knit",
     "size": "XL",
     "purchaseDate": "2025-12-12",
-    "image": "/images/wardrobe/zara-dusty-ice-blue-ribbed-knit-polo/main/cover.png",
+    "image": "/images/wardrobe/rib-knit-polo-shirt-dusty-ice-blue/main/cover.png",
     "gallery": [
-      "/images/wardrobe/zara-dusty-ice-blue-ribbed-knit-polo/main/gallery/01.jpg"
+      "/images/wardrobe/rib-knit-polo-shirt-dusty-ice-blue/main/gallery/01.jpg"
     ],
     "notes": "ZARA RIB KNIT POLO SHIRT",
     "metadata": {
@@ -1271,7 +1271,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "custom-f5c105c7-9ca8-486f-b726-e7aa8b8fd416",
+    "id": "boston-metal-frames",
     "category": "Eyewear",
     "brand": "Zoff",
     "name": "Boston Metal Frames",
@@ -1281,9 +1281,9 @@ const WARDROBE_ITEMS = [
     "fabric": "Green Photochromic Lenses",
     "weight": "ZF192014",
     "purchaseDate": "2025-02-28",
-    "image": "/images/wardrobe/custom-f5c105c7-9ca8-486f-b726-e7aa8b8fd416/main/cover.png",
+    "image": "/images/wardrobe/boston-metal-frames/main/cover.png",
     "gallery": [
-      "/images/wardrobe/custom-f5c105c7-9ca8-486f-b726-e7aa8b8fd416/main/gallery/01.png"
+      "/images/wardrobe/boston-metal-frames/main/gallery/01.png"
     ],
     "notes": "『Zoff CLASSIC』\n\n【デザイン】\nアジアントレンドを意識した今っぽいメタルフレーム。\n柔らかなでおしゃれな印象のボストン型◎\n0.7㎜のリム線を使用することで、顔なじみの良さと快適な掛け心地を実現。\n光沢感のあるメタルフレームはアクセサリー感覚で使用していただけます。\n縦幅があるフレームは、抜け感が出る上に小顔効果も期待でき、ファッションのアクセントに。\n\n【カラー】\nZF192014-14E1：人気のブラック。テンプルのゴールドが抜け感のある印象に\nZF192014-49E1：おしゃれなべっこう柄ブラウン。ゴールドのテンプルがアクセントに。\nZF192014-21E1：柔らかい印象を与えてくれるピンク。フェミニンさをプラス。\nZF192014-56E1：こなれ感のあるゴールド。アクセサリー感覚でお使いいただけます。\n\n【スタイリングポイント】\nカジュアルからキレイめスタイルにも合わせやすい逸品。\nかけるだけでこなれ感をプラスするアイウェアは、普段コンタクトの方にもおすすめ。\nトレンドに左右されず、長くご愛用いただけます。\n\n※柄や色味の出方に個体差があり、画像と異なる場合がございます。\n\nCLASSIC(クラシック) 特集ページをみる\n※アウトレット商品は、販売から一定期間経過した商品などです。キズ、汚れなどがあるB級品ではございません。\n52□20-145\nA 片方のレンズ横幅：52mm\nB ブリッジ(鼻部分)の横幅：20mm\nC テンプル(つる)の長さ：145mm",
     "metadata": {
@@ -1298,7 +1298,7 @@ const WARDROBE_ITEMS = [
   // ——— A/W – Country Classics ———,
 
   {
-    "id": "custom-027c1993-57b9-4d7a-9b86-320f76fb7415",
+    "id": "glen-check-tweed-jacket",
     "pillar": "Clothing",
     "section": "A/W – Country Classics",
     "category": "Jackets",
@@ -1311,9 +1311,9 @@ const WARDROBE_ITEMS = [
     "weight": "620 gsm",
     "size": "58B",
     "purchaseDate": "2025-11-22",
-    "image": "/images/wardrobe/custom-027c1993-57b9-4d7a-9b86-320f76fb7415/main/cover.png",
+    "image": "/images/wardrobe/glen-check-tweed-jacket/main/cover.png",
     "gallery": [
-      "/images/wardrobe/custom-027c1993-57b9-4d7a-9b86-320f76fb7415/main/gallery/01.png"
+      "/images/wardrobe/glen-check-tweed-jacket/main/gallery/01.png"
     ],
     "metadata": {
       "price": 867,
@@ -1323,7 +1323,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "muji-ecru-sherpa-fleece-vest-olive-trim",
+    "id": "boa-fleece-vest",
     "pillar": "Clothing",
     "section": "A/W – Country Classics",
     "category": "Mid Layer",
@@ -1335,9 +1335,9 @@ const WARDROBE_ITEMS = [
     "fabric": "Sherpa fleece",
     "size": "XL",
     "purchaseDate": "2023-12-09",
-    "image": "/images/wardrobe/muji-ecru-sherpa-fleece-vest-olive-trim/main/cover.png",
+    "image": "/images/wardrobe/boa-fleece-vest/main/cover.png",
     "gallery": [
-      "/images/wardrobe/muji-ecru-sherpa-fleece-vest-olive-trim/main/gallery/01.png"
+      "/images/wardrobe/boa-fleece-vest/main/gallery/01.png"
     ],
     "notes": "紳士 ボアフリースベスト | 無印良品",
     "metadata": {
@@ -1349,7 +1349,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "muji-black-fine-knit-wool-ribbed-turtleneck",
+    "id": "rib-knit-roll-neck-neck-jumper",
     "pillar": "Clothing",
     "section": "A/W – Country Classics",
     "category": "Shirts",
@@ -1361,9 +1361,9 @@ const WARDROBE_ITEMS = [
     "weight": "Lightweight",
     "size": "XL",
     "purchaseDate": "2024-12-17",
-    "image": "/images/wardrobe/muji-black-fine-knit-wool-ribbed-turtleneck/main/cover.png",
+    "image": "/images/wardrobe/rib-knit-roll-neck-neck-jumper/main/cover.png",
     "gallery": [
-      "/images/wardrobe/muji-black-fine-knit-wool-ribbed-turtleneck/main/gallery/01.jpg"
+      "/images/wardrobe/rib-knit-roll-neck-neck-jumper/main/gallery/01.jpg"
     ],
     "notes": "紳士 洗えるウールリブタートルネックセーター",
     "metadata": {
@@ -1373,7 +1373,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "private-white-vc-midnight-navy-ventile-harrington",
+    "id": "ventile-harrington",
     "pillar": "Clothing",
     "section": "A/W – Country Classics",
     "category": "Outerwear",
@@ -1385,12 +1385,12 @@ const WARDROBE_ITEMS = [
     "fabric": "Ventile",
     "size": "6=XL",
     "purchaseDate": "2025-12-26",
-    "image": "/images/wardrobe/private-white-vc-midnight-navy-ventile-harrington/main/cover.png",
+    "image": "/images/wardrobe/ventile-harrington/main/cover.png",
     "gallery": [
-      "/images/wardrobe/private-white-vc-midnight-navy-ventile-harrington/main/gallery/01.webp",
-      "/images/wardrobe/private-white-vc-midnight-navy-ventile-harrington/main/gallery/01.jpg",
-      "/images/wardrobe/private-white-vc-midnight-navy-ventile-harrington/main/gallery/02.jpg",
-      "/images/wardrobe/private-white-vc-midnight-navy-ventile-harrington/main/gallery/03.jpg"
+      "/images/wardrobe/ventile-harrington/main/gallery/01.webp",
+      "/images/wardrobe/ventile-harrington/main/gallery/01.jpg",
+      "/images/wardrobe/ventile-harrington/main/gallery/02.jpg",
+      "/images/wardrobe/ventile-harrington/main/gallery/03.jpg"
     ],
     "notes": "A jacket with soul. First stitched in the 1950s and still made in Manchester, it has dressed rebels, musicians, and silver-screen legends for generations. With its stand collar, copper zip, and waterproof Ventile shell, the Harrington is as it was meant to be - timeless, understated, and unmistakably British.",
     "metadata": {
@@ -1400,7 +1400,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "spier-mackay-camel-hair-polo-coat",
+    "id": "camel-hair-polo-coat",
     "pillar": "Clothing",
     "section": "A/W – Country Classics",
     "category": "Outerwear",
@@ -1413,10 +1413,10 @@ const WARDROBE_ITEMS = [
     "weight": "760 gsm",
     "size": "46",
     "purchaseDate": "2025-02-16",
-    "image": "/images/wardrobe/spier-mackay-camel-hair-polo-coat/main/cover.png",
+    "image": "/images/wardrobe/camel-hair-polo-coat/main/cover.png",
     "gallery": [
-      "/images/wardrobe/spier-mackay-camel-hair-polo-coat/main/gallery/01.jpg",
-      "/images/wardrobe/spier-mackay-camel-hair-polo-coat/main/gallery/02.jpg"
+      "/images/wardrobe/camel-hair-polo-coat/main/gallery/01.jpg",
+      "/images/wardrobe/camel-hair-polo-coat/main/gallery/02.jpg"
     ],
     "metadata": {
       "price": 718.2,
@@ -1426,7 +1426,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "uniqlo-ecru-cricket-cable-knit-jumper-vest",
+    "id": "cricket-cable-knit-jumper-vest",
     "pillar": "Clothing",
     "section": "A/W – Country Classics",
     "category": "Mid Layer",
@@ -1438,10 +1438,10 @@ const WARDROBE_ITEMS = [
     "fabric": "Cotton-acrylic",
     "size": "XL",
     "purchaseDate": "2022-08-08",
-    "image": "/images/wardrobe/uniqlo-ecru-cricket-cable-knit-jumper-vest/main/cover.png",
+    "image": "/images/wardrobe/cricket-cable-knit-jumper-vest/main/cover.png",
     "gallery": [
-      "/images/wardrobe/uniqlo-ecru-cricket-cable-knit-jumper-vest/main/gallery/01.webp",
-      "/images/wardrobe/uniqlo-ecru-cricket-cable-knit-jumper-vest/main/gallery/02.webp"
+      "/images/wardrobe/cricket-cable-knit-jumper-vest/main/gallery/01.webp",
+      "/images/wardrobe/cricket-cable-knit-jumper-vest/main/gallery/02.webp"
     ],
     "notes": "Filename: if slash is problematic on disk, use a variant without “/” in the filename and adjust this path.",
     "metadata": {
@@ -1455,7 +1455,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "custom-11c5213e-a24b-4840-8fcf-8bafccdbde06",
+    "id": "pleated-trousers",
     "pillar": "Clothing",
     "section": "A/W – Country Classics",
     "category": "Bottoms",
@@ -1466,32 +1466,32 @@ const WARDROBE_ITEMS = [
     "colourCode": "#5F5F62",
     "size": "XL",
     "purchaseDate": "2023-11-20",
-    "image": "/images/wardrobe/custom-11c5213e-a24b-4840-8fcf-8bafccdbde06/variants/grey/cover.png",
+    "image": "/images/wardrobe/pleated-trousers/variants/grey/cover.png",
     "notes": "Fabric details\nBody: 62% Polyester - Recycled Fiber, 29% Viscose, 5% Polyester, 4% Elastane/ Pocket Lining: 65% Polyester, 35% Cotton\nWashing instructions\nMachine wash up to 40 degrees, gentle cycle, Dry Clean, Not suitable for tumble-drying.",
     "colourVariants": [
       {
         "key": "grey",
-        "image": "/images/wardrobe/custom-11c5213e-a24b-4840-8fcf-8bafccdbde06/variants/grey/cover.png",
+        "image": "/images/wardrobe/pleated-trousers/variants/grey/cover.png",
         "label": "Grey",
         "notes": "",
         "colour": "Grey",
         "gallery": [
-          "/images/wardrobe/custom-11c5213e-a24b-4840-8fcf-8bafccdbde06/main/gallery/01.avif"
+          "/images/wardrobe/pleated-trousers/main/gallery/01.avif"
         ],
         "colourCode": "#5F5F62",
         "basicColour": "grey",
-        "previewImage": "/images/wardrobe/custom-11c5213e-a24b-4840-8fcf-8bafccdbde06/variants/grey/preview.jpg"
+        "previewImage": "/images/wardrobe/pleated-trousers/variants/grey/preview.jpg"
       },
       {
         "key": "beige",
-        "image": "/images/wardrobe/custom-11c5213e-a24b-4840-8fcf-8bafccdbde06/variants/beige/cover.png",
+        "image": "/images/wardrobe/pleated-trousers/variants/beige/cover.png",
         "label": "Beige",
         "notes": "",
         "colour": "Beige",
         "gallery": [],
         "colourCode": "#CEBEA6",
         "basicColour": "beige",
-        "previewImage": "/images/wardrobe/custom-11c5213e-a24b-4840-8fcf-8bafccdbde06/variants/beige/preview.jpg"
+        "previewImage": "/images/wardrobe/pleated-trousers/variants/beige/preview.jpg"
       }
     ],
     "metadata": {
@@ -1500,27 +1500,27 @@ const WARDROBE_ITEMS = [
       "colourVariants": [
         {
           "key": "grey",
-          "image": "/images/wardrobe/custom-11c5213e-a24b-4840-8fcf-8bafccdbde06/variants/grey/cover.png",
+          "image": "/images/wardrobe/pleated-trousers/variants/grey/cover.png",
           "label": "Grey",
           "notes": "",
           "colour": "Grey",
           "gallery": [
-            "/images/wardrobe/custom-11c5213e-a24b-4840-8fcf-8bafccdbde06/main/gallery/01.avif"
+            "/images/wardrobe/pleated-trousers/main/gallery/01.avif"
           ],
           "colourCode": "#5F5F62",
           "basicColour": "grey",
-          "previewImage": "/images/wardrobe/custom-11c5213e-a24b-4840-8fcf-8bafccdbde06/variants/grey/preview.jpg"
+          "previewImage": "/images/wardrobe/pleated-trousers/variants/grey/preview.jpg"
         },
         {
           "key": "beige",
-          "image": "/images/wardrobe/custom-11c5213e-a24b-4840-8fcf-8bafccdbde06/variants/beige/cover.png",
+          "image": "/images/wardrobe/pleated-trousers/variants/beige/cover.png",
           "label": "Beige",
           "notes": "",
           "colour": "Beige",
           "gallery": [],
           "colourCode": "#CEBEA6",
           "basicColour": "beige",
-          "previewImage": "/images/wardrobe/custom-11c5213e-a24b-4840-8fcf-8bafccdbde06/variants/beige/preview.jpg"
+          "previewImage": "/images/wardrobe/pleated-trousers/variants/beige/preview.jpg"
         }
       ]
     }
@@ -1529,7 +1529,7 @@ const WARDROBE_ITEMS = [
   // ——— Accessories ———,
 
   {
-    "id": "custom-85878caf-3b5c-4307-9fa4-4d76d3776d8f",
+    "id": "panama-hat",
     "pillar": "Accessories",
     "section": "Accessories",
     "category": "Hats",
@@ -1538,11 +1538,11 @@ const WARDROBE_ITEMS = [
     "season": "All-season",
     "size": "XL:61cm-1cm",
     "purchaseDate": "2025-05-11",
-    "image": "/images/wardrobe/custom-85878caf-3b5c-4307-9fa4-4d76d3776d8f/1778710719473-cover-edit.png",
+    "image": "/images/wardrobe/panama-hat/1778710719473-cover-edit.png",
     "gallery": [
-      "/images/wardrobe/custom-85878caf-3b5c-4307-9fa4-4d76d3776d8f/main/gallery/01.jpg",
-      "/images/wardrobe/custom-85878caf-3b5c-4307-9fa4-4d76d3776d8f/1778711933866-gallery-edit-2.avif",
-      "/images/wardrobe/custom-85878caf-3b5c-4307-9fa4-4d76d3776d8f/1778711934146-gallery-edit-3.avif"
+      "/images/wardrobe/panama-hat/main/gallery/01.jpg",
+      "/images/wardrobe/panama-hat/1778711933866-gallery-edit-2.avif",
+      "/images/wardrobe/panama-hat/1778711934146-gallery-edit-3.avif"
     ],
     "notes": "Construction & Provenance\nHandwoven in Ecuador by ELOY BERNAL, this classic Panama is crafted from 100% natural toquilla straw using the traditional Llano weave. Finished in a bleached white tone with a black grosgrain ribbon, it balances lightweight structure with relaxed warm-weather elegance.\n\nDesign & Proportions (XL, Estimated)\n\n* Colour: Bleached White\n* Ribbon: Black Grosgrain\n* Style: Center-Dent Crown\n* Brim Type: Snap Brim\n* Crown Shape: Classic Fedora\n* Head Circumference: approx. 61 cm\n* Brim Width: approx. 6–7 cm\n* Front Crown Height: approx. 9.7 cm\n* Center Crown Height: approx. 10.7 cm\n* Overall Length: approx. 35–35.5 cm\n* Overall Width: approx. 31–31.5 cm\n* Weight: approx. 85–105 g\n\nMaterial & Weave\n\n* Material: 100% Natural Toquilla Straw\n* Weave: Llano (classic basket/plain weave)\n* Grade: Standard\n* Hand Feel: Lightweight, soft-structured\n* Rigidity: Soft to medium\n* Breathability: High\n\nSeasonality\n\n* Spring / Summer\n\nIncluded\n\n* Size adjustment tape (30 cm)",
     "metadata": {
@@ -1552,7 +1552,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "custom-b1b60797-6d7a-4cc6-b294-b3a82e1c0712",
+    "id": "boat-and-tote",
     "pillar": "Accessories",
     "section": "Accessories",
     "category": "Bags",
@@ -1563,9 +1563,9 @@ const WARDROBE_ITEMS = [
     "colourCode": "#e2d8d0",
     "size": "Medium",
     "purchaseDate": "2025-01-01",
-    "image": "/images/wardrobe/custom-b1b60797-6d7a-4cc6-b294-b3a82e1c0712/main/cover.png",
+    "image": "/images/wardrobe/boat-and-tote/main/cover.png",
     "gallery": [
-      "/images/wardrobe/custom-b1b60797-6d7a-4cc6-b294-b3a82e1c0712/main/gallery/01.jpg"
+      "/images/wardrobe/boat-and-tote/main/gallery/01.jpg"
     ],
     "notes": "Boat and Tote, Open-Top\nItem No.: TC112636\nType: Medium\nColour: Blue Trim\nHandle: Regular\nMonogram: Yes\nLetter Style: Flare (FT)\nThread Colour: Coastal Gold (120)\nEmbroidered Initials: TLY",
     "metadata": {
@@ -1578,7 +1578,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "custom-684a379c-0d9f-48a4-ae3a-f098d31ca842",
+    "id": "anthony",
     "pillar": "Accessories",
     "section": "Accessories",
     "category": "Bags",
@@ -1589,10 +1589,10 @@ const WARDROBE_ITEMS = [
     "colourCode": "#A95B32",
     "measuredDimensions": "Height: 25 cm\nWidth: 21 cm\nThickness: 7 cm\nStrap Width: 4 cm",
     "purchaseDate": "2025-07-27",
-    "image": "/images/wardrobe/custom-684a379c-0d9f-48a4-ae3a-f098d31ca842/main/cover.png",
+    "image": "/images/wardrobe/anthony/main/cover.png",
     "gallery": [
-      "/images/wardrobe/custom-684a379c-0d9f-48a4-ae3a-f098d31ca842/main/gallery/01.png",
-      "/images/wardrobe/custom-684a379c-0d9f-48a4-ae3a-f098d31ca842/main/gallery/02.png"
+      "/images/wardrobe/anthony/main/gallery/01.png",
+      "/images/wardrobe/anthony/main/gallery/02.png"
     ],
     "notes": "Purchased in near-excellent condition, with only one previous use. No visible stains, scratches, or notable signs of wear. Compact everyday messenger proportions with a broad adjustable shoulder strap, consistent with the classic Antony design language.",
     "metadata": {
@@ -1620,7 +1620,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "custom-90145ca5-c982-4d0d-8e0e-3a772a21ff53",
+    "id": "american-flag-hat",
     "pillar": "Accessories",
     "section": "Accessories",
     "category": "Hats",
@@ -1630,10 +1630,10 @@ const WARDROBE_ITEMS = [
     "colour": "Steel Blue",
     "colourCode": "#5E829A",
     "purchaseDate": "2026-05-11",
-    "image": "/images/wardrobe/custom-90145ca5-c982-4d0d-8e0e-3a772a21ff53/main/cover.png",
+    "image": "/images/wardrobe/american-flag-hat/main/cover.png",
     "gallery": [
-      "/images/wardrobe/custom-90145ca5-c982-4d0d-8e0e-3a772a21ff53/main/gallery/01.jpg",
-      "/images/wardrobe/custom-90145ca5-c982-4d0d-8e0e-3a772a21ff53/main/gallery/01.png"
+      "/images/wardrobe/american-flag-hat/main/gallery/01.jpg",
+      "/images/wardrobe/american-flag-hat/main/gallery/01.png"
     ],
     "notes": "Size & Fit Information\nCircumference: approximately 22.45'' (adjustable by a nickel slide)\n\nTop to Side: approximately 6.65''\n\nBrim: 2.9'' long\n\nOur six panel cotton twill hats are adorned with our signature 100% hand-stitched needlepoint. Each hat is adjustable by a nickel slide on the back of the hat.\n\n-100% hand-stitched needlepoint\n-Stitched with French cotton thread\n-Six Panel Construction\n-Washed Cotton Twill\n-Adjustable. One size fits most adults.",
     "metadata": {
@@ -1643,7 +1643,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "custom-86c016e3-006a-4785-98f2-0f61bd952439",
+    "id": "helmet-bag",
     "pillar": "Accessories",
     "section": "Accessories",
     "category": "Bags",
@@ -1653,10 +1653,10 @@ const WARDROBE_ITEMS = [
     "colour": "Grey Green",
     "colourCode": "#59686D",
     "purchaseDate": "2025-08-12",
-    "image": "/images/wardrobe/custom-86c016e3-006a-4785-98f2-0f61bd952439/1778720745157-cover-edit.png",
+    "image": "/images/wardrobe/helmet-bag/1778720745157-cover-edit.png",
     "gallery": [
-      "/images/wardrobe/custom-86c016e3-006a-4785-98f2-0f61bd952439/1778712894508-gallery-edit-2.avif",
-      "/images/wardrobe/custom-86c016e3-006a-4785-98f2-0f61bd952439/1778712894182-gallery-edit-1.avif"
+      "/images/wardrobe/helmet-bag/1778712894508-gallery-edit-2.avif",
+      "/images/wardrobe/helmet-bag/1778712894182-gallery-edit-1.avif"
     ],
     "notes": "Size\nWidth(Bottom): 34cm, Height: 38cm, Depth: 16cm, Shoulder Strap Length: 61cm～114cm, Bag Capacity: 26Liters\n\nProduct ID: 479880\n\nThe images shown may include colours that are not available.",
     "metadata": {
@@ -1670,7 +1670,7 @@ const WARDROBE_ITEMS = [
   // ——— Future Pieces ———,
 
   {
-    "id": "custom-49cb4503-d1f7-4a7d-b0b2-dc60a5549976",
+    "id": "sapphire-three-stone-ring",
     "pillar": "Jewellery",
     "section": "Future Pieces",
     "category": "Jewellery",
@@ -1680,12 +1680,12 @@ const WARDROBE_ITEMS = [
     "colour": "Platinum",
     "colourCode": "#e8e8e8",
     "fabric": "Platinum",
-    "image": "/images/wardrobe/custom-49cb4503-d1f7-4a7d-b0b2-dc60a5549976/main/cover.png",
+    "image": "/images/wardrobe/sapphire-three-stone-ring/main/cover.png",
     "gallery": [
-      "/images/wardrobe/custom-49cb4503-d1f7-4a7d-b0b2-dc60a5549976/main/gallery/01.jpg",
-      "/images/wardrobe/custom-49cb4503-d1f7-4a7d-b0b2-dc60a5549976/main/gallery/01.png",
-      "/images/wardrobe/custom-49cb4503-d1f7-4a7d-b0b2-dc60a5549976/main/gallery/02.png",
-      "/images/wardrobe/custom-49cb4503-d1f7-4a7d-b0b2-dc60a5549976/main/gallery/03.png"
+      "/images/wardrobe/sapphire-three-stone-ring/main/gallery/01.jpg",
+      "/images/wardrobe/sapphire-three-stone-ring/main/gallery/01.png",
+      "/images/wardrobe/sapphire-three-stone-ring/main/gallery/02.png",
+      "/images/wardrobe/sapphire-three-stone-ring/main/gallery/03.png"
     ],
     "notes": "Emerald-cut sapphire 6.8×5.1 mm ~1.1 ct; tapered baguette sides; ~1 ct diamonds total. Signed Cartier.  c.1950–65",
     "metadata": {
@@ -1698,7 +1698,7 @@ const WARDROBE_ITEMS = [
   // ——— S/S – Mediterranean Resort ———,
 
   {
-    "id": "muji-washed-off-white-breton-boat-neck-tee",
+    "id": "washed-breton-stripe-boat-neck-3-4-sleeve-t-shirt",
     "pillar": "Clothing",
     "section": "S/S – Mediterranean Resort",
     "category": "Shirts",
@@ -1711,9 +1711,9 @@ const WARDROBE_ITEMS = [
     "weight": "Midweight",
     "size": "XL",
     "purchaseDate": "2025-01-31",
-    "image": "/images/wardrobe/muji-washed-off-white-breton-boat-neck-tee/main/cover.png",
+    "image": "/images/wardrobe/washed-breton-stripe-boat-neck-3-4-sleeve-t-shirt/main/cover.png",
     "gallery": [
-      "/images/wardrobe/muji-washed-off-white-breton-boat-neck-tee/main/gallery/01.jpg"
+      "/images/wardrobe/washed-breton-stripe-boat-neck-3-4-sleeve-t-shirt/main/gallery/01.jpg"
     ],
     "notes": "紳士 洗いざらし太番手ボートネック九分袖Ｔシャツ",
     "metadata": {
@@ -1724,7 +1724,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "zara-navy-baker-neck-knitted-t-shirt",
+    "id": "baker-neck-knitted-t-shirt",
     "pillar": "Clothing",
     "section": "S/S – Mediterranean Resort",
     "category": "Shirts",
@@ -1735,9 +1735,9 @@ const WARDROBE_ITEMS = [
     "colourCode": "#1f222e",
     "size": "XL",
     "purchaseDate": "2025-08-09",
-    "image": "/images/wardrobe/zara-navy-baker-neck-knitted-t-shirt/main/cover.png",
+    "image": "/images/wardrobe/baker-neck-knitted-t-shirt/main/cover.png",
     "gallery": [
-      "/images/wardrobe/zara-navy-baker-neck-knitted-t-shirt/main/gallery/01.jpg"
+      "/images/wardrobe/baker-neck-knitted-t-shirt/main/gallery/01.jpg"
     ],
     "notes": "BUTTON-NECK KNIT T-SHIRT",
     "metadata": {
@@ -1747,7 +1747,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "custom-1a53223b-b4fc-4da3-91b1-c4dffdac6b40",
+    "id": "rib-knit-polo-shirt-dark-chocolate",
     "pillar": "Clothing",
     "section": "S/S – Mediterranean Resort",
     "category": "Shirts",
@@ -1759,9 +1759,9 @@ const WARDROBE_ITEMS = [
     "size": "XL",
     "measuredDimensions": "Measurements: Chest 59.5 cm · Front length 71.5 cm · Sleeve length 24 cm · Back width 51.5 cm · Arm width 19.5 cm ·  ·  · cm",
     "purchaseDate": "2026-05-14",
-    "image": "/images/wardrobe/custom-1a53223b-b4fc-4da3-91b1-c4dffdac6b40/main/cover.png",
+    "image": "/images/wardrobe/rib-knit-polo-shirt-dark-chocolate/main/cover.png",
     "gallery": [
-      "/images/wardrobe/custom-1a53223b-b4fc-4da3-91b1-c4dffdac6b40/main/gallery/01.jpg"
+      "/images/wardrobe/rib-knit-polo-shirt-dark-chocolate/main/gallery/01.jpg"
     ],
     "notes": "Regular fit knitted polo shirt made from cotton yarn. Lapel collar with front button fastening. Ribbed trims.",
     "metadata": {
@@ -1778,7 +1778,7 @@ const WARDROBE_ITEMS = [
   },
 
   {
-    "id": "custom-7bdd5e7c-546b-4360-b725-1741c8c274f4",
+    "id": "structured-knit-polo-shirt",
     "pillar": "Clothing",
     "section": "S/S – Mediterranean Resort",
     "category": "Shirts",
@@ -1789,9 +1789,9 @@ const WARDROBE_ITEMS = [
     "size": "XL",
     "measuredDimensions": "Chest: 59.5 cm\nFront length: 71.5 cm\nSleeve length: 24 cm\nBack width: 51.5 cm\nArm width: 19.5 cm",
     "purchaseDate": "2026-05-14",
-    "image": "/images/wardrobe/custom-7bdd5e7c-546b-4360-b725-1741c8c274f4/main/cover.png",
+    "image": "/images/wardrobe/structured-knit-polo-shirt/main/cover.png",
     "gallery": [
-      "/images/wardrobe/custom-7bdd5e7c-546b-4360-b725-1741c8c274f4/main/gallery/01.jpg"
+      "/images/wardrobe/structured-knit-polo-shirt/main/gallery/01.jpg"
     ],
     "notes": "STRUCTURED KNIT POLO SHIRT\nNT$ 1,490\nRef 3332/410\nRegular fit knitted polo shirt in spun cotton yarn. Lapel collar with front opening and short sleeve. Ribbed trims.",
     "metadata": {

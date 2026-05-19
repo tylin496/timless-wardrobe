@@ -1,0 +1,22 @@
+{
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/dist/**": true,
+    "**/images/**": true,
+    "**/.claude/**": true,
+    "**/data/local/**": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/images": true,
+    "**/.git": true,
+    "**/.claude": true,
+    "**/data/local": true
+  },
+  "files.exclude": {
+    "**/.git": true
+  }
+}
