@@ -8320,9 +8320,10 @@
       host;
     if (field.parentElement === slot) return;
     slot.appendChild(field);
-    const head = host.closest(".site-header__search-head");
-    const closeBtn = head?.querySelector("#site-header-search-close, .site-header__search-close");
-    if (closeBtn && head && closeBtn.parentElement === host) head.appendChild(closeBtn);
+    const top =
+      host.closest(".site-header__search-top") || host.closest(".site-header__search-surface");
+    const closeBtn = top?.querySelector("#site-header-search-close, .site-header__search-close");
+    if (closeBtn && top && closeBtn.parentElement === host) top.appendChild(closeBtn);
   }
 
   function relocateFilterSearchFieldIntoPlpAnchor() {
@@ -14233,9 +14234,9 @@
     if (layout === "search") {
       countHtml = `<span class="count-line__num" data-part="visible">${v}</span> result${v === 1 ? "" : "s"}`;
     } else if (layout === "range") {
-      countHtml = `<span class="count-line__num" data-part="visible">${v}</span> of <span class="count-line__num" data-part="total">${t}</span>`;
+      countHtml = `<span class="count-line__num" data-part="visible">${v}</span> of <span class="count-line__num" data-part="total">${t}</span><span class="count-line__unit"> pieces</span>`;
     } else {
-      countHtml = `<span class="count-line__num" data-part="visible">${v}</span>`;
+      countHtml = `<span class="count-line__num" data-part="visible">${v}</span><span class="count-line__unit"> piece${v === 1 ? "" : "s"}</span>`;
     }
     const spendHtml = spendFormatted
       ? `<span class="count-line__sep" aria-hidden="true"> · </span><span class="count-line__num count-line__money" data-part="spend">${spendFormatted}</span>`
@@ -17142,7 +17143,9 @@
   function syncCategoryTabUI() {
     const filter = String(categoryNavFilter ?? "").trim();
     const subF = subcategoryFiltersKey();
-    const submenuOpen = document.body.classList.contains("collection-ui--header-submenu-open");
+    const submenuOpen =
+      document.body.classList.contains("collection-ui--header-submenu-open") ||
+      document.body.classList.contains("collection-ui--header-submenu-closing");
     const openSlot = submenuOpen ? String(headerNavOpenSlot ?? "").trim() : "";
     const jumpMatches = (el) => String(el.getAttribute("data-category-jump") ?? "").trim() === filter;
 
@@ -17789,29 +17792,39 @@
     return bottom;
   }
 
-  /** Desktop mega menu: align left rail + preview split to header wordmark edges. */
+  /** Desktop mega menu + flyouts: RL rail — left column at division nav, preview flush to tools. */
   function syncHeaderMegaMenuNavInset() {
     try {
       if (!globalThis.matchMedia?.(HEADER_DESKTOP_MQ)?.matches) {
         document.documentElement.style.removeProperty("--header-mega-nav-inset-left");
+        document.documentElement.style.removeProperty("--header-mega-preview-inset-right");
         document.documentElement.style.removeProperty("--header-mega-menu-rail-width");
         return;
       }
+      const divisionZone = document.querySelector(".site-header__division-hover-zone");
+      const tools = document.querySelector(".site-header__tools");
       const brandNav = document.querySelector(".site-header__brand-nav");
-      if (!brandNav) return;
-      const navRect = brandNav.getBoundingClientRect();
-      const left = Math.max(0, Math.round(navRect.left));
-      document.documentElement.style.setProperty("--header-mega-nav-inset-left", `${left}px`);
-      const wordmark = document.querySelector(".site-brand-wordmark");
-      if (wordmark instanceof HTMLElement) {
-        const railWidth = Math.max(192, Math.round(wordmark.getBoundingClientRect().right - navRect.left));
-        document.documentElement.style.setProperty("--header-mega-menu-rail-width", `${railWidth}px`);
-      } else {
-        document.documentElement.style.removeProperty("--header-mega-menu-rail-width");
+
+      if (divisionZone) {
+        const left = Math.max(0, Math.round(divisionZone.getBoundingClientRect().left));
+        document.documentElement.style.setProperty("--header-mega-nav-inset-left", `${left}px`);
+      } else if (brandNav) {
+        const left = Math.max(0, Math.round(brandNav.getBoundingClientRect().left));
+        document.documentElement.style.setProperty("--header-mega-nav-inset-left", `${left}px`);
       }
+
+      if (tools) {
+        const right = Math.max(0, Math.round(window.innerWidth - tools.getBoundingClientRect().right));
+        document.documentElement.style.setProperty("--header-mega-preview-inset-right", `${right}px`);
+      } else {
+        document.documentElement.style.removeProperty("--header-mega-preview-inset-right");
+      }
+
+      document.documentElement.style.removeProperty("--header-mega-menu-rail-width");
     } catch {
       try {
         document.documentElement.style.removeProperty("--header-mega-nav-inset-left");
+        document.documentElement.style.removeProperty("--header-mega-preview-inset-right");
         document.documentElement.style.removeProperty("--header-mega-menu-rail-width");
       } catch {
         /* ignore */
@@ -17859,7 +17872,7 @@
     syncHeaderFlyoutDimTop();
   }
 
-  const HEADER_SEARCH_FLYOUT_MOTION_MS = 300;
+  const HEADER_SEARCH_FLYOUT_MOTION_MS = 120;
 
   function hideHeaderFlyoutDimIfIdle() {
     const searchWrap = document.getElementById("site-header-search-wrap");
@@ -18545,11 +18558,8 @@
       });
     };
 
-    const syncDesktopMegaMenuPreviewLabel = (slot) => {
-      const labelEl = document.getElementById("site-header-submenu-preview-label");
-      if (!labelEl) return;
-      const s = String(slot ?? "").trim();
-      labelEl.textContent = "preview";
+    const syncDesktopMegaMenuPreviewLabel = (_slot) => {
+      /* Preview rail uses a rule-only `.mega-menu-preview__head` (no label copy). */
     };
 
     const clearHeaderSubmenuContent = () => {
@@ -18714,11 +18724,18 @@
         document.body.classList.add("collection-ui--header-search-closing");
         document.body.classList.remove("collection-ui--header-search-open");
         headerSearchWrap.setAttribute("aria-hidden", "true");
-        headerSearchWrap.classList.remove("is-open");
-        headerSearchCloseAbort = twAfterMotion(headerSearchWrap, HEADER_SEARCH_FLYOUT_MOTION_MS, () => {
-          document.body.classList.remove("collection-ui--header-search-closing");
-          finishClose();
-        });
+        /* Keep `.is-open` until clip-path finishes — dropping it early collapses min-height (no slide-down). */
+        void headerSearchWrap.offsetWidth;
+        headerSearchCloseAbort = twAfterMotion(
+          headerSearchWrap,
+          HEADER_SEARCH_FLYOUT_MOTION_MS,
+          () => {
+            document.body.classList.remove("collection-ui--header-search-closing");
+            headerSearchWrap.classList.remove("is-open");
+            finishClose();
+          },
+          ["clip-path", "visibility"]
+        );
         return;
       }
 
@@ -19040,24 +19057,23 @@
         a.className = "site-header__submenu-preview-card";
         a.href = buildItemPageUrl(item.id).toString();
         const media = document.createElement("div");
-        media.className = "site-header__submenu-preview-media site-header__submenu-preview-media--contain";
+        media.className = "site-header__submenu-preview-media site-header__submenu-preview-media--cover";
         const im = document.createElement("img");
         im.alt = imageAltForItem(item);
         im.loading = "lazy";
         wireCoverImageWithFallbacks(im, item, {
           host: media,
           missingClass: "site-header__submenu-preview-media--missing",
-          coverRenderWidth: 420,
-          coverRenderHeight: 560,
-          coverRenderQuality: 86,
-          coverRenderResize: "contain",
+          coverRenderWidth: 520,
+          coverRenderHeight: 650,
+          coverRenderQuality: 88,
+          coverRenderResize: "cover",
         });
         media.appendChild(im);
         const caption = document.createElement("p");
         caption.className = "site-header__submenu-preview-caption";
         const brand = String(item.brand ?? "").trim();
-        const name = displayNameWithoutLeadingColour(item);
-        caption.textContent = brand ? `${brand} · ${name}` : name;
+        caption.textContent = brand || displayNameWithoutLeadingColour(item);
         a.append(media, caption);
         preview.appendChild(a);
       }
@@ -19347,16 +19363,20 @@
         headerSearchBtn.setAttribute("aria-label", "Close search");
         document.body.classList.add("collection-ui--header-search-open");
         if (!isHeaderCompactLayout()) {
-          headerSearchWrap.classList.add("is-open");
+          headerSearchWrap.classList.remove("is-open", "is-closing");
+          setHeaderSearchFlyoutState(headerSearchWrap, "closed");
+          void headerSearchWrap.offsetWidth;
           setHeaderSearchFlyoutState(headerSearchWrap, "opening");
           syncHeaderSubmenuBackdropInset();
-          void headerSearchWrap.offsetWidth;
-          requestAnimationFrame(() => {
-            if (getHeaderSearchFlyoutState(headerSearchWrap) === "opening") {
-              setHeaderSearchFlyoutState(headerSearchWrap, "open");
-            }
-          });
           showHeaderFlyoutDim();
+          requestAnimationFrame(() => {
+            void headerSearchWrap.offsetWidth;
+            requestAnimationFrame(() => {
+              if (getHeaderSearchFlyoutState(headerSearchWrap) !== "opening") return;
+              setHeaderSearchFlyoutState(headerSearchWrap, "open");
+              headerSearchWrap.classList.add("is-open");
+            });
+          });
         } else {
           setHeaderSearchFlyoutState(headerSearchWrap, "open");
           syncMobileShellTop();

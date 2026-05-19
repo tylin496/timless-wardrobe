@@ -172,9 +172,7 @@
                 class="desktop-mega-menu-content mega-menu-content site-header__submenu-content site-header__submenu-zone site-header__submenu-zone--preview"
                 aria-label="Category preview"
               >
-                <header class="mega-menu-preview__head">
-                  <p class="mega-menu-preview__label" id="site-header-submenu-preview-label">preview</p>
-                </header>
+                <header class="mega-menu-preview__head" aria-hidden="true"></header>
                 <div id="site-header-submenu-preview" class="site-header__submenu-preview"></div>
               </section>
             </div>
@@ -190,6 +188,7 @@
           <div class="site-header__search-dim" aria-hidden="true"></div>
           <div class="desktop-search-flyout-inner site-header__search-megamenu-inner">
             <div class="site-header__search-surface">
+              <div class="site-header__search-top">
               <div class="site-header__search-head">
                 <div class="site-header__search-row site-header__search-field--rl">
                   <span class="site-header__search-field-icon site-header__search-icon" aria-hidden="true">
@@ -224,7 +223,8 @@
                     </span>
                   </label>
                 </div>
-                <button
+                </div>
+              <button
                   type="button"
                   id="site-header-search-close"
                   class="site-header__search-close"
@@ -232,7 +232,7 @@
                 >
                   <span aria-hidden="true">×</span>
                 </button>
-              </div>
+            </div>
               <div id="site-header-search-browse" class="site-header__search-browse">
                 <div class="site-header__search-dropdown-body">
                   <div class="site-header__search-dropdown-aside">
