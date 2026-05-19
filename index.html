@@ -248,7 +248,10 @@
             </div>
               <div id="site-header-search-browse" class="site-header__search-browse">
               <div class="site-header__search-dropdown-body">
-                <div class="site-header__search-dropdown-aside">
+                <section
+                  class="site-header__search-dropdown-aside site-header__search-dropdown-aside--trending"
+                  aria-label="Trending searches"
+                >
                   <p class="site-header__search-trending-heading">Trending Searches</p>
                   <nav class="site-header__search-trending-aside-nav" aria-label="Trending searches">
                     <button type="button" class="site-header__search-trending-row" data-trending-search="Polo shirt">
@@ -268,8 +271,21 @@
                       <span>Fragrance</span>
                     </button>
                   </nav>
-                </div>
-                <div class="site-header__search-dropdown-main">
+                </section>
+                <section
+                  id="site-header-search-recent-block"
+                  class="site-header__search-dropdown-aside site-header__search-dropdown-aside--recent"
+                  hidden
+                  aria-label="Recent searches"
+                >
+                  <p class="site-header__search-trending-heading site-header__search-recent-heading">Recent Searches</p>
+                  <nav
+                    id="site-header-search-recent-nav"
+                    class="site-header__search-trending-aside-nav site-header__search-recent-nav"
+                    aria-label="Recent searches"
+                  ></nav>
+                </section>
+                <section class="site-header__search-dropdown-main" aria-label="Popular categories">
                   <p class="site-header__search-main-heading">Popular Categories</p>
                   <div
                     id="site-header-search-featured-subcats"
@@ -277,7 +293,7 @@
                     role="list"
                     aria-label="Featured subcategories"
                   ></div>
-                </div>
+                </section>
               </div>
             </div>
             <div
@@ -372,6 +388,10 @@
         aria-labelledby="ed-lp-division-rail-heading"
       >
         <div class="ed-lp__division-rail-inner">
+          <p class="ed-lp__philosophy-text ed-lp__division-rail-philosophy">
+            One Per Category.<br class="ed-lp__philosophy-break" aria-hidden="true" />
+            Nothing Redundant.
+          </p>
           <header class="ed-lp__division-rail-head">
             <h2 id="ed-lp-division-rail-heading" class="ed-lp__division-rail-title">Browse by Category</h2>
           </header>
@@ -382,19 +402,6 @@
               role="list"
               aria-label="Pieces from each division"
             ></div>
-          </div>
-          <div
-            class="ed-lp__division-rail-progress ed-lp__rail-progress"
-            id="ed-lp-division-rail-track"
-            role="slider"
-            aria-label="Scroll category gallery"
-            aria-valuemin="0"
-            aria-valuemax="100"
-            aria-valuenow="0"
-            tabindex="0"
-            hidden
-          >
-            <span class="ed-lp__division-rail-progress-bar ed-lp__rail-progress-bar" id="ed-lp-division-rail-progress"></span>
           </div>
         </div>
       </section>
@@ -420,13 +427,6 @@
       </div>
     </aside>
 <main id="main" class="ed-lp" tabindex="-1">
-          <section class="ed-lp__philosophy ed-lp__philosophy--divider" aria-label="Philosophy">
-            <p class="ed-lp__philosophy-text">
-              One Per Category.<br class="ed-lp__philosophy-break" aria-hidden="true" />
-              Nothing Redundant.
-            </p>
-          </section>
-
           <section class="ed-lp__band ed-lp__band--muted" aria-labelledby="ed-lp-high-heading">
             <div class="ed-lp__band-inner">
               <header class="ed-lp__band-head">

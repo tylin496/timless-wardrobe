@@ -234,7 +234,10 @@
             </div>
               <div id="site-header-search-browse" class="site-header__search-browse">
                 <div class="site-header__search-dropdown-body">
-                  <div class="site-header__search-dropdown-aside">
+                  <section
+                    class="site-header__search-dropdown-aside site-header__search-dropdown-aside--trending"
+                    aria-label="Trending searches"
+                  >
                     <p class="site-header__search-trending-heading">Trending Searches</p>
                     <nav class="site-header__search-trending-aside-nav" aria-label="Trending searches">
                       <button type="button" class="site-header__search-trending-row" data-trending-search="Polo shirt">
@@ -254,8 +257,21 @@
                         <span>Fragrance</span>
                       </button>
                     </nav>
-                  </div>
-                  <div class="site-header__search-dropdown-main">
+                  </section>
+                  <section
+                    id="site-header-search-recent-block"
+                    class="site-header__search-dropdown-aside site-header__search-dropdown-aside--recent"
+                    hidden
+                    aria-label="Recent searches"
+                  >
+                    <p class="site-header__search-trending-heading site-header__search-recent-heading">Recent Searches</p>
+                    <nav
+                      id="site-header-search-recent-nav"
+                      class="site-header__search-trending-aside-nav site-header__search-recent-nav"
+                      aria-label="Recent searches"
+                    ></nav>
+                  </section>
+                  <section class="site-header__search-dropdown-main" aria-label="Popular categories">
                     <p class="site-header__search-main-heading">Popular Categories</p>
                     <div
                       id="site-header-search-featured-subcats"
@@ -263,7 +279,7 @@
                       role="list"
                       aria-label="Featured subcategories"
                     ></div>
-                  </div>
+                  </section>
                 </div>
               </div>
               <div
