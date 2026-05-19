@@ -2245,12 +2245,13 @@
         btn.setAttribute("aria-pressed", on ? "true" : "false");
       });
     }
+    syncCollectionFilterDrawerSectionCountBadges();
   }
 
-  function syncCollectionColourFilterCountBadge() {
-    const badge = document.getElementById("collection-colour-filter-count");
+  function syncAfdSectionCountBadge(badgeId, count) {
+    const badge = document.getElementById(badgeId);
     if (!badge) return;
-    const n = basicColourFilters.size;
+    const n = Math.max(0, Number(count) || 0);
     if (n > 0) {
       badge.textContent = String(n);
       badge.hidden = false;
@@ -2260,6 +2261,16 @@
       badge.hidden = true;
       badge.setAttribute("aria-hidden", "true");
     }
+  }
+
+  /** Per-section active-filter badges in the drawer (all sections except Season). */
+  function syncCollectionFilterDrawerSectionCountBadges() {
+    const sortActive =
+      normalizeCollectionSortMode(collectionSortMode) !== COLLECTION_DEFAULT_SORT_MODE ? 1 : 0;
+    syncAfdSectionCountBadge("collection-drawer-sort-count", sortActive);
+    syncAfdSectionCountBadge("collection-drawer-record-types-count", subcategoryFilters.size);
+    syncAfdSectionCountBadge("collection-colour-filter-count", basicColourFilters.size);
+    syncAfdSectionCountBadge("collection-drawer-brands-count", selectedBrandFilters.size);
   }
 
   function expandCollectionFilterDrawerSection(sectionSelector) {
@@ -2318,6 +2329,7 @@
     if (sep) sep.hidden = !hasFilters;
     clearBtn.hidden = !hasFilters;
     if (hasFilters) countEl.textContent = n + (n === 1 ? " Filter" : " Filters");
+    syncCollectionFilterDrawerSectionCountBadges();
   }
 
   /** Drawer Clear All — narrowing filters only; division stays (use breadcrumb / slot strip to leave). */
@@ -9307,7 +9319,16 @@
         }
         replaceCollectionSeasonQuery(seasonNavFilter);
         syncSeasonTabUI();
-        clearBrowseNarrowingKeepDivision();
+        /* Toolbar chips only — keep drill subcategory (Eyewear) and division (Accessories). */
+        clearAttributeNarrowingFilters();
+        validateSubcategoryFilter();
+        renderCategoryDrill();
+        syncFiltersMenuForViewport();
+        syncCollectionBrandFilterChipUi();
+        syncBasicColourFilterChipUi();
+        renderGrid();
+        syncCollectionUrlFromBrowseState({ replace: true });
+        collapseFiltersMenuPanel();
       });
     };
 
@@ -9456,15 +9477,20 @@
     }
   }
 
+  /** Colour, brand, and committed keyword search — not toolbar/drill subcategory (e.g. Eyewear). */
+  function clearAttributeNarrowingFilters() {
+    clearBrandFilters();
+    clearCollectionKeywordColourNarrowing();
+    if (collectionSubmittedSearchNorm) {
+      exitCollectionSearchPlpRestoreBrowse({ skipRestore: true });
+    }
+  }
+
   /** Clear subcategory / brand / colour / search; keep main division (`categoryNavFilter`). */
   function clearBrowseNarrowingKeepDivision() {
     withPreservedCollectionScroll(() => {
       clearSubcategoryFilters();
-      clearBrandFilters();
-      clearCollectionKeywordColourNarrowing();
-      if (collectionSubmittedSearchNorm) {
-        exitCollectionSearchPlpRestoreBrowse({ skipRestore: true });
-      }
+      clearAttributeNarrowingFilters();
       validateSubcategoryFilter();
       renderCategoryDrill();
       syncFiltersMenuForViewport();
@@ -14526,6 +14552,26 @@
     scrollCollectionViewportTop();
   }
 
+  /** Season PLP hub — keep season tab; clear division, type drill, and attribute filters. */
+  function navigateCollectionSeasonHub() {
+    if (!normalizeSeasonNavToken(seasonNavFilter)) {
+      navigateCollectionCollectionRoot();
+      return;
+    }
+    withPreservedCollectionScroll(() => {
+      categoryNavFilter = "";
+      clearSubcategoryFilters();
+      clearAttributeNarrowingFilters();
+      validateSubcategoryFilter();
+      renderCategoryDrill();
+      syncFiltersMenuForViewport();
+      renderGrid();
+      syncCollectionUrlFromBrowseState({ replace: true });
+      collapseFiltersMenuPanel();
+      scrollCollectionViewportTop();
+    });
+  }
+
   function renderCollectionHeadingBreadcrumb(host, { searchActive = false } = {}) {
     if (!host) return;
 
@@ -14575,35 +14621,35 @@
       return;
     }
 
-    appendCrumb("COLLECTION", {
-      onClick: navigateCollectionCollectionRoot,
-      isCurrent: false,
-    });
-
+    const collectionRootLabel = season
+      ? `${collectionHeadingSeasonShortLabel()} COLLECTION`
+      : "COLLECTION";
     const subDrilled = subcategoryFilters.size > 0;
+
+    appendCrumb(collectionRootLabel, {
+      onClick: season
+        ? () => {
+            if (cat) navigateCollectionSeasonHub();
+            else navigateCollectionAllSeasonsKeepDivision();
+          }
+        : navigateCollectionCollectionRoot,
+      isCurrent:
+        !searchActive &&
+        !cat &&
+        Boolean(season) &&
+        !collectionHeadingUsesHomeCrumb(searchActive),
+    });
 
     if (searchActive) {
       appendSep();
       appendCrumb("SEARCH", { isCurrent: true });
-    } else {
-      if (season) {
-        appendSep();
-        appendCrumb(collectionHeadingSeasonShortLabel(), {
-          onClick: navigateCollectionAllSeasonsKeepDivision,
-          isCurrent: false,
-        });
-      }
-      if (cat) {
-        appendSep();
-        appendCrumb(categoryDisplayLabel(cat), {
-          onClick: navigateCollectionDivisionRoot,
-          isCurrent: !subDrilled,
-        });
-        if (subDrilled) appendSep();
-      } else if (season) {
-        /* Season-only PLP — title is “S/S Collection”; trail ends at COLLECTION / S/S / */
-        appendSep();
-      }
+    } else if (cat) {
+      appendSep();
+      appendCrumb(categoryDisplayLabel(cat), {
+        onClick: navigateCollectionDivisionRoot,
+        isCurrent: !subDrilled,
+      });
+      if (subDrilled) appendSep();
     }
 
     host.appendChild(nav);
@@ -14665,10 +14711,11 @@
     elTitle.classList.remove("items-toolbar__page-title--placeholder");
     const season = normalizeSeasonNavToken(seasonNavFilter);
     const slot = String(categoryNavFilter ?? "").trim();
-    const trailParts = collectionHeadingUsesHomeCrumb(searchActive) ? ["HOME"] : ["COLLECTION"];
+    const trailParts = collectionHeadingUsesHomeCrumb(searchActive)
+      ? ["HOME"]
+      : [season ? `${collectionHeadingSeasonShortLabel()} COLLECTION` : "COLLECTION"];
     if (searchActive) trailParts.push("SEARCH");
     else {
-      if (season && !collectionHeadingSeasonOnlyBrowse()) trailParts.push(collectionHeadingSeasonLabel());
       if (slot) trailParts.push(categoryDisplayLabel(slot));
       if (subcategoryFilters.size === 1) {
         const drillLabel = friendlyRecordCategory([...subcategoryFilters][0]);
@@ -18100,8 +18147,6 @@
       chipWrap.appendChild(b);
     }
 
-    syncCollectionColourFilterCountBadge();
-
     if (chipWrap.dataset.twColourChipsWired !== "1") {
       chipWrap.dataset.twColourChipsWired = "1";
       chipWrap.addEventListener("click", (e) => {
@@ -18491,7 +18536,7 @@
     syncHeaderFlyoutDimTop();
   }
 
-  const HEADER_SEARCH_FLYOUT_MOTION_MS = 120;
+  const HEADER_SEARCH_FLYOUT_MOTION_MS = 300;
 
   function hideHeaderFlyoutDimIfIdle() {
     const searchWrap = document.getElementById("site-header-search-wrap");
@@ -19364,11 +19409,17 @@
         void headerSearchWrap.offsetWidth;
         requestAnimationFrame(() => {
           headerSearchWrap.classList.remove("is-open");
-          headerSearchCloseAbort = twAfterMotion(headerSearchWrap, TW_MOBILE_SEARCH_MOTION_MS, () => {
-            headerSearchWrap.classList.remove("is-closing");
-            document.body.classList.remove("collection-ui--header-search-closing");
-            finishClose();
-          });
+          void headerSearchWrap.offsetWidth;
+          headerSearchCloseAbort = twAfterMotion(
+            headerSearchWrap,
+            TW_MOBILE_SEARCH_MOTION_MS,
+            () => {
+              headerSearchWrap.classList.remove("is-closing");
+              document.body.classList.remove("collection-ui--header-search-closing");
+              finishClose();
+            },
+            ["transform", "visibility"]
+          );
         });
         return;
       }

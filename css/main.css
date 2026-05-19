@@ -4620,11 +4620,22 @@ body.collection-ui--header-submenu-open .site-header__search-wrap:not(.is-open) 
       visibility 0s linear var(--tw-mobile-search-duration);
   }
 
-  /* Keep panel on-screen for one frame before dropping is-open (slide-down close). */
+  /*
+   * Hold the open position while both classes are set; slide-down runs when `.is-open`
+   * drops on the next frame (must not use `transition: none` or the close won’t animate).
+   */
   .site-header__search-wrap.is-open.is-closing,
   .site-header__search-wrap.desktop-search-flyout.is-open.is-closing {
     transform: translate3d(0, 0, 0);
-    transition: none;
+    transition:
+      transform var(--tw-mobile-search-duration) var(--tw-mobile-search-ease),
+      visibility 0s linear var(--tw-mobile-search-duration);
+  }
+
+  body.collection-ui--header-search-closing .site-header__search-wrap.is-open,
+  body.collection-ui--header-search-closing .site-header__search-wrap.is-closing {
+    visibility: visible;
+    pointer-events: none;
   }
 
   body.collection-ui--header-search-open .site-header__search-wrap:not(.is-open):not(.is-closing) {
@@ -5484,6 +5495,8 @@ body.collection-ui--header-submenu-open .site-header__search-wrap:not(.is-open) 
   }
 
   .site-mobile-nav {
+    /* Shared label inset — root category rows and drill subrows must match. */
+    --site-mobile-nav-inline-x: var(--space-page-inline);
     flex: 1 1 auto;
     min-height: 0;
     overflow: hidden;
@@ -5561,7 +5574,8 @@ body.collection-ui--header-submenu-open .site-header__search-wrap:not(.is-open) 
     -webkit-overflow-scrolling: touch;
     display: flex;
     flex-direction: column;
-    padding: clamp(1.25rem, 4vw, 1.65rem) 0 max(1.75rem, env(safe-area-inset-bottom, 0px));
+    /* Match root list top inset so “All Clothing” sits on the Clothing row band. */
+    padding: clamp(1.65rem, 5.5vw, 2.475rem) 0 max(1.75rem, env(safe-area-inset-bottom, 0px));
   }
 
   .site-mobile-nav__item {
@@ -5580,7 +5594,7 @@ body.collection-ui--header-submenu-open .site-header__search-wrap:not(.is-open) 
 
   .site-mobile-nav__list--root .site-mobile-nav__row {
     min-height: 2.8rem;
-    padding: 0.04rem var(--space-page-inline);
+    padding: 0.04rem var(--site-mobile-nav-inline-x);
   }
 
   .site-mobile-nav__row {
@@ -5774,8 +5788,8 @@ body.collection-ui--header-submenu-open .site-header__search-wrap:not(.is-open) 
     align-items: center;
     box-sizing: border-box;
     width: 100%;
-    min-height: 2.375rem;
-    padding: 0.075rem var(--space-page-inline);
+    min-height: 2.8rem;
+    padding: 0.04rem var(--site-mobile-nav-inline-x);
     border: none;
     border-top: none;
     border-bottom: none;
@@ -6530,7 +6544,7 @@ body.collection-ui--header-search-open.collection-ui--nav-folded .site-header {
 
 .collection-heading__title-cluster {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: baseline;
   gap: 0.45rem 1rem;
   flex: 1 1 auto;
@@ -6544,11 +6558,21 @@ body.collection-ui--header-search-open.collection-ui--nav-folded .site-header {
   margin-bottom: 0;
 }
 
+.collection-heading__title-cluster > .collection-heading__title,
+.collection-heading__title-cluster > .items-toolbar__page-title {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
 .collection-heading__title-cluster > .items-toolbar__collection-summary--under-title,
 .collection-heading__title-row > .items-toolbar__collection-summary--under-title {
   margin-bottom: 0;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   min-width: 0;
+}
+
+.collection-heading__title-cluster .items-toolbar__count-line {
+  white-space: nowrap;
 }
 
 .collection-heading__title-cluster .count-line__unit {
@@ -14084,7 +14108,7 @@ body.collection-page .collection-container > .collection-actions {
 
   body.collection-page:not(.collection-ui--search-results-plp) .collection-heading__title-row {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: baseline;
     gap: 0.5rem 1.15rem;
     margin-bottom: var(--collection-plp-gap-title-pills);
@@ -14914,6 +14938,7 @@ body.collection-page .collection-container > .collection-actions {
   }
 
   body.collection-page:not(.collection-ui--search-results-plp) .collection-heading__title-cluster {
+    flex-wrap: nowrap;
     gap: 0.35rem 0.75rem;
   }
 
