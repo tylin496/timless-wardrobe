@@ -7526,6 +7526,7 @@
   let countLineDisplay = { visible: 0, total: 0, spend: 0 };
   let stylingBoardDrawerOpen = false;
   let stylingBoardDrawerOpenRaf = 0;
+  let headerSearchOpenRaf = 0;
   /** When set, that slot renders in the added hero instead of the strip grid. */
   let stylingBoardAddedRevealKey = null;
   let stylingBoardDrawerFocusReturn = /** @type {Element | null} */ (null);
@@ -8706,8 +8707,14 @@
     if (emptyEl) emptyEl.hidden = true;
   }
 
+  const HEADER_SEARCH_SHEET_VISIBLE_CLASS = "site-header__search-wrap--visible";
+
   function isHeaderSearchWrapOpen() {
-    return document.getElementById("site-header-search-wrap")?.classList.contains("is-open") ?? false;
+    const wrap = document.getElementById("site-header-search-wrap");
+    if (!wrap) return false;
+    return (
+      wrap.classList.contains("is-open") || wrap.classList.contains(HEADER_SEARCH_SHEET_VISIBLE_CLASS)
+    );
   }
 
   function relocateFilterSearchFieldIntoHeaderOverlayPillWrap() {
@@ -18509,7 +18516,7 @@
       }
       const wrap = document.getElementById("site-header-search-wrap");
       const panel = wrap?.querySelector(".desktop-search-flyout-inner") ?? wrap;
-      if (!wrap?.classList.contains("is-open") || !panel) {
+      if (!isHeaderSearchWrapOpen() || !panel) {
         document.documentElement.style.removeProperty("--tw-search-dim-top");
         return;
       }
@@ -18670,7 +18677,7 @@
 
   const TW_MOTION_MS = 280;
   const TW_SEARCH_MOTION_MS = 220;
-  const TW_MOBILE_SEARCH_MOTION_MS = 320;
+  const TW_MOBILE_SEARCH_MOTION_MS = 400;
 
   function twPrefersReducedMotion() {
     try {
@@ -18905,14 +18912,15 @@
     const headerSearchWrap = document.getElementById("site-header-search-wrap");
     const headerSearchBtn = document.getElementById("site-header-search-btn");
     const headerSearchInput = /** @type {HTMLInputElement | null} */ (document.getElementById("filter-search"));
-    if (!headerSearchWrap?.classList.contains("is-open")) return;
+    if (!isHeaderSearchWrapOpen()) return;
     const snap = headerSearchOverlayOpeningQueryRaw;
     headerSearchOverlayCollectionSearchFrozen = false;
     headerSearchOpenCollectionSearchNorm = "";
     headerSearchOverlayOpeningQueryRaw = null;
     cancelHeaderSearchOverlayUiDebounce();
     resetHeaderSearchOverlayResultsDom();
-    headerSearchWrap.classList.remove("is-open", "is-closing");
+    headerSearchWrap.classList.remove("is-open", "is-closing", HEADER_SEARCH_SHEET_VISIBLE_CLASS);
+    unlockCollectionPageScroll();
     headerSearchWrap.setAttribute("aria-hidden", "true");
     headerSearchWrap.dataset.searchState = "closed";
     if (globalThis.matchMedia?.(HEADER_DESKTOP_MQ)?.matches) {
@@ -18932,6 +18940,7 @@
     syncFilterSearchFieldDomPlacement();
     syncSearchKeywordChip();
     if (document.getElementById("grid")) renderGrid();
+    ensureBodyScrollUnlockedWhenNoOverlay();
   }
 
   /** Safety: release scroll lock if drawer/search are not actually open (handles fast open/close races). */
@@ -18941,7 +18950,7 @@
     const stylingRoot = document.getElementById("styling-board-drawer");
     const stylingOpen =
       stylingBoardDrawerOpen && !!stylingRoot && !stylingRoot.hasAttribute("hidden");
-    const headerSearchOpen = document.getElementById("site-header-search-wrap")?.classList.contains("is-open");
+    const headerSearchOpen = isHeaderSearchWrapOpen();
     const mobileNavOpen = document.getElementById("site-mobile-shell")?.classList.contains("is-open");
     const submenuOpen =
       document.body.classList.contains("collection-ui--header-submenu-open") ||
@@ -19461,8 +19470,7 @@
 
     const closeHeaderSearch = ({ clear = false, submitted = false } = {}) => {
       if (!headerSearchWrap) return;
-      const wasOpen = headerSearchWrap.classList.contains("is-open");
-      if (!wasOpen) return;
+      if (!isHeaderSearchWrapOpen()) return;
 
       const ae = document.activeElement;
       const refocusMagnifier =
@@ -19477,13 +19485,17 @@
         headerSearchWrap.setAttribute("aria-hidden", "true");
         setHeaderSearchFlyoutState(headerSearchWrap, "closed");
         headerSearchWrap.setAttribute("hidden", "");
-        headerSearchWrap.classList.remove("is-open", "is-closing");
+        headerSearchWrap.classList.remove(
+          "is-open",
+          "is-closing",
+          HEADER_SEARCH_SHEET_VISIBLE_CLASS
+        );
         headerSearchBtn?.setAttribute("aria-expanded", "false");
         headerSearchBtn?.setAttribute("aria-label", "Open search");
         document.body.classList.remove("collection-ui--header-search-open", "collection-ui--header-search-closing");
         document.documentElement.style.removeProperty("--tw-search-dim-top");
         hideHeaderFlyoutDimIfIdle();
-        headerSearchWrap.style.removeProperty("--tw-mobile-search-sheet-top");
+        headerSearchWrap.style.removeProperty("--tw-mobile-search-row-height");
         if (!clear && !submitted && snap != null && headerSearchInput) {
           headerSearchInput.value = snap;
         }
@@ -19523,6 +19535,10 @@
         headerSearchCloseAbort();
         headerSearchCloseAbort = null;
       }
+      if (headerSearchOpenRaf) {
+        cancelAnimationFrame(headerSearchOpenRaf);
+        headerSearchOpenRaf = 0;
+      }
 
       if (!isHeaderCompactLayout() && !twPrefersReducedMotion()) {
         setHeaderSearchFlyoutState(headerSearchWrap, "closing");
@@ -19545,30 +19561,53 @@
       }
 
       if (isHeaderCompactLayout() && !twPrefersReducedMotion()) {
-        syncHeaderSearchSheetInset();
+        if (headerSearchOpenRaf) {
+          cancelAnimationFrame(headerSearchOpenRaf);
+          headerSearchOpenRaf = 0;
+        }
         setHeaderSearchFlyoutState(headerSearchWrap, "closing");
-        document.body.classList.add("collection-ui--header-search-closing");
-        document.body.classList.remove("collection-ui--header-search-open");
+        headerSearchBtn?.setAttribute("aria-expanded", "false");
+        headerSearchBtn?.setAttribute("aria-label", "Open search");
+        headerSearchWrap.classList.remove(HEADER_SEARCH_SHEET_VISIBLE_CLASS, "is-closing");
         headerSearchWrap.setAttribute("aria-hidden", "true");
-        headerSearchWrap.classList.add("is-closing");
+        document.body.classList.remove("collection-ui--header-search-open");
+        unlockCollectionPageScroll();
         const sheet = headerSearchWrap.querySelector(
           ".desktop-search-flyout-inner, .site-header__search-megamenu-inner"
         );
-        void (sheet ?? headerSearchWrap).offsetWidth;
-        headerSearchCloseAbort = twAfterMotion(
-          sheet ?? headerSearchWrap,
-          TW_MOBILE_SEARCH_MOTION_MS,
-          () => {
-            document.body.classList.remove("collection-ui--header-search-closing");
-            headerSearchWrap.classList.remove("is-closing");
-            finishClose();
-          },
-          ["transform"]
-        );
+        let settled = false;
+        let timer = 0;
+        const runFinish = () => {
+          if (settled) return;
+          settled = true;
+          if (timer) clearTimeout(timer);
+          headerSearchCloseAbort = null;
+          finishClose();
+        };
+        if (sheet) {
+          const onEnd = (e) => {
+            if (e.target !== sheet || e.propertyName !== "transform") return;
+            sheet.removeEventListener("transitionend", onEnd);
+            runFinish();
+          };
+          sheet.addEventListener("transitionend", onEnd);
+          headerSearchCloseAbort = () => {
+            settled = true;
+            sheet.removeEventListener("transitionend", onEnd);
+            if (timer) clearTimeout(timer);
+            headerSearchCloseAbort = null;
+          };
+          timer = setTimeout(runFinish, TW_MOBILE_SEARCH_MOTION_MS);
+        } else {
+          runFinish();
+        }
         return;
       }
 
-      headerSearchWrap.classList.remove("is-open", "is-closing");
+      if (isHeaderCompactLayout()) {
+        unlockCollectionPageScroll();
+      }
+      headerSearchWrap.classList.remove("is-open", "is-closing", HEADER_SEARCH_SHEET_VISIBLE_CLASS);
       finishClose();
     };
 
@@ -19629,15 +19668,17 @@
       }
     }
 
-    /** Compact search: full-screen overlay; chrome bottom for dims/backdrops only. */
+    /** Compact search: optional row height sync with brand-nav (resize only; sheet inset is CSS). */
     function syncHeaderSearchSheetInset() {
+      if (!headerSearchWrap || !isHeaderCompactLayout()) return;
       syncBrandSignatureBarHeight();
       try {
-        const chromeBottom = measureHeaderChromeBottom();
-        if (chromeBottom > 0) {
-          document.documentElement.style.setProperty("--site-header-chrome-bottom", `${chromeBottom}px`);
+        const brandNav = document.querySelector(".site-header__brand-nav");
+        if (!brandNav) return;
+        const height = Math.max(0, Math.round(brandNav.getBoundingClientRect().height));
+        if (height > 0) {
+          headerSearchWrap.style.setProperty("--tw-mobile-search-row-height", `${height}px`);
         }
-        headerSearchWrap?.style.setProperty("--tw-mobile-search-sheet-top", "0px");
       } catch {
         /* ignore */
       }
@@ -19855,7 +19896,7 @@
     }
 
     function openMobileHeaderSearch() {
-      if (!headerSearchWrap || headerSearchWrap.classList.contains("is-open")) return;
+      if (!headerSearchWrap || isHeaderSearchWrapOpen()) return;
       closeMobileCategoryPanel();
       headerSearchBtn?.click();
     }
@@ -20171,7 +20212,7 @@
 
     headerSearchBtn?.addEventListener("click", () => {
       if (!headerSearchWrap) return;
-      const open = !headerSearchWrap.classList.contains("is-open");
+      const open = !isHeaderSearchWrapOpen();
       if (open) {
         if (headerSearchCloseAbort) {
           headerSearchCloseAbort();
@@ -20188,15 +20229,15 @@
         closeStylingBoardDrawer();
         document.body.classList.remove("collection-ui--nav-folded", "collection-ui--header-search-closing");
         syncHeaderSearchFeaturedSubcategoryCards();
-        headerSearchWrap.removeAttribute("hidden");
-        headerSearchWrap.setAttribute("aria-hidden", "false");
         headerSearchBtn.setAttribute("aria-expanded", "true");
         headerSearchBtn.setAttribute("aria-label", "Close search");
         if (isHeaderCompactLayout()) {
           mountHeaderSearchWrapToBody();
         }
-        document.body.classList.add("collection-ui--header-search-open");
         if (!isHeaderCompactLayout()) {
+          headerSearchWrap.removeAttribute("hidden");
+          headerSearchWrap.setAttribute("aria-hidden", "false");
+          document.body.classList.add("collection-ui--header-search-open");
           headerSearchWrap.classList.remove("is-open", "is-closing");
           setHeaderSearchFlyoutState(headerSearchWrap, "closed");
           void headerSearchWrap.offsetWidth;
@@ -20213,26 +20254,44 @@
           });
         } else {
           hideHeaderFlyoutDimIfIdle();
-          syncHeaderSearchSheetInset();
-          headerSearchWrap.classList.remove("is-open", "is-closing");
+          relocateFilterSearchFieldIntoHeaderOverlayPillWrap();
+          headerSearchWrap.classList.remove("is-open", "is-closing", HEADER_SEARCH_SHEET_VISIBLE_CLASS);
           setHeaderSearchFlyoutState(headerSearchWrap, "closed");
+          if (headerSearchOpenRaf) {
+            cancelAnimationFrame(headerSearchOpenRaf);
+            headerSearchOpenRaf = 0;
+          }
+          const sheet = headerSearchWrap.querySelector(
+            ".desktop-search-flyout-inner, .site-header__search-megamenu-inner"
+          );
           const revealCompactSearch = () => {
-            if (!document.body.classList.contains("collection-ui--header-search-open")) return;
+            if (headerSearchWrap.hasAttribute("hidden")) return;
             setHeaderSearchFlyoutState(headerSearchWrap, "open");
-            headerSearchWrap.classList.add("is-open");
-            syncHeaderSearchSheetInset();
-            requestAnimationFrame(() => syncHeaderSearchSheetInset());
+            headerSearchWrap.classList.add(HEADER_SEARCH_SHEET_VISIBLE_CLASS);
+            document.body.classList.add("collection-ui--header-search-open");
+            lockCollectionPageScroll();
           };
-          if (twPrefersReducedMotion()) {
-            revealCompactSearch();
+          if (headerSearchWrap.hasAttribute("hidden")) {
+            headerSearchWrap.removeAttribute("hidden");
+            headerSearchWrap.setAttribute("aria-hidden", "false");
+            if (twPrefersReducedMotion()) {
+              revealCompactSearch();
+            } else {
+              headerSearchOpenRaf = requestAnimationFrame(() => {
+                void (sheet ?? headerSearchWrap).offsetWidth;
+                headerSearchOpenRaf = requestAnimationFrame(() => {
+                  headerSearchOpenRaf = 0;
+                  revealCompactSearch();
+                });
+              });
+            }
           } else {
-            requestAnimationFrame(() => {
-              void headerSearchWrap.offsetWidth;
-              requestAnimationFrame(revealCompactSearch);
-            });
+            revealCompactSearch();
           }
         }
-        relocateFilterSearchFieldIntoHeaderOverlayPillWrap();
+        if (!isHeaderCompactLayout()) {
+          relocateFilterSearchFieldIntoHeaderOverlayPillWrap();
+        }
         queueMicrotask(() => {
           headerSearchInput?.focus();
           resetHeaderSearchOverlayResultsDom();
@@ -20374,7 +20433,7 @@
         }
         closeMobileCategoryPanel();
       }
-      if (headerSearchWrap?.classList.contains("is-open")) {
+      if (isHeaderSearchWrapOpen()) {
         closeHeaderSearch();
       }
       if (headerSubmenuIsOpen()) {
@@ -20382,7 +20441,7 @@
       }
     });
     document.addEventListener("click", (e) => {
-      if (!headerSearchWrap?.classList.contains("is-open")) return;
+      if (!isHeaderSearchWrapOpen()) return;
       const t = e.target;
       if (!(t instanceof Element)) return;
       const flyoutInner = t.closest(".desktop-search-flyout-inner");
@@ -20445,7 +20504,7 @@
         }
         syncBrandSignatureBarHeight();
         if (mobileShell?.classList.contains("is-open")) syncMobileShellTop();
-        if (headerSearchWrap?.classList.contains("is-open") && isHeaderCompactLayout()) {
+        if (isHeaderSearchWrapOpen() && isHeaderCompactLayout()) {
           syncHeaderSearchSheetInset();
         }
       },
